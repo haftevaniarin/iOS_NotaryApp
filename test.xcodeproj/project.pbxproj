@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		84DD26362F955C680015B78C /* APIConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84DD26352F955C610015B78C /* APIConfig.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		84C779D92F6A3DF1007FD325 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		84C779CB2F6A3DF0007FD325 /* test.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = test.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		84C779D82F6A3DF1007FD325 /* testTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = testTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		84C779E22F6A3DF1007FD325 /* testUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = testUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		84DD26352F955C610015B78C /* APIConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfig.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +80,7 @@
 		84C779C22F6A3DF0007FD325 = {
 			isa = PBXGroup;
 			children = (
+				84DD26352F955C610015B78C /* APIConfig.swift */,
 				84C779CD2F6A3DF0007FD325 /* test */,
 				84C779DB2F6A3DF1007FD325 /* testTests */,
 				84C779E52F6A3DF1007FD325 /* testUITests */,
@@ -236,6 +242,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				84DD26362F955C680015B78C /* APIConfig.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
