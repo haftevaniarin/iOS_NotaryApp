@@ -68,20 +68,33 @@ final class APIService {
     func signup(fullName: String, email: String, password: String) async throws -> AuthResponse {
         let payload = SignupRequest(fullName: fullName, email: email, password: password)
         let body = try JSONEncoder().encode(payload)
-        let request = try makeRequest(path: "/auth/signup", method: "POST", body: body)
-        return try await perform(request, decodeTo: AuthResponse.self)
+    let request = try makeRequest(path: "/auth/signup", method: "POST", token: SessionStorage.getToken(), body: body)
+        let response = try await perform(request, decodeTo: AuthResponse.self)
+        SessionStorage.saveToken(response.token)
+        SessionStorage.saveCurrentUser(response.user)
+        return response
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
         let payload = LoginRequest(email: email, password: password)
         let body = try JSONEncoder().encode(payload)
-        let request = try makeRequest(path: "/auth/login", method: "POST", body: body)
-        return try await perform(request, decodeTo: AuthResponse.self)
+    let request = try makeRequest(path: "/auth/login", method: "POST", token: SessionStorage.getToken(), body: body)
+        let response = try await perform(request, decodeTo: AuthResponse.self)
+        SessionStorage.saveToken(response.token)
+        SessionStorage.saveCurrentUser(response.user)
+        return response
     }
 
     func fetchOrders(token: String) async throws -> [SigningOrder] {
         let request = try makeRequest(path: "/orders", method: "GET", token: token)
-        return try await perform(request, decodeTo: [SigningOrder].self)
+        var orders = try await perform(request, decodeTo: [SigningOrder].self)
+        // normalize/sort by date descending
+        orders.sort { a, b in
+            let fa = a.date
+            let fb = b.date
+            return fa > fb
+        }
+        return orders
     }
 
     func createOrder(token: String, order: SigningOrderRequest) async throws -> SigningOrder {
