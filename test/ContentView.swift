@@ -9,36 +9,6 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Model
-
-struct SigningOrder: Identifiable, Equatable {
-    let id: UUID
-    var customerName: String
-    var signerName: String
-    var date: Date
-    var fee: Double
-    var paid: Bool
-    var invoiceNumber: String
-
-    init(
-        id: UUID = UUID(),
-        customerName: String,
-        signerName: String,
-        date: Date,
-        fee: Double,
-        paid: Bool,
-        invoiceNumber: String
-    ) {
-        self.id = id
-        self.customerName = customerName
-        self.signerName = signerName
-        self.date = date
-        self.fee = fee
-        self.paid = paid
-        self.invoiceNumber = invoiceNumber
-    }
-}
-
 // MARK: - Login
 
 struct LoginView: View {
@@ -172,7 +142,15 @@ struct LoginView: View {
             return
         }
 
-        goToDashboard = true
+        Task {
+            do {
+                let response = try await APIService.shared.login(email: email, password: password)
+                SessionStorage.saveToken(response.token)
+                goToDashboard = true
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
     }
 }
 
@@ -364,37 +342,39 @@ struct SignUpView: View {
             return
         }
 
-        goToDashboard = true
+        Task {
+            do {
+                let response = try await APIService.shared.signup(
+                    fullName: fullName,
+                    email: email,
+                    password: password
+                )
+                SessionStorage.saveToken(response.token)
+                goToDashboard = true
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
     }
 }
 
 // MARK: - Dashboard
 
 struct DashboardView: View {
-    @State private var signingOrders: [SigningOrder] = [
-        SigningOrder(
-            customerName: "First Escrow",
-            signerName: "Michael Torres",
-            date: Date(),
-            fee: 150.00,
-            paid: false,
-            invoiceNumber: "INV-1001"
-        ),
-        SigningOrder(
-            customerName: "Prime Title",
-            signerName: "Sarah Johnson",
-            date: Date().addingTimeInterval(86400),
-            fee: 175.00,
-            paid: true,
-            invoiceNumber: "INV-1002"
-        )
-    ]
-
+    @State private var signingOrders: [SigningOrder] = []
     @State private var showAddOrder = false
+    @State private var errorMessage = ""
+    @State private var isLoading = false
 
     var body: some View {
         VStack {
-            if signingOrders.isEmpty {
+            if isLoading {
+                ProgressView("Loading orders...")
+            } else if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .foregroundColor(.red)
+                    .padding()
+            } else if signingOrders.isEmpty {
                 ContentUnavailableView(
                     "No Signing Orders",
                     systemImage: "tray",
@@ -416,7 +396,7 @@ struct DashboardView: View {
         }
         .navigationTitle("Dashboard")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showAddOrder = true
                 } label: {
@@ -429,10 +409,47 @@ struct DashboardView: View {
                 signingOrders.append(newOrder)
             }
         }
+        .task {
+            await loadOrders()
+        }
+    }
+
+    private func loadOrders() async {
+        guard let token = SessionStorage.getToken() else {
+            errorMessage = "Missing auth token."
+            return
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            signingOrders = try await APIService.shared.fetchOrders(token: token)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func deleteOrder(at offsets: IndexSet) {
-        signingOrders.remove(atOffsets: offsets)
+        guard let token = SessionStorage.getToken() else {
+            errorMessage = "Missing auth token."
+            return
+        }
+
+        let ordersToDelete = offsets.map { signingOrders[$0] }
+
+        Task {
+            for order in ordersToDelete {
+                do {
+                    try await APIService.shared.deleteOrder(token: token, orderId: order.id)
+                } catch {
+                    errorMessage = error.localizedDescription
+                    return
+                }
+            }
+
+            signingOrders.remove(atOffsets: offsets)
+        }
     }
 }
 
@@ -468,7 +485,7 @@ struct SigningOrderRow: View {
                 .foregroundColor(.gray)
 
             HStack {
-                Text(order.date.formatted(date: .abbreviated, time: .omitted))
+                Text(order.date)
                 Spacer()
                 Text("$" + String(format: "%.2f", order.fee))
                     .fontWeight(.semibold)
@@ -490,7 +507,7 @@ struct SigningOrderDetailView: View {
             Section("Signing Details") {
                 DetailRow(label: "Customer Name", value: order.customerName)
                 DetailRow(label: "Signer Name", value: order.signerName)
-                DetailRow(label: "Date", value: order.date.formatted(date: .abbreviated, time: .omitted))
+                DetailRow(label: "Date", value: order.date)
                 DetailRow(label: "Fee", value: "$" + String(format: "%.2f", order.fee))
                 DetailRow(label: "Paid", value: order.paid ? "Yes" : "No")
                 DetailRow(label: "Invoice No", value: order.invoiceNumber)
@@ -498,7 +515,7 @@ struct SigningOrderDetailView: View {
         }
         .navigationTitle("Order Details")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Edit") {
                     showEditScreen = true
                 }
@@ -563,13 +580,13 @@ struct EditSigningOrderView: View {
         .navigationTitle("Edit Order")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .navigationBarLeading) {
                 Button("Cancel") {
                     dismiss()
                 }
             }
 
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Save") {
                     saveChanges()
                 }
@@ -578,7 +595,7 @@ struct EditSigningOrderView: View {
         .onAppear {
             customerName = order.customerName
             signerName = order.signerName
-            date = order.date
+            date = dateFromString(order.date)
             fee = String(format: "%.2f", order.fee)
             paid = order.paid
             invoiceNumber = order.invoiceNumber
@@ -608,14 +625,62 @@ struct EditSigningOrderView: View {
             return
         }
 
-        order.customerName = customerName
-        order.signerName = signerName
-        order.date = date
-        order.fee = feeValue
-        order.paid = paid
-        order.invoiceNumber = invoiceNumber
+        guard let token = SessionStorage.getToken() else {
+            errorMessage = "Missing auth token."
+            return
+        }
 
-        dismiss()
+        let request = SigningOrderRequest(
+            customerName: customerName,
+            signerName: signerName,
+            date: isoDateString(from: date),
+            fee: feeValue,
+            paid: paid,
+            invoiceNumber: invoiceNumber
+        )
+
+        Task {
+            do {
+                let updated = try await APIService.shared.updateOrder(
+                    token: token,
+                    orderId: order.id,
+                    order: request
+                )
+
+                order.customerName = updated.customerName
+                order.signerName = updated.signerName
+                order.date = updated.date
+                order.fee = updated.fee
+                order.paid = updated.paid
+                order.invoiceNumber = updated.invoiceNumber
+
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func isoDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func dateFromString(_ value: String) -> Date {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        if let parsedDate = formatter.date(from: value) {
+            return parsedDate
+        }
+
+        let isoFormatter = ISO8601DateFormatter()
+        if let isoDate = isoFormatter.date(from: value) {
+            return isoDate
+        }
+
+        return Date()
     }
 }
 
@@ -657,13 +722,13 @@ struct AddSigningOrderView: View {
             .navigationTitle("New Signing Order")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
 
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         saveOrder()
                     }
@@ -695,17 +760,35 @@ struct AddSigningOrderView: View {
             return
         }
 
-        let newOrder = SigningOrder(
+        guard let token = SessionStorage.getToken() else {
+            errorMessage = "Missing auth token."
+            return
+        }
+
+        let request = SigningOrderRequest(
             customerName: customerName,
             signerName: signerName,
-            date: date,
+            date: isoDateString(from: date),
             fee: feeValue,
             paid: paid,
             invoiceNumber: invoiceNumber
         )
 
-        onSave(newOrder)
-        dismiss()
+        Task {
+            do {
+                let createdOrder = try await APIService.shared.createOrder(token: token, order: request)
+                onSave(createdOrder)
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func isoDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }
 
