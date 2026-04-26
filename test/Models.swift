@@ -33,6 +33,31 @@ struct SigningOrder: Codable, Identifiable, Equatable {
     var userId: String?
 }
 
+extension SigningOrder {
+    /// Returns a user-friendly display date like "Apr 26, 2026".
+    var displayDate: String {
+        // Expecting yyyy-MM-dd from API; fallback to ISO8601 parsing and finally current date
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        if let d = formatter.date(from: date) {
+            let out = DateFormatter()
+            out.locale = Locale(identifier: "en_US")
+            out.dateFormat = "MMM d, yyyy"
+            return out.string(from: d)
+        }
+
+        // Try ISO8601
+        if let iso = ISO8601DateFormatter().date(from: date) {
+            let out = DateFormatter()
+            out.locale = Locale(identifier: "en_US")
+            out.dateFormat = "MMM d, yyyy"
+            return out.string(from: iso)
+        }
+
+        return date
+    }
+}
+
 struct SigningOrderRequest: Codable {
     let customerName: String
     let signerName: String
