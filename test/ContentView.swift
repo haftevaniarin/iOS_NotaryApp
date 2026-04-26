@@ -365,6 +365,9 @@ struct DashboardView: View {
     @State private var showAddOrder = false
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var showCustomers = false
+    @State private var showShare = false
+    @State private var pdfData: Data?
 
     var body: some View {
         VStack {
@@ -403,10 +406,32 @@ struct DashboardView: View {
                     Label("Add", systemImage: "plus")
                 }
             }
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Customers") {
+                    showCustomers = true
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Export Tax PDF") {
+                    exportTaxPDF()
+                }
+            }
         }
         .sheet(isPresented: $showAddOrder) {
             AddSigningOrderView { newOrder in
                 signingOrders.append(newOrder)
+            }
+        }
+        .sheet(isPresented: $showCustomers) {
+            NavigationStack {
+                CustomersView(orders: signingOrders)
+            }
+        }
+        .sheet(isPresented: $showShare) {
+            if let data = pdfData {
+                ShareSheet(activityItems: [data])
+            } else {
+                Text("No PDF generated")
             }
         }
         .task {
@@ -451,6 +476,21 @@ struct DashboardView: View {
             signingOrders.remove(atOffsets: offsets)
         }
     }
+
+    private func exportTaxPDF() {
+        guard let user = SessionStorage.getCurrentUser() else { return }
+        let years = signingOrders.filter { $0.paid }.compactMap { order -> Int? in
+            let components = order.date.split(separator: "-")
+            if let y = components.first, let yi = Int(y) { return yi }
+            return nil
+        }
+        let year = years.max() ?? Calendar.current.component(.year, from: Date())
+
+        let options = TaxPDFGenerator.Options(userFullName: user.fullName, userEmail: user.email, year: year, orders: signingOrders)
+        let data = TaxPDFGenerator.generatePDF(options: options)
+        pdfData = data
+        showShare = true
+    }
 }
 
 // MARK: - Row
@@ -485,7 +525,7 @@ struct SigningOrderRow: View {
                 .foregroundColor(.gray)
 
             HStack {
-                Text(order.date)
+                Text(order.displayDate)
                 Spacer()
                 Text("$" + String(format: "%.2f", order.fee))
                     .fontWeight(.semibold)
@@ -507,7 +547,7 @@ struct SigningOrderDetailView: View {
             Section("Signing Details") {
                 DetailRow(label: "Customer Name", value: order.customerName)
                 DetailRow(label: "Signer Name", value: order.signerName)
-                DetailRow(label: "Date", value: order.date)
+                DetailRow(label: "Date", value: order.displayDate)
                 DetailRow(label: "Fee", value: "$" + String(format: "%.2f", order.fee))
                 DetailRow(label: "Paid", value: order.paid ? "Yes" : "No")
                 DetailRow(label: "Invoice No", value: order.invoiceNumber)
