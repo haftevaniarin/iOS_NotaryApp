@@ -1,6 +1,6 @@
 //
-//  testUITestsLaunchTests.swift
-//  testUITests
+//  notaryledger-iosUITestsLaunchTests.swift
+//  notaryledger-iosUITests
 //
 //  Created by Arin on 3/17/26.
 //

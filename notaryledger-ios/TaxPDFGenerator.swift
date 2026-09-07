@@ -27,7 +27,7 @@ struct TaxPDFGenerator {
         let taxpayer = NSAttributedString(string: "Taxpayer: \(options.userFullName) (<\(options.userEmail)>)\n\n", attributes: [.font: UIFont.systemFont(ofSize: 12)])
 
         var bodyText = "Totals\n"
-        let paidOrders = options.orders.filter { $0.paid }
+        let paidOrders = options.orders.filter { $0.paid && $0.countsInFinancialTotals }
         let grossIncome = paidOrders.reduce(0) { $0 + $1.fee }
         bodyText += "Paid count: \(paidOrders.count)\n"
         bodyText += String(format: "Gross income: $%.2f\n\n", grossIncome)

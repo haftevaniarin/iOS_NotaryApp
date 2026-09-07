@@ -1,9 +1,32 @@
 import Foundation
 
 enum APIConfig {
-    // Simulator:
-    static let baseURL = "http://127.0.0.1:4000"
+    enum Environment: String {
+        case local
+        case staging
+        case production
+    }
 
-    // For a physical iPhone later, change this to your Mac's LAN IP:
-    // static let baseURL = "http://192.168.1.25:4000"
+    static var environment: Environment {
+        #if PRODUCTION
+        return .production
+        #elseif STAGING
+        return .staging
+        #else
+        return .local
+        #endif
+    }
+
+    static var baseURL: String {
+        switch environment {
+        case .local:
+            return "http://127.0.0.1:4000"
+        case .staging:
+            return "https://staging.notaryledger.org"
+        case .production:
+            return "https://notaryledger.org"
+        }
+    }
+
+    static let maintenancePath = "/api/config/maintenance"
 }
