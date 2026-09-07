@@ -16,38 +16,38 @@
 			containerPortal = 84C779C32F6A3DF0007FD325 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 84C779CA2F6A3DF0007FD325;
-			remoteInfo = test;
+			remoteInfo = notaryledger-ios;
 		};
 		84C779E32F6A3DF1007FD325 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 84C779C32F6A3DF0007FD325 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 84C779CA2F6A3DF0007FD325;
-			remoteInfo = test;
+			remoteInfo = notaryledger-ios;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		84C779CB2F6A3DF0007FD325 /* test.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = test.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		84C779D82F6A3DF1007FD325 /* testTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = testTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		84C779E22F6A3DF1007FD325 /* testUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = testUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		84C779CB2F6A3DF0007FD325 /* notaryledger-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = notaryledger-ios.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		84C779D82F6A3DF1007FD325 /* notaryledger-iosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = notaryledger-iosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		84C779E22F6A3DF1007FD325 /* notaryledger-iosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = notaryledger-iosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		84DD26352F955C610015B78C /* APIConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfig.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		84C779CD2F6A3DF0007FD325 /* test */ = {
+		84C779CD2F6A3DF0007FD325 /* notaryledger-ios */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = test;
+			path = notaryledger-ios;
 			sourceTree = "<group>";
 		};
-		84C779DB2F6A3DF1007FD325 /* testTests */ = {
+		84C779DB2F6A3DF1007FD325 /* notaryledger-iosTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = testTests;
+			path = notaryledger-iosTests;
 			sourceTree = "<group>";
 		};
-		84C779E52F6A3DF1007FD325 /* testUITests */ = {
+		84C779E52F6A3DF1007FD325 /* notaryledger-iosUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = testUITests;
+			path = notaryledger-iosUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -81,9 +81,9 @@
 			isa = PBXGroup;
 			children = (
 				84DD26352F955C610015B78C /* APIConfig.swift */,
-				84C779CD2F6A3DF0007FD325 /* test */,
-				84C779DB2F6A3DF1007FD325 /* testTests */,
-				84C779E52F6A3DF1007FD325 /* testUITests */,
+				84C779CD2F6A3DF0007FD325 /* notaryledger-ios */,
+				84C779DB2F6A3DF1007FD325 /* notaryledger-iosTests */,
+				84C779E52F6A3DF1007FD325 /* notaryledger-iosUITests */,
 				84C779CC2F6A3DF0007FD325 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -91,9 +91,9 @@
 		84C779CC2F6A3DF0007FD325 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				84C779CB2F6A3DF0007FD325 /* test.app */,
-				84C779D82F6A3DF1007FD325 /* testTests.xctest */,
-				84C779E22F6A3DF1007FD325 /* testUITests.xctest */,
+				84C779CB2F6A3DF0007FD325 /* notaryledger-ios.app */,
+				84C779D82F6A3DF1007FD325 /* notaryledger-iosTests.xctest */,
+				84C779E22F6A3DF1007FD325 /* notaryledger-iosUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -101,9 +101,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		84C779CA2F6A3DF0007FD325 /* test */ = {
+		84C779CA2F6A3DF0007FD325 /* notaryledger-ios */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 84C779EC2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "test" */;
+			buildConfigurationList = 84C779EC2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "notaryledger-ios" */;
 			buildPhases = (
 				84C779C72F6A3DF0007FD325 /* Sources */,
 				84C779C82F6A3DF0007FD325 /* Frameworks */,
@@ -114,18 +114,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				84C779CD2F6A3DF0007FD325 /* test */,
+				84C779CD2F6A3DF0007FD325 /* notaryledger-ios */,
 			);
-			name = test;
+			name = notaryledger-ios;
 			packageProductDependencies = (
 			);
-			productName = test;
-			productReference = 84C779CB2F6A3DF0007FD325 /* test.app */;
+			productName = notaryledger-ios;
+			productReference = 84C779CB2F6A3DF0007FD325 /* notaryledger-ios.app */;
 			productType = "com.apple.product-type.application";
 		};
-		84C779D72F6A3DF1007FD325 /* testTests */ = {
+		84C779D72F6A3DF1007FD325 /* notaryledger-iosTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 84C779EF2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "testTests" */;
+			buildConfigurationList = 84C779EF2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "notaryledger-iosTests" */;
 			buildPhases = (
 				84C779D42F6A3DF1007FD325 /* Sources */,
 				84C779D52F6A3DF1007FD325 /* Frameworks */,
@@ -137,18 +137,18 @@
 				84C779DA2F6A3DF1007FD325 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				84C779DB2F6A3DF1007FD325 /* testTests */,
+				84C779DB2F6A3DF1007FD325 /* notaryledger-iosTests */,
 			);
-			name = testTests;
+			name = notaryledger-iosTests;
 			packageProductDependencies = (
 			);
-			productName = testTests;
-			productReference = 84C779D82F6A3DF1007FD325 /* testTests.xctest */;
+			productName = notaryledger-iosTests;
+			productReference = 84C779D82F6A3DF1007FD325 /* notaryledger-iosTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		84C779E12F6A3DF1007FD325 /* testUITests */ = {
+		84C779E12F6A3DF1007FD325 /* notaryledger-iosUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 84C779F22F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "testUITests" */;
+			buildConfigurationList = 84C779F22F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "notaryledger-iosUITests" */;
 			buildPhases = (
 				84C779DE2F6A3DF1007FD325 /* Sources */,
 				84C779DF2F6A3DF1007FD325 /* Frameworks */,
@@ -160,13 +160,13 @@
 				84C779E42F6A3DF1007FD325 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				84C779E52F6A3DF1007FD325 /* testUITests */,
+				84C779E52F6A3DF1007FD325 /* notaryledger-iosUITests */,
 			);
-			name = testUITests;
+			name = notaryledger-iosUITests;
 			packageProductDependencies = (
 			);
-			productName = testUITests;
-			productReference = 84C779E22F6A3DF1007FD325 /* testUITests.xctest */;
+			productName = notaryledger-iosUITests;
+			productReference = 84C779E22F6A3DF1007FD325 /* notaryledger-iosUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -192,7 +192,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 84C779C62F6A3DF0007FD325 /* Build configuration list for PBXProject "test" */;
+			buildConfigurationList = 84C779C62F6A3DF0007FD325 /* Build configuration list for PBXProject "notaryledger-ios" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -206,9 +206,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				84C779CA2F6A3DF0007FD325 /* test */,
-				84C779D72F6A3DF1007FD325 /* testTests */,
-				84C779E12F6A3DF1007FD325 /* testUITests */,
+				84C779CA2F6A3DF0007FD325 /* notaryledger-ios */,
+				84C779D72F6A3DF1007FD325 /* notaryledger-iosTests */,
+				84C779E12F6A3DF1007FD325 /* notaryledger-iosUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -265,12 +265,12 @@
 /* Begin PBXTargetDependency section */
 		84C779DA2F6A3DF1007FD325 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 84C779CA2F6A3DF0007FD325 /* test */;
+			target = 84C779CA2F6A3DF0007FD325 /* notaryledger-ios */;
 			targetProxy = 84C779D92F6A3DF1007FD325 /* PBXContainerItemProxy */;
 		};
 		84C779E42F6A3DF1007FD325 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 84C779CA2F6A3DF0007FD325 /* test */;
+			target = 84C779CA2F6A3DF0007FD325 /* notaryledger-ios */;
 			targetProxy = 84C779E32F6A3DF1007FD325 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -405,6 +405,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Notary Ledger";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -420,18 +421,19 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.arin.notaryapp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios;
+				PRODUCT_MODULE_NAME = notaryledger_ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Debug;
@@ -449,6 +451,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Notary Ledger";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -464,18 +467,19 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.arin.notaryapp;
+				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios;
+				PRODUCT_MODULE_NAME = notaryledger_ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Release;
@@ -491,17 +495,17 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.la-signed.com.testTests";
+				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/test.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/test";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/notaryledger-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/notaryledger-ios";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Debug;
@@ -517,17 +521,17 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.la-signed.com.testTests";
+				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/test.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/test";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/notaryledger-ios.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/notaryledger-ios";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Release;
@@ -542,17 +546,17 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.la-signed.com.testUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = test;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = notaryledger-ios;
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Debug;
@@ -567,17 +571,17 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.la-signed.com.testUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = test;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = notaryledger-ios;
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Release;
@@ -585,7 +589,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		84C779C62F6A3DF0007FD325 /* Build configuration list for PBXProject "test" */ = {
+		84C779C62F6A3DF0007FD325 /* Build configuration list for PBXProject "notaryledger-ios" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				84C779EA2F6A3DF1007FD325 /* Debug */,
@@ -594,7 +598,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		84C779EC2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "test" */ = {
+		84C779EC2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "notaryledger-ios" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				84C779ED2F6A3DF1007FD325 /* Debug */,
@@ -603,7 +607,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		84C779EF2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "testTests" */ = {
+		84C779EF2F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "notaryledger-iosTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				84C779F02F6A3DF1007FD325 /* Debug */,
@@ -612,7 +616,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		84C779F22F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "testUITests" */ = {
+		84C779F22F6A3DF1007FD325 /* Build configuration list for PBXNativeTarget "notaryledger-iosUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				84C779F32F6A3DF1007FD325 /* Debug */,
