@@ -20,11 +20,25 @@ struct DashboardView: View {
             .map { $0 }
     }
 
+    private var travelMileageTotal: Double {
+        appState.orders.reduce(0) { $0 + ($1.mileage ?? 0) }
+    }
+
+    private var travelFeeTotal: Double {
+        appState.orders.reduce(0) { $0 + ($1.travelFee ?? 0) }
+    }
+
+    private var todaySubtitle: String {
+        Formatters.displayDate.string(from: Date())
+    }
+
     var body: some View {
         ZStack {
             ParchmentBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Dashboard", subtitle: todaySubtitle)
+
                     if appState.isLoading {
                         ProgressView("Loading ledger...")
                             .frame(maxWidth: .infinity)
@@ -32,34 +46,31 @@ struct DashboardView: View {
                     }
 
                     ErrorBanner(message: appState.errorMessage)
+                    CredentialRiskBanners()
+
+                    Button {
+                        showAddOrder = true
+                    } label: {
+                        ActionPill(title: "New Signing", systemImage: "plus")
+                    }
 
                     UpcomingSigningsSection(orders: upcomingSignings)
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: NLSpacing.md)], spacing: NLSpacing.md) {
-                        MetricCard(title: "Month Revenue", value: metrics.monthRevenue.currencyString, systemImage: "dollarsign.circle")
+                        MetricCard(title: "Signings", value: "\(metrics.ytdSigningOrderCount)", systemImage: "doc.text")
+                        MetricCard(title: "Monthly Revenue", value: metrics.monthRevenue.currencyString, systemImage: "dollarsign.circle")
                         MetricCard(title: "Fees Earned", value: metrics.feesEarned.currencyString, systemImage: "checkmark.seal")
                         MetricCard(title: "Pending Payment", value: metrics.pendingPayment.currencyString, systemImage: "clock")
                         MetricCard(title: "Average Fee", value: metrics.averageFeePerSigning.currencyString, systemImage: "chart.line.uptrend.xyaxis")
-                        MetricCard(title: "YTD Signings", value: "\(metrics.ytdSigningOrderCount)", systemImage: "calendar")
                     }
 
+                    TravelTotalsSection(mileage: travelMileageTotal, travelFees: travelFeeTotal)
                     RecentActivitySection(orders: Array(appState.orders.prefix(8)))
                 }
                 .padding(NLSpacing.lg)
             }
             .refreshable {
                 await appState.refreshAll()
-            }
-        }
-        .navigationTitle("Dashboard")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddOrder = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("Add signing")
             }
         }
         .sheet(isPresented: $showAddOrder) {
@@ -74,6 +85,14 @@ struct DashboardView: View {
         }
     }
 
+}
+
+struct CredentialRiskBanners: View {
+    var body: some View {
+        VStack(spacing: NLSpacing.sm) {
+            BannerView(kind: .warning, message: "Review commission expiration, bond, E&O insurance, and notary credential details in Profile.")
+        }
+    }
 }
 
 struct MetricCard: View {
@@ -99,6 +118,27 @@ struct MetricCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 98, alignment: .leading)
         .nlPanel()
+    }
+}
+
+struct TravelTotalsSection: View {
+    let mileage: Double
+    let travelFees: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: NLSpacing.md) {
+            Text("Travel Totals")
+                .font(.headline)
+                .foregroundColor(NLColor.navy)
+
+            NLCard {
+                VStack(spacing: NLSpacing.md) {
+                    DetailRow(label: "Mileage", value: String(format: "%.1f mi", mileage))
+                    DetailRow(label: "Travel fees", value: travelFees.currencyString)
+                    DetailRow(label: "IRS mileage note", value: "Track business miles before tax export.")
+                }
+            }
+        }
     }
 }
 

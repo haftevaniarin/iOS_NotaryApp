@@ -13,7 +13,7 @@ struct ContentView: View {
                     LoginView()
                 }
             case .app:
-                MainTabView()
+                LedgerAppShell()
             case .maintenance(let status):
                 MaintenanceView(status: status)
             }
@@ -43,45 +43,259 @@ struct ContentView: View {
     }
 }
 
-struct MainTabView: View {
+enum AppSection: String, CaseIterable, Identifiable {
+    case dashboard
+    case signings
+    case rescission
+    case invoices
+    case expenses
+    case customers
+    case taxSummary
+    case billing
+    case profile
+    case terms
+    case privacy
+    case adminAudit
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .dashboard: "Dashboard"
+        case .signings: "Signings"
+        case .rescission: "Rescission Calculator"
+        case .invoices: "Invoices"
+        case .expenses: "Expenses"
+        case .customers: "Customers"
+        case .taxSummary: "Tax Summary"
+        case .billing: "Billing"
+        case .profile: "Profile"
+        case .terms: "Terms & Conditions"
+        case .privacy: "Privacy Policy"
+        case .adminAudit: "Admin Audit Logs"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .dashboard: "chart.bar.doc.horizontal"
+        case .signings: "doc.text"
+        case .rescission: "calendar.badge.clock"
+        case .invoices: "doc.richtext"
+        case .expenses: "creditcard"
+        case .customers: "person.2"
+        case .taxSummary: "sum"
+        case .billing: "creditcard.and.123"
+        case .profile: "person.crop.circle"
+        case .terms: "doc.plaintext"
+        case .privacy: "lock.shield"
+        case .adminAudit: "checklist.checked"
+        }
+    }
+}
+
+struct LedgerAppShell: View {
+    @EnvironmentObject private var appState: AppState
+    @State private var selectedSection: AppSection = .dashboard
+    @State private var isMenuOpen = false
+
+    private var primarySections: [AppSection] {
+        [.dashboard, .signings, .rescission, .invoices, .expenses, .customers, .taxSummary, .billing, .profile]
+    }
+
     var body: some View {
-        TabView {
-            NavigationStack {
-                DashboardView()
-            }
-            .tabItem {
-                Label("Dashboard", systemImage: "chart.bar.doc.horizontal")
+        ZStack(alignment: .leading) {
+            ParchmentBackground()
+
+            VStack(spacing: 0) {
+                LedgerTopBar(title: selectedSection.title) {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        isMenuOpen.toggle()
+                    }
+                }
+
+                NavigationStack {
+                    sectionView
+                        .toolbar(.hidden, for: .navigationBar)
+                }
             }
 
-            NavigationStack {
-                SigningsView()
-            }
-            .tabItem {
-                Label("Signings", systemImage: "doc.text")
-            }
+            if isMenuOpen {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            isMenuOpen = false
+                        }
+                    }
 
-            NavigationStack {
-                ExpensesView()
-            }
-            .tabItem {
-                Label("Expenses", systemImage: "creditcard")
-            }
-
-            NavigationStack {
-                CustomersView()
-            }
-            .tabItem {
-                Label("Customers", systemImage: "person.2")
-            }
-
-            NavigationStack {
-                MoreView()
-            }
-            .tabItem {
-                Label("More", systemImage: "ellipsis.circle")
+                LedgerSideMenu(
+                    selectedSection: $selectedSection,
+                    isMenuOpen: $isMenuOpen,
+                    primarySections: primarySections
+                )
+                .transition(.move(edge: .leading))
             }
         }
-        .tint(NLColor.navy)
+    }
+
+    @ViewBuilder
+    private var sectionView: some View {
+        switch selectedSection {
+        case .dashboard:
+            DashboardView()
+        case .signings:
+            SigningsView()
+        case .rescission:
+            RescissionCalculatorView()
+        case .invoices:
+            InvoicesView()
+        case .expenses:
+            ExpensesView()
+        case .customers:
+            CustomersView()
+        case .taxSummary:
+            TaxSummaryView()
+        case .billing:
+            BillingView()
+        case .profile:
+            ProfileView()
+        case .terms:
+            LegalDocumentView(kind: .terms)
+        case .privacy:
+            LegalDocumentView(kind: .privacy)
+        case .adminAudit:
+            AdminAuditLogsView()
+        }
+    }
+}
+
+struct LedgerTopBar: View {
+    let title: String
+    let onMenu: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: NLSpacing.md) {
+                Button(action: onMenu) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 20, weight: .semibold))
+                        .frame(width: 42, height: 42)
+                        .foregroundColor(.white)
+                }
+                .accessibilityLabel("Open navigation menu")
+
+                BrandLockup(compact: true)
+
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, NLSpacing.lg)
+            .padding(.top, 6)
+            .padding(.bottom, 10)
+
+            HStack {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.88))
+                Spacer()
+            }
+            .padding(.horizontal, NLSpacing.lg)
+            .padding(.bottom, 10)
+        }
+        .background(NLColor.navy.ignoresSafeArea(edges: .top))
+    }
+}
+
+struct LedgerSideMenu: View {
+    @EnvironmentObject private var appState: AppState
+    @Binding var selectedSection: AppSection
+    @Binding var isMenuOpen: Bool
+    let primarySections: [AppSection]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            BrandLockup()
+                .padding(.horizontal, NLSpacing.lg)
+                .padding(.top, 20)
+                .padding(.bottom, NLSpacing.lg)
+
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(primarySections) { section in
+                        menuButton(for: section)
+                    }
+
+                    Divider()
+                        .overlay(Color.white.opacity(0.18))
+                        .padding(.vertical, NLSpacing.md)
+
+                    menuButton(for: .terms)
+                    menuButton(for: .privacy)
+
+                    if appState.currentUser?.canAccessAdminAudit == true {
+                        Divider()
+                            .overlay(Color.white.opacity(0.18))
+                            .padding(.vertical, NLSpacing.md)
+                        menuButton(for: .adminAudit)
+                    }
+                }
+                .padding(.horizontal, NLSpacing.md)
+            }
+
+            VStack(alignment: .leading, spacing: NLSpacing.md) {
+                if let user = appState.currentUser {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(user.fullName.isEmpty ? "Notary Ledger user" : user.fullName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        Text(user.email)
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.70))
+                            .lineLimit(1)
+                    }
+                }
+
+                Button {
+                    appState.signOut()
+                } label: {
+                    Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(NLSpacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(NLColor.navySoft.opacity(0.55))
+        }
+        .frame(width: 318)
+        .frame(maxHeight: .infinity)
+        .background(NLColor.navy.ignoresSafeArea())
+    }
+
+    private func menuButton(for section: AppSection) -> some View {
+        Button {
+            selectedSection = section
+            withAnimation(.easeInOut(duration: 0.22)) {
+                isMenuOpen = false
+            }
+        } label: {
+            HStack(spacing: NLSpacing.md) {
+                Image(systemName: section.systemImage)
+                    .frame(width: 22)
+                Text(section.title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer()
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundColor(selectedSection == section ? NLColor.navy : .white)
+            .padding(.horizontal, NLSpacing.md)
+            .padding(.vertical, 11)
+            .background(selectedSection == section ? NLColor.parchment : Color.white.opacity(0.0001))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .accessibilityLabel(section.title)
     }
 }
 
@@ -102,11 +316,9 @@ struct AuthShell<Content: View>: View {
             ScrollView {
                 VStack(spacing: NLSpacing.xl) {
                     VStack(spacing: NLSpacing.sm) {
-                        Image(systemName: "seal")
-                            .font(.system(size: 54))
-                            .foregroundColor(NLColor.brass)
+                        NLSeal(size: 58)
                         Text("Notary Ledger")
-                            .font(.largeTitle.bold())
+                            .font(NLFonts.serif(34, weight: .bold))
                             .foregroundColor(NLColor.navy)
                         Text(subtitle)
                             .font(.subheadline)
@@ -117,7 +329,7 @@ struct AuthShell<Content: View>: View {
 
                     VStack(alignment: .leading, spacing: NLSpacing.lg) {
                         Text(title)
-                            .font(.title3.weight(.semibold))
+                            .font(NLFonts.serif(22, weight: .semibold))
                             .foregroundColor(NLColor.ink)
                         content
                     }
@@ -137,18 +349,15 @@ struct LoginView: View {
     @State private var isSubmitting = false
 
     var body: some View {
-        AuthShell(title: "Log In", subtitle: "Manage signings, invoices, expenses, and tax records.") {
+        AuthShell(title: "Log In", subtitle: "SIGNING AGENT DESK") {
             VStack(spacing: NLSpacing.md) {
-                TextField("Email", text: $email)
+                NLTextField(title: "Email", text: $email, keyboardType: .emailAddress)
                     .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .keyboardType(.emailAddress)
-                    .textFieldStyle(.roundedBorder)
 
-                SecureField("Password", text: $password)
+                NLSecureField(title: "Password", text: $password)
                     .textContentType(.password)
-                    .textFieldStyle(.roundedBorder)
 
                 ErrorBanner(message: errorMessage)
 
@@ -215,26 +424,20 @@ struct SignUpView: View {
     @State private var isSubmitting = false
 
     var body: some View {
-        AuthShell(title: "Create Account", subtitle: "Set up your secure notary bookkeeping workspace.") {
+        AuthShell(title: "Create Account", subtitle: "SIGNING AGENT DESK") {
             VStack(spacing: NLSpacing.md) {
                 HStack(spacing: NLSpacing.md) {
-                    TextField("First name", text: $firstName)
-                        .textFieldStyle(.roundedBorder)
-                    TextField("Last name", text: $lastName)
-                        .textFieldStyle(.roundedBorder)
+                    NLTextField(title: "First name", text: $firstName)
+                    NLTextField(title: "Last name", text: $lastName)
                 }
-                TextField("Email", text: $email)
+                NLTextField(title: "Email", text: $email, keyboardType: .emailAddress)
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .keyboardType(.emailAddress)
-                    .textFieldStyle(.roundedBorder)
-                SecureField("Password", text: $password)
+                NLSecureField(title: "Password", text: $password)
                     .textContentType(.newPassword)
-                    .textFieldStyle(.roundedBorder)
-                SecureField("Confirm password", text: $confirmPassword)
+                NLSecureField(title: "Confirm password", text: $confirmPassword)
                     .textContentType(.newPassword)
-                    .textFieldStyle(.roundedBorder)
 
                 ErrorBanner(message: errorMessage)
 
@@ -296,39 +499,23 @@ struct ForgotPasswordView: View {
     @State private var isSubmitting = false
 
     var body: some View {
-        ZStack {
-            ParchmentBackground()
-            Form {
-                Section("Account Email") {
-                    TextField("Email", text: $email)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
+        AuthShell(title: "Forgot Password", subtitle: "SIGNING AGENT DESK") {
+            VStack(spacing: NLSpacing.md) {
+                NLTextField(title: "Email", text: $email, keyboardType: .emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
 
-                if !message.isEmpty {
-                    Section {
-                        Text(message)
-                            .foregroundColor(NLColor.navy)
-                    }
-                }
-                if !errorMessage.isEmpty {
-                    Section {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                    }
-                }
+                BannerView(kind: .success, message: message)
+                ErrorBanner(message: errorMessage)
 
-                Section {
-                    Button("Send Reset Link") {
-                        Task { await submit() }
-                    }
-                    .disabled(isSubmitting)
+                Button(isSubmitting ? "Sending..." : "Send Reset Link") {
+                    Task { await submit() }
                 }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(isSubmitting)
             }
-            .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Forgot Password")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func submit() async {
@@ -360,29 +547,22 @@ struct ResetPasswordView: View {
     @State private var isSubmitting = false
 
     var body: some View {
-        ZStack {
-            ParchmentBackground()
-            Form {
-                Section("New Password") {
-                    SecureField("Password", text: $password)
-                    SecureField("Confirm password", text: $confirmPassword)
+        AuthShell(title: "Reset Password", subtitle: "SIGNING AGENT DESK") {
+            VStack(spacing: NLSpacing.md) {
+                NLSecureField(title: "Password", text: $password)
+                NLSecureField(title: "Confirm password", text: $confirmPassword)
+
+                BannerView(kind: .success, message: message)
+                ErrorBanner(message: errorMessage)
+
+                Button(isSubmitting ? "Resetting..." : "Reset Password") {
+                    Task { await submit() }
                 }
-                if !message.isEmpty {
-                    Section { Text(message).foregroundColor(NLColor.navy) }
-                }
-                if !errorMessage.isEmpty {
-                    Section { Text(errorMessage).foregroundColor(.red) }
-                }
-                Section {
-                    Button("Reset Password") {
-                        Task { await submit() }
-                    }
-                    .disabled(isSubmitting)
-                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(isSubmitting)
             }
-            .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Reset Password")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func submit() async {
@@ -413,19 +593,26 @@ struct VerificationView: View {
     @State private var state = "Verifying your email..."
 
     var body: some View {
-        VStack(spacing: NLSpacing.lg) {
-            Image(systemName: "envelope.badge.shield.half.filled")
-                .font(.system(size: 44))
-                .foregroundColor(NLColor.brass)
-            Text(state)
-                .font(.headline)
-                .multilineTextAlignment(.center)
-            Button("Done") {
-                dismiss()
+        ZStack {
+            ParchmentBackground()
+            VStack(spacing: NLSpacing.lg) {
+                NLSeal(size: 54)
+                Text("Email Verification")
+                    .font(NLFonts.serif(24, weight: .bold))
+                    .foregroundColor(NLColor.navy)
+                Text(state)
+                    .font(.subheadline)
+                    .foregroundColor(NLColor.muted)
+                    .multilineTextAlignment(.center)
+                Button("Done") {
+                    dismiss()
+                }
+                .buttonStyle(PrimaryButtonStyle())
             }
-            .buttonStyle(PrimaryButtonStyle())
+            .padding()
+            .nlPanel()
+            .padding()
         }
-        .padding()
         .presentationDetents([.medium])
         .task {
             do {

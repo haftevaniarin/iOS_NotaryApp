@@ -17,6 +17,8 @@ struct AuthUser: Codable, Equatable {
     var email: String
     var firstName: String?
     var lastName: String?
+    var role: String?
+    var isAdmin: Bool?
 
     var displayFirstName: String {
         firstName ?? fullName.split(separator: " ").first.map(String.init) ?? ""
@@ -28,6 +30,10 @@ struct AuthUser: Codable, Equatable {
         }
         let pieces = fullName.split(separator: " ").map(String.init)
         return pieces.dropFirst().joined(separator: " ")
+    }
+
+    var canAccessAdminAudit: Bool {
+        isAdmin == true || role?.localizedCaseInsensitiveContains("admin") == true
     }
 }
 

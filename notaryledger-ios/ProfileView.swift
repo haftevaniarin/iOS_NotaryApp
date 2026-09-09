@@ -10,65 +10,113 @@ struct ProfileView: View {
     @State private var showDeleteAccount = false
     @State private var isSavingProfile = false
     @State private var isRequestingExport = false
+    @State private var commissionNumber = ""
+    @State private var commissionExpiration = ""
+    @State private var bondExpiration = ""
+    @State private var insuranceExpiration = ""
+    @State private var deletionRequested = false
 
     var body: some View {
         ZStack {
             ParchmentBackground()
-            List {
-                if !successMessage.isEmpty {
-                    Section {
-                        Text(successMessage)
-                            .foregroundColor(NLColor.navy)
-                    }
-                }
-                if !errorMessage.isEmpty {
-                    Section {
-                        ErrorBanner(message: errorMessage)
-                    }
-                    .listRowBackground(Color.clear)
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Profile", subtitle: appState.currentUser?.email ?? "Account details")
+                    BannerView(kind: .success, message: successMessage)
+                    ErrorBanner(message: errorMessage)
 
-                Section("Profile") {
-                    TextField("First name", text: $firstName)
-                    TextField("Last name", text: $lastName)
+                    NLCard {
+                        VStack(alignment: .leading, spacing: NLSpacing.md) {
+                            Text("Profile")
+                                .font(.headline)
+                                .foregroundColor(NLColor.navy)
+                            NLTextField(title: "First name", text: $firstName)
+                            NLTextField(title: "Last name", text: $lastName)
+                            DetailRow(label: "Email", value: appState.currentUser?.email ?? "-")
                     Button(isSavingProfile ? "Saving..." : "Update Profile") {
                         Task { await saveProfile() }
                     }
+                            .buttonStyle(PrimaryButtonStyle())
                     .disabled(isSavingProfile)
                 }
+                    }
 
-                Section("Security") {
-                    NavigationLink("Change Password") {
-                        ChangePasswordView()
+                    NLCard {
+                        VStack(alignment: .leading, spacing: NLSpacing.md) {
+                            Text("Credentials")
+                                .font(.headline)
+                                .foregroundColor(NLColor.navy)
+                            NLTextField(title: "Commission number", text: $commissionNumber)
+                            NLTextField(title: "Commission expiration", text: $commissionExpiration)
+                            NLTextField(title: "Bond expiration", text: $bondExpiration)
+                            NLTextField(title: "E&O insurance expiration", text: $insuranceExpiration)
+                            BannerView(kind: .warning, message: "Keep credential dates current so dashboard risk banners stay actionable.")
+                        }
+                    }
+
+                    NLCard {
+                        VStack(alignment: .leading, spacing: NLSpacing.md) {
+                            Text("Password")
+                                .font(.headline)
+                                .foregroundColor(NLColor.navy)
+                            NavigationLink {
+                                ChangePasswordView()
+                            } label: {
+                                Label("Change Password", systemImage: "key")
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+                        }
+                    }
+
+                    NLCard {
+                        VStack(alignment: .leading, spacing: NLSpacing.md) {
+                            Text("Data & Privacy")
+                                .font(.headline)
+                                .foregroundColor(NLColor.navy)
+                            Button(isRequestingExport ? "Requesting..." : "Export My Data") {
+                                Task { await requestExport() }
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .disabled(isRequestingExport)
+
+                            if deletionRequested {
+                                BannerView(kind: .warning, message: "Account deletion has been requested.")
+                                Button("Cancel Deletion Request") {
+                                    deletionRequested = false
+                                }
+                                .buttonStyle(SecondaryButtonStyle())
+                            } else {
+                                Button(role: .destructive) {
+                                    showDeleteAccount = true
+                                } label: {
+                                    Label("Request Account Deletion", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+
+                    NLCard {
+                        VStack(alignment: .leading, spacing: NLSpacing.md) {
+                            Text("Support")
+                                .font(.headline)
+                                .foregroundColor(NLColor.navy)
+                            Button {
+                                showSupport = true
+                            } label: {
+                                Label("Contact Support", systemImage: "envelope")
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+
+                            Button("Sign Out") {
+                                appState.signOut()
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+                        }
                     }
                 }
-
-                Section("Support") {
-                    Button("Contact Support") {
-                        showSupport = true
-                    }
-                }
-
-                Section("Account") {
-                    Button(isRequestingExport ? "Requesting..." : "Export My Data") {
-                        Task { await requestExport() }
-                    }
-                    .disabled(isRequestingExport)
-
-                    Button(role: .destructive) {
-                        showDeleteAccount = true
-                    } label: {
-                        Text("Delete Account")
-                    }
-
-                    Button("Sign Out") {
-                        appState.signOut()
-                    }
-                }
+                .padding(NLSpacing.lg)
             }
-            .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Profile")
         .sheet(isPresented: $showSupport) {
             NavigationStack {
                 SupportContactView(sourcePage: "Profile")
@@ -76,10 +124,10 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showDeleteAccount) {
             DeleteConfirmationSheet(
-                title: "Delete Account",
-                message: "Delete your Notary Ledger account and ledger data?"
+                title: "Request Account Deletion",
+                message: "Submit a request to delete your Notary Ledger account and ledger data?"
             ) {
-                Task { await deleteAccount() }
+                deletionRequested = true
             }
         }
         .onAppear {
