@@ -12,7 +12,7 @@ Native SwiftUI client for the Notary Ledger backend and web app.
 
 `APIConfig.swift` selects the API base URL with Swift compile flags:
 
-- Local: `http://127.0.0.1:4000`
+- Local: `http://localhost:4000`
 - Staging: `https://staging.notaryledger.org` with `STAGING`
 - Production: `https://notaryledger.org` with `PRODUCTION`
 

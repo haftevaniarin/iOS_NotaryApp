@@ -13,54 +13,62 @@ struct CustomersView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            List {
-                if summaries.isEmpty {
-                    Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Customers", subtitle: "Customer cards are derived from signing history.")
+                    NLTextField(title: "Search customers", text: $searchText)
+                        .nlPanel()
+
+                    if summaries.isEmpty {
                         EmptyStateView(title: "No customers found", systemImage: "person.2", message: "Customers are derived from signing history.")
-                    }
-                    .listRowBackground(Color.clear)
-                } else {
-                    Section("Customers") {
+                    } else {
+                        SectionHeader(title: "Customers")
                         ForEach(summaries) { summary in
-                            NavigationLink {
-                                CustomerDetailView(summary: summary)
-                            } label: {
-                                CustomerSummaryRow(summary: summary)
-                            }
+                            CustomerSummaryCard(summary: summary)
                         }
                     }
                 }
+                .padding(NLSpacing.lg)
             }
-            .scrollContentBackground(.hidden)
-            .searchable(text: $searchText, prompt: "Search customers")
         }
-        .navigationTitle("Customers")
     }
 }
 
-struct CustomerSummaryRow: View {
+struct CustomerSummaryCard: View {
     let summary: CustomerSummary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: NLSpacing.sm) {
-            HStack {
-                Text(summary.displayName)
-                    .font(.headline)
-                    .foregroundColor(NLColor.ink)
-                Spacer()
-                Text(summary.revenue.currencyString)
-                    .font(.headline)
-                    .foregroundColor(NLColor.navy)
+        NLCard {
+            VStack(alignment: .leading, spacing: NLSpacing.md) {
+                HStack(alignment: .top) {
+                    Text(summary.displayName)
+                        .font(.headline)
+                        .foregroundColor(NLColor.ink)
+                    Spacer()
+                    Text(summary.revenue.currencyString)
+                        .font(.headline)
+                        .foregroundColor(NLColor.navy)
+                }
+                DetailRow(label: "Latest signing", value: summary.orders.first?.displayDate ?? "-")
+                DetailRow(label: "Signing count", value: "\(summary.signingCount)")
+                DetailRow(label: "Unpaid work", value: "\(summary.unpaidCount)")
+                DetailRow(label: "Revenue", value: summary.revenue.currencyString)
+                if summary.invoiceCandidates.isEmpty {
+                    Button {
+                    } label: {
+                        Label("No Invoice Due", systemImage: "doc.richtext")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(true)
+                } else {
+                    Button {
+                    } label: {
+                        Label("Create Invoice", systemImage: "doc.richtext")
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                }
             }
-            HStack(spacing: NLSpacing.md) {
-                Label("\(summary.signingCount)", systemImage: "doc.text")
-                Label("\(summary.unpaidCount)", systemImage: "clock")
-                Label("\(summary.invoiceCandidates.count)", systemImage: "doc.richtext")
-            }
-            .font(.caption)
-            .foregroundColor(NLColor.muted)
         }
-        .padding(.vertical, 6)
     }
 }
 

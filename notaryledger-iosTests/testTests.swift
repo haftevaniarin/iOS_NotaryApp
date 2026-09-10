@@ -33,6 +33,7 @@ struct ValidationAndAPITests {
         #expect(request.url?.absoluteString == "https://api.example.test/api/support/contact")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer access-token")
+        #expect(request.value(forHTTPHeaderField: "Origin") == "https://api.example.test")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
 
         let object = try JSONSerialization.jsonObject(with: try #require(request.httpBody)) as? [String: Any]

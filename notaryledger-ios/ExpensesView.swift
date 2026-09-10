@@ -4,6 +4,7 @@ struct ExpensesView: View {
     @EnvironmentObject private var appState: AppState
     @State private var searchText = ""
     @State private var showForm = false
+    @State private var showReceiptExtraction = false
     @State private var editingExpense: Expense?
     @State private var deletingExpense: Expense?
     @State private var errorMessage = ""
@@ -18,59 +19,50 @@ struct ExpensesView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            List {
-                if !errorMessage.isEmpty {
-                    Section {
-                        ErrorBanner(message: errorMessage)
-                    }
-                    .listRowBackground(Color.clear)
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Expenses", subtitle: "Search, log, edit, and review deductible business costs.")
+                    ErrorBanner(message: errorMessage)
 
-                if filteredExpenses.isEmpty {
-                    Section {
-                        EmptyStateView(title: "No expenses found", systemImage: "creditcard", message: "Track supplies, software, mileage, and business costs.")
+                    NLTextField(title: "Search expenses", text: $searchText)
+                        .nlPanel()
+
+                    HStack(spacing: NLSpacing.md) {
+                        Button {
+                            showForm = true
+                        } label: {
+                            ActionPill(title: "Log Expense", systemImage: "plus")
+                        }
+                        Button {
+                            showReceiptExtraction = true
+                        } label: {
+                            ActionPill(title: "Receipt Scan", systemImage: "doc.viewfinder")
+                        }
                     }
-                    .listRowBackground(Color.clear)
-                } else {
-                    Section("Expenses") {
+
+                    if appState.isLoading {
+                        ProgressView("Loading expenses...")
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 32)
+                    }
+
+                    if filteredExpenses.isEmpty {
+                        EmptyStateView(title: "No expenses found", systemImage: "creditcard", message: "Track supplies, software, mileage, and business costs.")
+                    } else {
+                        SectionHeader(title: "Expenses")
                         ForEach(filteredExpenses) { expense in
-                            ExpenseRow(expense: expense)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    editingExpense = expense
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        deletingExpense = expense
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                    Button {
-                                        editingExpense = expense
-                                    } label: {
-                                        Label("Edit", systemImage: "pencil")
-                                    }
-                                    .tint(NLColor.brass)
-                                }
+                            ExpenseCard(
+                                expense: expense,
+                                onEdit: { editingExpense = expense },
+                                onDelete: { deletingExpense = expense }
+                            )
                         }
                     }
                 }
+                .padding(NLSpacing.lg)
             }
-            .scrollContentBackground(.hidden)
-            .searchable(text: $searchText, prompt: "Search expenses")
             .refreshable {
                 await appState.refreshAll()
-            }
-        }
-        .navigationTitle("Expenses")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showForm = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("Add expense")
             }
         }
         .sheet(isPresented: $showForm) {
@@ -101,6 +93,9 @@ struct ExpensesView: View {
                 Task { await delete(expense) }
             }
         }
+        .sheet(isPresented: $showReceiptExtraction) {
+            ReceiptExtractionSheet()
+        }
     }
 
     private func delete(_ expense: Expense) async {
@@ -113,34 +108,48 @@ struct ExpensesView: View {
     }
 }
 
-struct ExpenseRow: View {
+struct ExpenseCard: View {
     let expense: Expense
+    let onEdit: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: NLSpacing.md) {
-            VStack(alignment: .leading, spacing: NLSpacing.xs) {
-                Text(expense.description)
-                    .font(.headline)
-                    .foregroundColor(NLColor.ink)
-                    .lineLimit(1)
-                Text(expense.category)
-                    .font(.subheadline)
-                    .foregroundColor(NLColor.muted)
-                Text(DateParser.date(from: expense.date).map { Formatters.displayDate.string(from: $0) } ?? expense.date)
-                    .font(.caption)
-                    .foregroundColor(NLColor.muted)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: NLSpacing.xs) {
-                Text(expense.amount.currencyString)
-                    .font(.headline)
-                    .foregroundColor(NLColor.navy)
-                Text("\(Int(expense.businessUsePercent))% business")
-                    .font(.caption)
-                    .foregroundColor(NLColor.brass)
+        NLCard {
+            VStack(alignment: .leading, spacing: NLSpacing.md) {
+                HStack(alignment: .top, spacing: NLSpacing.md) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(expense.description)
+                            .font(.headline)
+                            .foregroundColor(NLColor.ink)
+                            .lineLimit(1)
+                        Text(expense.category)
+                            .font(.subheadline)
+                            .foregroundColor(NLColor.muted)
+                    }
+                    Spacer()
+                    Text(expense.amount.currencyString)
+                        .font(.headline)
+                        .foregroundColor(NLColor.navy)
+                }
+
+                DetailRow(label: "Date", value: DateParser.date(from: expense.date).map { Formatters.displayDate.string(from: $0) } ?? expense.date)
+                DetailRow(label: "Deductible", value: expense.businessUsePercent > 0 ? "Yes, \(Int(expense.businessUsePercent))%" : "No")
+
+                HStack(spacing: NLSpacing.sm) {
+                    Button(action: onEdit) {
+                        Image(systemName: "pencil")
+                            .frame(width: 36, height: 36)
+                    }
+                    Spacer()
+                    Button(role: .destructive, action: onDelete) {
+                        Image(systemName: "trash")
+                            .frame(width: 36, height: 36)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(NLColor.navy)
             }
         }
-        .padding(.vertical, 6)
     }
 }
 
@@ -153,6 +162,7 @@ struct ExpenseFormView: View {
     @State private var category = "Supplies"
     @State private var description = ""
     @State private var amount = ""
+    @State private var deductible = true
     @State private var businessUsePercent = 100.0
     @State private var errorMessage = ""
     @State private var isSaving = false
@@ -173,6 +183,8 @@ struct ExpenseFormView: View {
                     TextField("Description", text: $description)
                     TextField("Amount", text: $amount)
                         .keyboardType(.decimalPad)
+                    Toggle("Deductible", isOn: $deductible)
+                        .tint(NLColor.navy)
                     VStack(alignment: .leading) {
                         HStack {
                             Text("Business use")
@@ -181,6 +193,7 @@ struct ExpenseFormView: View {
                                 .foregroundColor(NLColor.muted)
                         }
                         Slider(value: $businessUsePercent, in: 0...100, step: 5)
+                            .disabled(!deductible)
                     }
                 }
 
@@ -217,6 +230,7 @@ struct ExpenseFormView: View {
         category = expense.category.isEmpty ? "Other" : expense.category
         description = expense.description
         amount = String(format: "%.2f", expense.amount)
+        deductible = expense.businessUsePercent > 0
         businessUsePercent = expense.businessUsePercent
     }
 
@@ -236,7 +250,7 @@ struct ExpenseFormView: View {
             category: category,
             description: description.trimmingCharacters(in: .whitespacesAndNewlines),
             amount: amountValue,
-            businessUsePercent: businessUsePercent
+            businessUsePercent: deductible ? businessUsePercent : 0
         )
 
         isSaving = true
@@ -247,5 +261,32 @@ struct ExpenseFormView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+struct ReceiptExtractionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var statusMessage = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: NLSpacing.lg) {
+            ScreenTitleBlock(title: "Receipt Extraction", subtitle: "Upload or capture a receipt image to extract expense details.")
+            BannerView(kind: .info, message: "Receipt extraction maps category, amount, date, and deductible fields before you save.")
+            BannerView(kind: .success, message: statusMessage)
+
+            Button {
+                statusMessage = "Image extraction preview ready."
+            } label: {
+                Label("Choose Receipt Image", systemImage: "photo")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+
+            Button("Close") {
+                dismiss()
+            }
+            .buttonStyle(SecondaryButtonStyle())
+        }
+        .padding()
+        .presentationDetents([.medium])
     }
 }

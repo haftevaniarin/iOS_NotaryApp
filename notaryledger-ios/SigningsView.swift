@@ -5,8 +5,11 @@ struct SigningsView: View {
     @State private var searchText = ""
     @State private var selectedStatus: SigningStatus?
     @State private var showForm = false
+    @State private var showImport = false
     @State private var editingOrder: SigningOrder?
     @State private var deletingOrder: SigningOrder?
+    @State private var mileageOrder: SigningOrder?
+    @State private var invoiceOrder: SigningOrder?
     @State private var errorMessage = ""
 
     private var filteredOrders: [SigningOrder] {
@@ -24,70 +27,62 @@ struct SigningsView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            List {
-                if !errorMessage.isEmpty {
-                    Section {
-                        ErrorBanner(message: errorMessage)
-                    }
-                    .listRowBackground(Color.clear)
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Signings", subtitle: "Search, filter, import, and manage signing orders.")
+                    ErrorBanner(message: errorMessage)
 
-                Section {
-                    Picker("Status", selection: $selectedStatus) {
-                        Text("All").tag(SigningStatus?.none)
-                        ForEach(SigningStatus.allCases) { status in
-                            Text(status.rawValue).tag(Optional(status))
+                    VStack(alignment: .leading, spacing: NLSpacing.md) {
+                        NLTextField(title: "Search", text: $searchText)
+                        Picker("Status", selection: $selectedStatus) {
+                            Text("All").tag(SigningStatus?.none)
+                            ForEach(SigningStatus.allCases) { status in
+                                Text(status.rawValue).tag(Optional(status))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(NLColor.navy)
+                    }
+                    .nlPanel()
+
+                    HStack(spacing: NLSpacing.md) {
+                        Button {
+                            showForm = true
+                        } label: {
+                            ActionPill(title: "New Signing", systemImage: "plus")
+                        }
+                        Button {
+                            showImport = true
+                        } label: {
+                            ActionPill(title: "Import", systemImage: "square.and.arrow.down")
                         }
                     }
-                    .pickerStyle(.menu)
-                }
-                .listRowBackground(NLColor.panel)
 
-                if filteredOrders.isEmpty {
-                    Section {
+                    if appState.isLoading {
+                        ProgressView("Loading signings...")
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 32)
+                    }
+
+                    if filteredOrders.isEmpty {
                         EmptyStateView(title: "No signings found", systemImage: "doc.text.magnifyingglass", message: "Adjust search or create a new signing order.")
-                    }
-                    .listRowBackground(Color.clear)
-                } else {
-                    Section("Signing Orders") {
+                    } else {
+                        SectionHeader(title: "Signing Orders")
                         ForEach(filteredOrders) { order in
-                            NavigationLink {
-                                SigningOrderDetailView(order: order)
-                            } label: {
-                                SigningOrderListRow(order: order)
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    deletingOrder = order
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                Button {
-                                    editingOrder = order
-                                } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                .tint(NLColor.brass)
-                            }
+                            SigningOrderCard(
+                                order: order,
+                                onEdit: { editingOrder = order },
+                                onMileage: { mileageOrder = order },
+                                onInvoice: { invoiceOrder = order },
+                                onDelete: { deletingOrder = order }
+                            )
                         }
                     }
                 }
+                .padding(NLSpacing.lg)
             }
-            .scrollContentBackground(.hidden)
-            .searchable(text: $searchText, prompt: "Search customer, payer, signer, invoice")
             .refreshable {
                 await appState.refreshAll()
-            }
-        }
-        .navigationTitle("Signings")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showForm = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("Add signing")
             }
         }
         .sheet(isPresented: $showForm) {
@@ -99,6 +94,9 @@ struct SigningsView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showImport) {
+            ImportSigningsSheet()
         }
         .sheet(item: $editingOrder) { order in
             NavigationStack {
@@ -118,6 +116,14 @@ struct SigningsView: View {
                 Task { await delete(order) }
             }
         }
+        .sheet(item: $mileageOrder) { order in
+            MileageTravelSheet(order: order) { mileage, travelFee in
+                try await updateTravel(order, mileage: mileage, travelFee: travelFee)
+            }
+        }
+        .sheet(item: $invoiceOrder) { order in
+            GenerateInvoiceSheet(order: order)
+        }
     }
 
     private func delete(_ order: SigningOrder) async {
@@ -128,33 +134,90 @@ struct SigningsView: View {
             errorMessage = error.localizedDescription
         }
     }
+
+    private func updateTravel(_ order: SigningOrder, mileage: Double?, travelFee: Double?) async throws {
+        let payload = SigningOrderPayload(
+            customerName: order.customerName,
+            payerName: order.payerName,
+            signerName: order.signerName,
+            signingType: order.signingType,
+            date: order.date,
+            time: order.time,
+            fee: order.fee,
+            notarialActFee: order.notarialActFee,
+            paid: order.paid,
+            paidDate: order.paidDate,
+            invoiceNumber: order.invoiceNumber,
+            notes: order.notes,
+            mileage: mileage,
+            travelFee: travelFee,
+            status: order.normalizedStatus
+        )
+        let updated = try await APIService.shared.updateOrder(orderId: order.id, order: payload)
+        await MainActor.run {
+            appState.upsertOrder(updated)
+        }
+    }
 }
 
-struct SigningOrderListRow: View {
+struct SigningOrderCard: View {
     let order: SigningOrder
+    let onEdit: () -> Void
+    let onMileage: () -> Void
+    let onInvoice: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: NLSpacing.sm) {
-            HStack {
-                Text(order.customerName)
-                    .font(.headline)
-                    .foregroundColor(NLColor.ink)
-                Spacer()
-                StatusBadge(status: order.normalizedStatus)
+        NLCard {
+            VStack(alignment: .leading, spacing: NLSpacing.md) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(order.customerName)
+                            .font(.headline)
+                            .foregroundColor(NLColor.ink)
+                            .lineLimit(1)
+                        Text("Signer: \(order.signerName)")
+                            .font(.subheadline)
+                            .foregroundColor(NLColor.muted)
+                    }
+                    Spacer()
+                    StatusBadge(status: order.normalizedStatus)
+                }
+
+                DetailRow(label: "Date", value: [order.displayDate, order.time].compactMap { $0 }.joined(separator: " at "))
+                DetailRow(label: "Fee", value: order.fee.currencyString)
+                DetailRow(label: "Invoice", value: order.invoiceNumber)
+                DetailRow(label: "Travel", value: travelSummary)
+
+                HStack(spacing: NLSpacing.sm) {
+                    Button(action: onEdit) {
+                        Image(systemName: "pencil")
+                            .frame(width: 36, height: 36)
+                    }
+                    Button(action: onMileage) {
+                        Image(systemName: "car")
+                            .frame(width: 36, height: 36)
+                    }
+                    Button(action: onInvoice) {
+                        Image(systemName: "doc.richtext")
+                            .frame(width: 36, height: 36)
+                    }
+                    Spacer()
+                    Button(role: .destructive, action: onDelete) {
+                        Image(systemName: "trash")
+                            .frame(width: 36, height: 36)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(NLColor.navy)
             }
-            Text("Signer: \(order.signerName)")
-                .font(.subheadline)
-                .foregroundColor(NLColor.muted)
-            HStack {
-                Text([order.displayDate, order.time].compactMap { $0 }.joined(separator: " at "))
-                Spacer()
-                Text(order.fee.currencyString)
-                    .fontWeight(.semibold)
-                    .foregroundColor(NLColor.navy)
-            }
-            .font(.subheadline)
         }
-        .padding(.vertical, 6)
+    }
+
+    private var travelSummary: String {
+        let miles = order.mileage.map { String(format: "%.1f mi", $0) } ?? "-"
+        let fee = order.travelFee?.currencyString ?? "-"
+        return "\(miles) / \(fee)"
     }
 }
 
@@ -412,5 +475,217 @@ struct SigningOrderFormView: View {
     private func nilIfBlank(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+struct ImportSigningsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var rawText = ""
+    @State private var message = ""
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ParchmentBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                        ScreenTitleBlock(title: "Import Signings", subtitle: "Paste signing order text to review before creating ledger entries.")
+
+                        NLCard {
+                            VStack(alignment: .leading, spacing: NLSpacing.md) {
+                                FieldLabel(text: "Order text")
+                                TextEditor(text: $rawText)
+                                    .frame(minHeight: 180)
+                                    .padding(8)
+                                    .background(Color.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .stroke(NLColor.line, lineWidth: 1)
+                                    )
+                                BannerView(kind: .info, message: "Imported signings should be reviewed before saving.")
+                                BannerView(kind: .success, message: message)
+                            }
+                        }
+                    }
+                    .padding(NLSpacing.lg)
+                }
+            }
+            .navigationTitle("Import Signings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Review") {
+                        message = rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? ""
+                            : "Import preview ready."
+                    }
+                    .disabled(rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+}
+
+struct MileageTravelSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let order: SigningOrder
+    let onSave: (Double?, Double?) async throws -> Void
+
+    @State private var mileage = ""
+    @State private var travelFee = ""
+    @State private var errorMessage = ""
+    @State private var showClearConfirmation = false
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ParchmentBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                        ScreenTitleBlock(title: "Mileage & Travel", subtitle: order.customerName)
+                        ErrorBanner(message: errorMessage)
+
+                        NLCard {
+                            VStack(spacing: NLSpacing.md) {
+                                NLTextField(title: "Mileage", text: $mileage, keyboardType: .decimalPad)
+                                NLTextField(title: "Travel fee", text: $travelFee, keyboardType: .decimalPad)
+                                Button(role: .destructive) {
+                                    showClearConfirmation = true
+                                } label: {
+                                    Label("Clear Mileage", systemImage: "xmark.circle")
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .padding(NLSpacing.lg)
+                }
+            }
+            .navigationTitle("Travel")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(isSaving ? "Saving..." : "Save") {
+                        Task { await save() }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .confirmationDialog("Clear mileage and travel fee?", isPresented: $showClearConfirmation) {
+            Button("Clear Mileage", role: .destructive) {
+                mileage = ""
+                travelFee = ""
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .onAppear {
+            mileage = order.mileage.map { String(format: "%.1f", $0) } ?? ""
+            travelFee = order.travelFee.map { String(format: "%.2f", $0) } ?? ""
+        }
+    }
+
+    private func save() async {
+        errorMessage = ""
+        let mileageValue = optionalDouble(mileage)
+        let travelValue = optionalDouble(travelFee)
+        guard mileageValue != nil || mileage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              travelValue != nil || travelFee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            errorMessage = "Enter valid travel values."
+            return
+        }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await onSave(mileageValue, travelValue)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func optionalDouble(_ value: String) -> Double? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil }
+        return Double(trimmed)
+    }
+}
+
+struct GenerateInvoiceSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let order: SigningOrder
+    @State private var invoice: Invoice?
+    @State private var errorMessage = ""
+    @State private var isGenerating = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ParchmentBackground()
+                VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Generate Invoice PDF", subtitle: order.customerName)
+                    ErrorBanner(message: errorMessage)
+
+                    NLCard {
+                        VStack(spacing: NLSpacing.md) {
+                            DetailRow(label: "Signer", value: order.signerName)
+                            DetailRow(label: "Signing date", value: order.displayDate)
+                            DetailRow(label: "Balance", value: order.fee.currencyString)
+                        }
+                    }
+
+                    if let invoice {
+                        NLCard {
+                            VStack(alignment: .leading, spacing: NLSpacing.md) {
+                                DetailRow(label: "Invoice", value: invoice.invoiceNumber)
+                                DetailRow(label: "Balance", value: invoice.balanceDue.currencyString)
+                                if let pdfURL = invoice.pdfURL, let url = URL(string: pdfURL) {
+                                    Link("Open PDF", destination: url)
+                                }
+                            }
+                        }
+                    }
+
+                    Button(isGenerating ? "Generating..." : "Generate Invoice PDF") {
+                        Task { await generate() }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(isGenerating)
+
+                    Spacer()
+                }
+                .padding(NLSpacing.lg)
+            }
+            .navigationTitle("Invoice PDF")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func generate() async {
+        errorMessage = ""
+        isGenerating = true
+        defer { isGenerating = false }
+        do {
+            invoice = try await APIService.shared.requestInvoice(
+                InvoiceRequest(customerName: order.customerName, orderIds: [order.id])
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
