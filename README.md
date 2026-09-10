@@ -13,7 +13,7 @@ Native SwiftUI client for the Notary Ledger backend and web app.
 `APIConfig.swift` selects the API base URL with Swift compile flags:
 
 - Local: `http://localhost:4000`
-- Staging: `https://staging.notaryledger.org` with `STAGING`
+- Staging: `https://notaryledger-staging-api.onrender.com` with `STAGING`
 - Production: `https://notaryledger.org` with `PRODUCTION`
 
 In Xcode, add the flag under Build Settings, Swift Compiler - Custom Flags, Other Swift Flags:
@@ -58,25 +58,34 @@ The unit tests cover:
 Implemented primary endpoints:
 
 - `POST /api/auth/login`
-- `POST /api/auth/signup`
+- `POST /api/auth/register`
 - `POST /api/auth/forgot-password`
 - `POST /api/auth/reset-password`
 - `POST /api/auth/verify-email`
 - `POST /api/auth/refresh`
+- `GET /api/auth/me`
+- `PATCH /api/auth/me`
+- `PATCH /api/auth/password`
+- `POST /api/auth/logout`
 - `GET /api/orders`
 - `POST /api/orders`
 - `PUT /api/orders/:id`
 - `DELETE /api/orders/:id`
+- `PATCH /api/orders/:id/mileage`
 - `GET /api/expenses`
 - `POST /api/expenses`
 - `PUT /api/expenses/:id`
 - `DELETE /api/expenses/:id`
+- `GET /api/credentials`
+- `PUT /api/credentials`
 - `GET /api/reports/tax-summary?taxYear=YYYY`
-- `POST /api/invoices`
-- `PUT /api/profile`
-- `PUT /api/profile/password`
-- `POST /api/account/export`
-- `DELETE /api/account`
+- `GET /api/stripe/billing-status`
+- `POST /api/stripe/checkout-session`
+- `POST /api/stripe/customer-portal-session`
+- `POST /api/stripe/sync-checkout-session`
+- `POST /api/account/data-export`
+- `POST /api/account/deletion-request`
+- `POST /api/account/deletion-cancel`
 - `POST /api/support/contact`
 - `GET /api/config/maintenance`
 

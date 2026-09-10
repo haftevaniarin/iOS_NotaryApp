@@ -139,15 +139,17 @@ struct InvoicesView: View {
         isGenerating = true
         defer { isGenerating = false }
 
-        let request = InvoiceRequest(
-            customerName: customer.displayName,
-            orderIds: customer.invoiceCandidates.map(\.id)
-        )
-
-        do {
-            generatedInvoice = try await APIService.shared.requestInvoice(request)
-        } catch {
-            errorMessage = error.localizedDescription
+        let lineItems = customer.invoiceCandidates.map { order in
+            InvoiceLineItem(id: order.id, description: order.signingType ?? "Signing", amount: order.fee)
         }
+        generatedInvoice = Invoice(
+            id: UUID().uuidString,
+            invoiceNumber: "Preview",
+            payerName: customer.displayName,
+            customerName: customer.displayName,
+            lineItems: lineItems,
+            balanceDue: lineItems.reduce(0) { $0 + $1.amount },
+            pdfURL: nil
+        )
     }
 }

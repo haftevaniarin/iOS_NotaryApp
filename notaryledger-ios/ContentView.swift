@@ -257,7 +257,7 @@ struct LedgerSideMenu: View {
                 }
 
                 Button {
-                    appState.signOut()
+                    Task { await appState.signOut() }
                 } label: {
                     Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
                         .font(.subheadline.weight(.semibold))
@@ -484,7 +484,12 @@ struct SignUpView: View {
         isSubmitting = true
         defer { isSubmitting = false }
         do {
-            let response = try await APIService.shared.signup(fullName: fullName, email: email, password: password)
+            let response = try await APIService.shared.register(
+                firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
+                lastName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
+                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                password: password
+            )
             await appState.didAuthenticate(response)
         } catch {
             errorMessage = error.localizedDescription

@@ -1,7 +1,8 @@
 import Foundation
 
 struct SignupRequest: Codable {
-    let fullName: String
+    let firstName: String
+    let lastName: String
     let email: String
     let password: String
 }
@@ -35,23 +36,77 @@ struct AuthUser: Codable, Equatable {
     var canAccessAdminAudit: Bool {
         isAdmin == true || role?.localizedCaseInsensitiveContains("admin") == true
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case mongoId = "_id"
+        case fullName
+        case name
+        case email
+        case firstName
+        case lastName
+        case role
+        case isAdmin
+    }
+
+    init(
+        id: String,
+        fullName: String,
+        email: String,
+        firstName: String? = nil,
+        lastName: String? = nil,
+        role: String? = nil,
+        isAdmin: Bool? = nil
+    ) {
+        self.id = id
+        self.fullName = fullName
+        self.email = email
+        self.firstName = firstName
+        self.lastName = lastName
+        self.role = role
+        self.isAdmin = isAdmin
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+            ?? container.decodeIfPresent(String.self, forKey: .mongoId)
+            ?? UUID().uuidString
+        email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
+        firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
+        lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
+        let decodedFullName = try container.decodeIfPresent(String.self, forKey: .fullName)
+            ?? container.decodeIfPresent(String.self, forKey: .name)
+        fullName = decodedFullName
+            ?? [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        role = try container.decodeIfPresent(String.self, forKey: .role)
+        isAdmin = try container.decodeIfPresent(Bool.self, forKey: .isAdmin)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(fullName, forKey: .fullName)
+        try container.encode(email, forKey: .email)
+        try container.encodeIfPresent(firstName, forKey: .firstName)
+        try container.encodeIfPresent(lastName, forKey: .lastName)
+        try container.encodeIfPresent(role, forKey: .role)
+        try container.encodeIfPresent(isAdmin, forKey: .isAdmin)
+    }
 }
 
 struct AuthResponse: Decodable {
     let token: String
-    let refreshToken: String?
-    let user: AuthUser
+    let user: AuthUser?
 
     enum CodingKeys: String, CodingKey {
         case token
         case accessToken
-        case refreshToken
         case user
     }
 
-    init(token: String, refreshToken: String? = nil, user: AuthUser) {
+    init(token: String, user: AuthUser? = nil) {
         self.token = token
-        self.refreshToken = refreshToken
         self.user = user
     }
 
@@ -59,8 +114,7 @@ struct AuthResponse: Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         token = try container.decodeIfPresent(String.self, forKey: .token)
             ?? container.decode(String.self, forKey: .accessToken)
-        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
-        user = try container.decode(AuthUser.self, forKey: .user)
+        user = try container.decodeIfPresent(AuthUser.self, forKey: .user)
     }
 }
 
@@ -377,6 +431,36 @@ struct ExpensePayload: Codable, Equatable {
     var description: String
     var amount: Double
     var businessUsePercent: Double
+}
+
+struct MileagePayload: Codable, Equatable {
+    var mileage: Double?
+    var travelFee: Double?
+}
+
+struct Credentials: Codable, Equatable {
+    var commissionNumber: String?
+    var commissionExpiration: String?
+    var bondExpiration: String?
+    var insuranceExpiration: String?
+}
+
+struct CredentialsPayload: Codable, Equatable {
+    var commissionNumber: String?
+    var commissionExpiration: String?
+    var bondExpiration: String?
+    var insuranceExpiration: String?
+}
+
+struct BillingStatusPayload: Codable, Equatable {
+    var status: String?
+    var plan: String?
+    var subscriptionStatus: String?
+}
+
+struct BillingSession: Codable, Equatable {
+    var url: String?
+    var sessionId: String?
 }
 
 struct CustomerSummary: Identifiable, Equatable {

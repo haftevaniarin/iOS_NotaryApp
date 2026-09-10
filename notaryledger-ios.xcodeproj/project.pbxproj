@@ -16,38 +16,38 @@
 			containerPortal = 84C779C32F6A3DF0007FD325 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 84C779CA2F6A3DF0007FD325;
-			remoteInfo = notaryledger-ios;
+			remoteInfo = "notaryledger-ios";
 		};
 		84C779E32F6A3DF1007FD325 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 84C779C32F6A3DF0007FD325 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 84C779CA2F6A3DF0007FD325;
-			remoteInfo = notaryledger-ios;
+			remoteInfo = "notaryledger-ios";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		84C779CB2F6A3DF0007FD325 /* notaryledger-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = notaryledger-ios.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		84C779D82F6A3DF1007FD325 /* notaryledger-iosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = notaryledger-iosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		84C779E22F6A3DF1007FD325 /* notaryledger-iosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = notaryledger-iosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		84C779CB2F6A3DF0007FD325 /* notaryledger-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "notaryledger-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		84C779D82F6A3DF1007FD325 /* notaryledger-iosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "notaryledger-iosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		84C779E22F6A3DF1007FD325 /* notaryledger-iosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "notaryledger-iosUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		84DD26352F955C610015B78C /* APIConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfig.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		84C779CD2F6A3DF0007FD325 /* notaryledger-ios */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = notaryledger-ios;
+			path = "notaryledger-ios";
 			sourceTree = "<group>";
 		};
 		84C779DB2F6A3DF1007FD325 /* notaryledger-iosTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = notaryledger-iosTests;
+			path = "notaryledger-iosTests";
 			sourceTree = "<group>";
 		};
 		84C779E52F6A3DF1007FD325 /* notaryledger-iosUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = notaryledger-iosUITests;
+			path = "notaryledger-iosUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -116,10 +116,10 @@
 			fileSystemSynchronizedGroups = (
 				84C779CD2F6A3DF0007FD325 /* notaryledger-ios */,
 			);
-			name = notaryledger-ios;
+			name = "notaryledger-ios";
 			packageProductDependencies = (
 			);
-			productName = notaryledger-ios;
+			productName = "notaryledger-ios";
 			productReference = 84C779CB2F6A3DF0007FD325 /* notaryledger-ios.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -139,10 +139,10 @@
 			fileSystemSynchronizedGroups = (
 				84C779DB2F6A3DF1007FD325 /* notaryledger-iosTests */,
 			);
-			name = notaryledger-iosTests;
+			name = "notaryledger-iosTests";
 			packageProductDependencies = (
 			);
-			productName = notaryledger-iosTests;
+			productName = "notaryledger-iosTests";
 			productReference = 84C779D82F6A3DF1007FD325 /* notaryledger-iosTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
@@ -162,10 +162,10 @@
 			fileSystemSynchronizedGroups = (
 				84C779E52F6A3DF1007FD325 /* notaryledger-iosUITests */,
 			);
-			name = notaryledger-iosUITests;
+			name = "notaryledger-iosUITests";
 			packageProductDependencies = (
 			);
-			productName = notaryledger-iosUITests;
+			productName = "notaryledger-iosUITests";
 			productReference = 84C779E22F6A3DF1007FD325 /* notaryledger-iosUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
@@ -333,7 +333,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG STAGING $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -556,7 +556,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = notaryledger-ios;
+				TEST_TARGET_NAME = "notaryledger-ios";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Debug;
@@ -581,7 +581,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = notaryledger-ios;
+				TEST_TARGET_NAME = "notaryledger-ios";
 				XROS_DEPLOYMENT_TARGET = 26.1;
 			};
 			name = Release;

@@ -136,24 +136,7 @@ struct SigningsView: View {
     }
 
     private func updateTravel(_ order: SigningOrder, mileage: Double?, travelFee: Double?) async throws {
-        let payload = SigningOrderPayload(
-            customerName: order.customerName,
-            payerName: order.payerName,
-            signerName: order.signerName,
-            signingType: order.signingType,
-            date: order.date,
-            time: order.time,
-            fee: order.fee,
-            notarialActFee: order.notarialActFee,
-            paid: order.paid,
-            paidDate: order.paidDate,
-            invoiceNumber: order.invoiceNumber,
-            notes: order.notes,
-            mileage: mileage,
-            travelFee: travelFee,
-            status: order.normalizedStatus
-        )
-        let updated = try await APIService.shared.updateOrder(orderId: order.id, order: payload)
+        let updated = try await APIService.shared.updateOrderMileage(orderId: order.id, mileage: mileage, travelFee: travelFee)
         await MainActor.run {
             appState.upsertOrder(updated)
         }
@@ -680,12 +663,16 @@ struct GenerateInvoiceSheet: View {
         errorMessage = ""
         isGenerating = true
         defer { isGenerating = false }
-        do {
-            invoice = try await APIService.shared.requestInvoice(
-                InvoiceRequest(customerName: order.customerName, orderIds: [order.id])
-            )
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        invoice = Invoice(
+            id: UUID().uuidString,
+            invoiceNumber: "Preview",
+            payerName: order.payerDisplayName,
+            customerName: order.customerName,
+            lineItems: [
+                InvoiceLineItem(id: order.id, description: order.signingType ?? "Signing", amount: order.fee)
+            ],
+            balanceDue: order.fee,
+            pdfURL: nil
+        )
     }
 }

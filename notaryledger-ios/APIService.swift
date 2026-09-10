@@ -34,9 +34,17 @@ final class APIService {
     private var cachedMaintenance = MaintenanceStatus.disabled
     private let maintenanceTTL: TimeInterval = 60
 
-    init(baseURL: String = APIConfig.baseURL, session: URLSession = .shared) {
+    init(baseURL: String = APIConfig.baseURL, session: URLSession? = nil) {
         self.baseURL = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        self.session = session
+        self.session = session ?? URLSession(configuration: Self.defaultSessionConfiguration())
+    }
+
+    static func defaultSessionConfiguration() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.default
+        configuration.httpShouldSetCookies = true
+        configuration.httpCookieAcceptPolicy = .always
+        configuration.httpCookieStorage = .shared
+        return configuration
     }
 
     func makeRequest(
@@ -46,7 +54,8 @@ final class APIService {
         body: Data? = nil,
         queryItems: [URLQueryItem] = []
     ) throws -> URLRequest {
-        guard var components = URLComponents(string: baseURL + path) else {
+        let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
+        guard var components = URLComponents(string: baseURL + normalizedPath) else {
             throw APIError.invalidURL
         }
         if !queryItems.isEmpty {
@@ -60,7 +69,6 @@ final class APIService {
         request.httpMethod = method
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(baseURL, forHTTPHeaderField: "Origin")
         if body != nil {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
@@ -71,18 +79,66 @@ final class APIService {
         return request
     }
 
+    func makeMultipartRequest(
+        path: String,
+        method: String = "POST",
+        token: String? = nil,
+        formFields: [String: String] = [:],
+        files: [MultipartFile]
+    ) throws -> URLRequest {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+
+        for (name, value) in formFields {
+            body.append("--\(boundary)\r\n")
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+            body.append("\(value)\r\n")
+        }
+
+        for file in files {
+            body.append("--\(boundary)\r\n")
+            body.append("Content-Disposition: form-data; name=\"\(file.fieldName)\"; filename=\"\(file.fileName)\"\r\n")
+            body.append("Content-Type: \(file.mimeType)\r\n\r\n")
+            body.append(file.data)
+            body.append("\r\n")
+        }
+
+        body.append("--\(boundary)--\r\n")
+
+        var request = try makeRequest(path: path, method: method, token: token, body: body)
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        return request
+    }
+
     func encodedBody<T: Encodable>(_ payload: T) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(payload)
     }
 
-    func signup(fullName: String, email: String, password: String) async throws -> AuthResponse {
-        let payload = SignupRequest(fullName: fullName, email: email, password: password)
-        let request = try makeRequest(path: "/api/auth/signup", method: "POST", body: encodedBody(payload))
+    func encodedMutableBody<T: Encodable>(_ payload: T) throws -> Data {
+        let data = try encodedBody(payload)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let sanitized = Self.sanitizedMutablePayload(object)
+        return try JSONSerialization.data(withJSONObject: sanitized, options: [.sortedKeys])
+    }
+
+    func register(firstName: String, lastName: String, email: String, password: String) async throws -> AuthResponse {
+        let payload = SignupRequest(firstName: firstName, lastName: lastName, email: email, password: password)
+        let request = try makeRequest(path: "/api/auth/register", method: "POST", body: encodedMutableBody(payload))
         let response = try await perform(request, decodeTo: AuthResponse.self)
         SessionStorage.saveSession(response)
         return response
+    }
+
+    func signup(fullName: String, email: String, password: String) async throws -> AuthResponse {
+        let parts = fullName.split(separator: " ", maxSplits: 1).map(String.init)
+        return try await register(
+            firstName: parts.first ?? "",
+            lastName: parts.dropFirst().first ?? "",
+            email: email,
+            password: password
+        )
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
@@ -91,6 +147,13 @@ final class APIService {
         let response = try await perform(request, decodeTo: AuthResponse.self)
         SessionStorage.saveSession(response)
         return response
+    }
+
+    func restoreSession() async throws -> AuthUser {
+        guard try await refreshSession() else {
+            throw APIError.unauthorized
+        }
+        return try await fetchCurrentUser()
     }
 
     func forgotPassword(email: String) async throws {
@@ -111,6 +174,13 @@ final class APIService {
         _ = try await perform(request, decodeTo: EmptyResponse.self)
     }
 
+    func fetchCurrentUser() async throws -> AuthUser {
+        let request = try await authenticatedRequest(path: "/api/auth/me", method: "GET")
+        let user = try await performAuthenticated(request, decodeTo: AuthUser.self)
+        SessionStorage.saveCurrentUser(user)
+        return user
+    }
+
     func fetchMaintenanceStatus() async -> MaintenanceStatus {
         do {
             let request = try makeRequest(path: APIConfig.maintenancePath, method: "GET")
@@ -128,12 +198,18 @@ final class APIService {
     }
 
     func createOrder(_ order: SigningOrderPayload) async throws -> SigningOrder {
-        let request = try await authenticatedRequest(path: "/api/orders", method: "POST", body: encodedBody(order))
+        let request = try await authenticatedRequest(path: "/api/orders", method: "POST", body: encodedMutableBody(order))
         return try await performAuthenticated(request, decodeTo: SigningOrder.self)
     }
 
     func updateOrder(orderId: String, order: SigningOrderPayload) async throws -> SigningOrder {
-        let request = try await authenticatedRequest(path: "/api/orders/\(orderId)", method: "PUT", body: encodedBody(order))
+        let request = try await authenticatedRequest(path: "/api/orders/\(orderId)", method: "PUT", body: encodedMutableBody(order))
+        return try await performAuthenticated(request, decodeTo: SigningOrder.self)
+    }
+
+    func updateOrderMileage(orderId: String, mileage: Double?, travelFee: Double?) async throws -> SigningOrder {
+        let payload = MileagePayload(mileage: mileage, travelFee: travelFee)
+        let request = try await authenticatedRequest(path: "/api/orders/\(orderId)/mileage", method: "PATCH", body: encodedMutableBody(payload))
         return try await performAuthenticated(request, decodeTo: SigningOrder.self)
     }
 
@@ -150,12 +226,12 @@ final class APIService {
     }
 
     func createExpense(_ expense: ExpensePayload) async throws -> Expense {
-        let request = try await authenticatedRequest(path: "/api/expenses", method: "POST", body: encodedBody(expense))
+        let request = try await authenticatedRequest(path: "/api/expenses", method: "POST", body: encodedMutableBody(expense))
         return try await performAuthenticated(request, decodeTo: Expense.self)
     }
 
     func updateExpense(expenseId: String, expense: ExpensePayload) async throws -> Expense {
-        let request = try await authenticatedRequest(path: "/api/expenses/\(expenseId)", method: "PUT", body: encodedBody(expense))
+        let request = try await authenticatedRequest(path: "/api/expenses/\(expenseId)", method: "PUT", body: encodedMutableBody(expense))
         return try await performAuthenticated(request, decodeTo: Expense.self)
     }
 
@@ -173,15 +249,9 @@ final class APIService {
         return try await performAuthenticated(request, decodeTo: TaxSummary.self)
     }
 
-    func requestInvoice(_ invoiceRequest: InvoiceRequest) async throws -> Invoice {
-        let request = try await authenticatedRequest(path: "/api/invoices", method: "POST", body: encodedBody(invoiceRequest))
-        return try await performAuthenticated(request, decodeTo: Invoice.self)
-    }
-
     func updateProfile(firstName: String, lastName: String) async throws -> AuthUser {
-        let fullName = [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ")
-        let body = try encodedBody(["firstName": firstName, "lastName": lastName, "fullName": fullName])
-        let request = try await authenticatedRequest(path: "/api/profile", method: "PUT", body: body)
+        let body = try encodedMutableBody(["firstName": firstName, "lastName": lastName])
+        let request = try await authenticatedRequest(path: "/api/auth/me", method: "PATCH", body: body)
         let user = try await performAuthenticated(request, decodeTo: AuthUser.self)
         SessionStorage.saveCurrentUser(user)
         return user
@@ -189,24 +259,71 @@ final class APIService {
 
     func changePassword(currentPassword: String, newPassword: String) async throws {
         let body = try encodedBody(["currentPassword": currentPassword, "newPassword": newPassword])
-        let request = try await authenticatedRequest(path: "/api/profile/password", method: "PUT", body: body)
+        let request = try await authenticatedRequest(path: "/api/auth/password", method: "PATCH", body: body)
         _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
     }
 
     func requestDataExport() async throws {
-        let request = try await authenticatedRequest(path: "/api/account/export", method: "POST")
+        let request = try await authenticatedRequest(path: "/api/account/data-export", method: "POST")
+        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+    }
+
+    func requestAccountDeletion() async throws {
+        let request = try await authenticatedRequest(path: "/api/account/deletion-request", method: "POST")
+        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+    }
+
+    func cancelAccountDeletion() async throws {
+        let request = try await authenticatedRequest(path: "/api/account/deletion-cancel", method: "POST")
         _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
     }
 
     func deleteAccount() async throws {
-        let request = try await authenticatedRequest(path: "/api/account", method: "DELETE")
-        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
-        SessionStorage.clearSession()
+        try await requestAccountDeletion()
     }
 
     func contactSupport(_ payload: SupportContactRequest) async throws {
-        let request = try await authenticatedRequest(path: "/api/support/contact", method: "POST", body: encodedBody(payload))
+        let request = try await authenticatedRequest(path: "/api/support/contact", method: "POST", body: encodedMutableBody(payload))
         _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+    }
+
+    func logout() async {
+        if let request = try? await authenticatedRequest(path: "/api/auth/logout", method: "POST") {
+            _ = try? await performAuthenticated(request, decodeTo: EmptyResponse.self)
+        }
+        SessionStorage.clearSession()
+        Self.clearSharedCookies(for: baseURL)
+    }
+
+    func fetchCredentials() async throws -> Credentials {
+        let request = try await authenticatedRequest(path: "/api/credentials", method: "GET")
+        return try await performAuthenticated(request, decodeTo: Credentials.self)
+    }
+
+    func updateCredentials(_ credentials: CredentialsPayload) async throws -> Credentials {
+        let request = try await authenticatedRequest(path: "/api/credentials", method: "PUT", body: encodedMutableBody(credentials))
+        return try await performAuthenticated(request, decodeTo: Credentials.self)
+    }
+
+    func fetchBillingStatus() async throws -> BillingStatusPayload {
+        let request = try await authenticatedRequest(path: "/api/stripe/billing-status", method: "GET")
+        return try await performAuthenticated(request, decodeTo: BillingStatusPayload.self)
+    }
+
+    func createCheckoutSession() async throws -> BillingSession {
+        let request = try await authenticatedRequest(path: "/api/stripe/checkout-session", method: "POST")
+        return try await performAuthenticated(request, decodeTo: BillingSession.self)
+    }
+
+    func createCustomerPortalSession() async throws -> BillingSession {
+        let request = try await authenticatedRequest(path: "/api/stripe/customer-portal-session", method: "POST")
+        return try await performAuthenticated(request, decodeTo: BillingSession.self)
+    }
+
+    func syncCheckoutSession(sessionId: String) async throws -> BillingStatusPayload {
+        let body = try encodedMutableBody(["sessionId": sessionId])
+        let request = try await authenticatedRequest(path: "/api/stripe/sync-checkout-session", method: "POST", body: body)
+        return try await performAuthenticated(request, decodeTo: BillingStatusPayload.self)
     }
 
     private func authenticatedRequest(
@@ -249,17 +366,13 @@ final class APIService {
     }
 
     private func refreshSession() async throws -> Bool {
-        guard let refreshToken = SessionStorage.getRefreshToken() else {
-            return false
-        }
-        let body = try encodedBody(["refreshToken": refreshToken])
-        let request = try makeRequest(path: "/api/auth/refresh", method: "POST", body: body)
+        let request = try makeRequest(path: "/api/auth/refresh", method: "POST")
         do {
             let response = try await perform(request, decodeTo: AuthResponse.self)
             SessionStorage.saveSession(response)
             return true
         } catch {
-            SessionStorage.clearSession()
+            SessionStorage.clearTokens()
             return false
         }
     }
@@ -293,7 +406,7 @@ final class APIService {
         return try decodeEnvelopeOrDirect(type, from: data)
     }
 
-    private func decodeEnvelopeOrDirect<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+    func decodeEnvelopeOrDirect<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         let decoder = JSONDecoder()
         if let direct = try? decoder.decode(T.self, from: data) {
             return direct
@@ -311,19 +424,73 @@ final class APIService {
         if let apiError = try? JSONDecoder().decode(BackendError.self, from: data) {
             return apiError.displayMessage
         }
-        return String(data: data, encoding: .utf8) ?? "The server could not complete the request."
+        return "The server could not complete the request."
+    }
+
+    static func sanitizedMutablePayload(_ value: Any) -> Any {
+        let unsafeKeys: Set<String> = [
+            "userId",
+            "ownerId",
+            "createdById",
+            "organizationId",
+            "role",
+            "isAdmin",
+            "passwordHash",
+            "emailVerifiedAt",
+            "createdAt",
+            "updatedAt"
+        ]
+
+        if let dictionary = value as? [String: Any] {
+            return dictionary.reduce(into: [String: Any]()) { result, pair in
+                guard !unsafeKeys.contains(pair.key) else { return }
+                result[pair.key] = sanitizedMutablePayload(pair.value)
+            }
+        }
+        if let array = value as? [Any] {
+            return array.map { sanitizedMutablePayload($0) }
+        }
+        return value
+    }
+
+    private static func clearSharedCookies(for baseURL: String) {
+        guard let url = URL(string: baseURL), let cookies = HTTPCookieStorage.shared.cookies(for: url) else { return }
+        cookies.forEach { HTTPCookieStorage.shared.deleteCookie($0) }
     }
 }
 
 private struct BackendError: Decodable {
+    struct ErrorPayload: Decodable {
+        let code: String?
+        let message: String?
+    }
+
     let message: String?
-    let error: String?
+    let error: ErrorPayload?
+    let errorText: String?
     let errors: [String]?
     let fieldErrors: [String: [String]]?
 
+    enum CodingKeys: String, CodingKey {
+        case message
+        case error
+        case errors
+        case fieldErrors
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        error = try? container.decodeIfPresent(ErrorPayload.self, forKey: .error)
+        errorText = try? container.decodeIfPresent(String.self, forKey: .error)
+        errors = try container.decodeIfPresent([String].self, forKey: .errors)
+        fieldErrors = try container.decodeIfPresent([String: [String]].self, forKey: .fieldErrors)
+    }
+
     var displayMessage: String {
         if let message, !message.isEmpty { return message }
-        if let error, !error.isEmpty { return error }
+        if let message = error?.message, !message.isEmpty { return message }
+        if let errorText, !errorText.isEmpty { return errorText }
         if let errors, !errors.isEmpty { return errors.joined(separator: "\n") }
         if let fieldErrors, !fieldErrors.isEmpty {
             return fieldErrors
@@ -332,6 +499,21 @@ private struct BackendError: Decodable {
                 .joined(separator: "\n")
         }
         return "The server could not complete the request."
+    }
+}
+
+struct MultipartFile {
+    var fieldName: String
+    var fileName: String
+    var mimeType: String
+    var data: Data
+}
+
+private extension Data {
+    mutating func append(_ string: String) {
+        if let data = string.data(using: .utf8) {
+            append(data)
+        }
     }
 }
 

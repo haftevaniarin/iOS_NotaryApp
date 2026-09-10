@@ -28,20 +28,32 @@ final class AppState: ObservableObject {
             route = .maintenance(maintenance)
             return
         }
-        route = SessionStorage.getAccessToken() == nil ? .auth : .app
-        if case .app = route {
+        do {
+            currentUser = try await api.restoreSession()
+            route = .app
             await refreshAll()
+        } catch {
+            signOutLocally()
         }
     }
 
     func didAuthenticate(_ response: AuthResponse) async {
         SessionStorage.saveSession(response)
-        currentUser = response.user
+        if let user = response.user {
+            currentUser = user
+        } else {
+            currentUser = try? await api.fetchCurrentUser()
+        }
         route = .app
         await refreshAll()
     }
 
-    func signOut() {
+    func signOut() async {
+        await api.logout()
+        signOutLocally()
+    }
+
+    func signOutLocally() {
         SessionStorage.clearSession()
         currentUser = nil
         orders = []
@@ -60,7 +72,7 @@ final class AppState: ObservableObject {
         } catch APIError.maintenance(let status) {
             route = .maintenance(status)
         } catch APIError.unauthorized {
-            signOut()
+            signOutLocally()
             errorMessage = "Please sign in again."
         } catch {
             errorMessage = error.localizedDescription

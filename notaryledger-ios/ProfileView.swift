@@ -82,7 +82,7 @@ struct ProfileView: View {
                             if deletionRequested {
                                 BannerView(kind: .warning, message: "Account deletion has been requested.")
                                 Button("Cancel Deletion Request") {
-                                    deletionRequested = false
+                                    Task { await cancelDeletionRequest() }
                                 }
                                 .buttonStyle(SecondaryButtonStyle())
                             } else {
@@ -108,7 +108,7 @@ struct ProfileView: View {
                             .buttonStyle(SecondaryButtonStyle())
 
                             Button("Sign Out") {
-                                appState.signOut()
+                                Task { await appState.signOut() }
                             }
                             .buttonStyle(SecondaryButtonStyle())
                         }
@@ -127,7 +127,7 @@ struct ProfileView: View {
                 title: "Request Account Deletion",
                 message: "Submit a request to delete your Notary Ledger account and ledger data?"
             ) {
-                deletionRequested = true
+                Task { await deleteAccount() }
             }
         }
         .onAppear {
@@ -168,8 +168,21 @@ struct ProfileView: View {
 
     private func deleteAccount() async {
         do {
-            try await APIService.shared.deleteAccount()
-            appState.signOut()
+            try await APIService.shared.requestAccountDeletion()
+            deletionRequested = true
+            successMessage = "Account deletion requested."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func cancelDeletionRequest() async {
+        errorMessage = ""
+        successMessage = ""
+        do {
+            try await APIService.shared.cancelAccountDeletion()
+            deletionRequested = false
+            successMessage = "Account deletion request canceled."
         } catch {
             errorMessage = error.localizedDescription
         }
