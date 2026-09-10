@@ -60,6 +60,7 @@ final class APIService {
         request.httpMethod = method
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(baseURL, forHTTPHeaderField: "Origin")
         if body != nil {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
