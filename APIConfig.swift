@@ -22,7 +22,7 @@ enum APIConfig {
         case .local:
             return "http://localhost:4000"
         case .staging:
-            return "https://notaryledger-staging-api.onrender.com"
+            return "https://api-stage.notaryledger.org"
         case .production:
             return "https://notaryledger.org"
         }

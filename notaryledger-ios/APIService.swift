@@ -123,15 +123,22 @@ final class APIService {
         return try JSONSerialization.data(withJSONObject: sanitized, options: [.sortedKeys])
     }
 
-    func register(firstName: String, lastName: String, email: String, password: String) async throws -> AuthResponse {
+    func register(firstName: String, lastName: String, email: String, password: String) async throws -> RegistrationResult {
+        clearCookiesForPublicAuth()
         let payload = SignupRequest(firstName: firstName, lastName: lastName, email: email, password: password)
-        let request = try makeRequest(path: "/api/auth/register", method: "POST", body: encodedMutableBody(payload))
-        let response = try await perform(request, decodeTo: AuthResponse.self)
-        SessionStorage.saveSession(response)
-        return response
+        var request = try makeRequest(path: "/api/auth/register", method: "POST", body: encodedMutableBody(payload))
+        request.timeoutInterval = 90
+        let response = try await perform(request, decodeTo: RegistrationResponse.self)
+        guard let result = response.result else {
+            throw APIError.invalidResponse
+        }
+        if case .authenticated(let authResponse) = result {
+            SessionStorage.saveSession(authResponse)
+        }
+        return result
     }
 
-    func signup(fullName: String, email: String, password: String) async throws -> AuthResponse {
+    func signup(fullName: String, email: String, password: String) async throws -> RegistrationResult {
         let parts = fullName.split(separator: " ", maxSplits: 1).map(String.init)
         return try await register(
             firstName: parts.first ?? "",
@@ -142,6 +149,7 @@ final class APIService {
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
+        clearCookiesForPublicAuth()
         let payload = LoginRequest(email: email, password: password)
         let request = try makeRequest(path: "/api/auth/login", method: "POST", body: encodedBody(payload))
         let response = try await perform(request, decodeTo: AuthResponse.self)
@@ -157,20 +165,30 @@ final class APIService {
     }
 
     func forgotPassword(email: String) async throws {
+        clearCookiesForPublicAuth()
         let body = try encodedBody(["email": email])
         let request = try makeRequest(path: "/api/auth/forgot-password", method: "POST", body: body)
         _ = try await perform(request, decodeTo: EmptyResponse.self)
     }
 
     func resetPassword(token: String, password: String) async throws {
+        clearCookiesForPublicAuth()
         let body = try encodedBody(["token": token, "password": password])
         let request = try makeRequest(path: "/api/auth/reset-password", method: "POST", body: body)
         _ = try await perform(request, decodeTo: EmptyResponse.self)
     }
 
     func verifyEmail(token: String) async throws {
+        clearCookiesForPublicAuth()
         let body = try encodedBody(["token": token])
         let request = try makeRequest(path: "/api/auth/verify-email", method: "POST", body: body)
+        _ = try await perform(request, decodeTo: EmptyResponse.self)
+    }
+
+    func resendVerification(email: String) async throws {
+        clearCookiesForPublicAuth()
+        let body = try encodedBody(["email": email])
+        let request = try makeRequest(path: "/api/auth/resend-verification", method: "POST", body: body)
         _ = try await perform(request, decodeTo: EmptyResponse.self)
     }
 
@@ -382,11 +400,38 @@ final class APIService {
         decodeTo type: T.Type,
         allowNotFoundAsEmptyMaintenance: Bool = false
     ) async throws -> T {
-        let (data, response) = try await session.data(for: request)
+        let startedAt = Date()
+#if DEBUG
+        let method = request.httpMethod ?? "REQUEST"
+        let requestURL = request.url?.absoluteString ?? "<invalid URL>"
+        print("[API] -> \(method) \(requestURL)")
+#endif
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+#if DEBUG
+            let elapsed = Date().timeIntervalSince(startedAt)
+            print("[API] !! \(method) \(requestURL) failed after \(String(format: "%.2f", elapsed))s: \(error.localizedDescription)")
+#endif
+            throw error
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
+#if DEBUG
+            print("[API] <- non-HTTP response for \(method) \(requestURL)")
+#endif
             throw APIError.invalidResponse
         }
+#if DEBUG
+        let elapsed = Date().timeIntervalSince(startedAt)
+        print("[API] <- \(httpResponse.statusCode) \(method) \(requestURL) in \(String(format: "%.2f", elapsed))s")
+        if !(200...299).contains(httpResponse.statusCode) {
+            print("[API] Error response:\n\(Self.sanitizedDebugResponseBody(from: data))")
+        }
+#endif
 
         if allowNotFoundAsEmptyMaintenance, httpResponse.statusCode == 404, let disabled = MaintenanceStatus.disabled as? T {
             return disabled
@@ -427,6 +472,60 @@ final class APIService {
         return "The server could not complete the request."
     }
 
+#if DEBUG
+    static func sanitizedDebugResponseBody(from data: Data) -> String {
+        guard !data.isEmpty else { return "<empty response body>" }
+        guard let json = try? JSONSerialization.jsonObject(with: data) else {
+            return "<non-JSON response body omitted>"
+        }
+
+        let sanitized = sanitizeDebugJSON(json)
+        guard JSONSerialization.isValidJSONObject(sanitized),
+              let output = try? JSONSerialization.data(withJSONObject: sanitized, options: [.prettyPrinted, .sortedKeys]),
+              let text = String(data: output, encoding: .utf8) else {
+            return "<unprintable response body>"
+        }
+        return text
+    }
+
+    private static func sanitizeDebugJSON(_ value: Any) -> Any {
+        if let dictionary = value as? [String: Any] {
+            return dictionary.reduce(into: [String: Any]()) { result, pair in
+                result[pair.key] = isSensitiveDebugKey(pair.key)
+                    ? "<redacted>"
+                    : sanitizeDebugJSON(pair.value)
+            }
+        }
+        if let array = value as? [Any] {
+            return array.map(sanitizeDebugJSON)
+        }
+        if let string = value as? String {
+            return redactTokenPatterns(in: string)
+        }
+        return value
+    }
+
+    private static func isSensitiveDebugKey(_ key: String) -> Bool {
+        let normalized = key.lowercased().filter(\.isLetter)
+        return normalized.contains("password")
+            || normalized.contains("token")
+            || normalized.contains("authorization")
+            || normalized.contains("cookie")
+            || normalized.contains("secret")
+            || normalized.contains("sessionid")
+    }
+
+    private static func redactTokenPatterns(in value: String) -> String {
+        let patterns = [
+            #"(?i)bearer\s+[A-Za-z0-9._~+\/-]+=*"#,
+            #"\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"#
+        ]
+        return patterns.reduce(value) { result, pattern in
+            result.replacingOccurrences(of: pattern, with: "<redacted>", options: .regularExpression)
+        }
+    }
+#endif
+
     static func sanitizedMutablePayload(_ value: Any) -> Any {
         let unsafeKeys: Set<String> = [
             "userId",
@@ -456,6 +555,10 @@ final class APIService {
     private static func clearSharedCookies(for baseURL: String) {
         guard let url = URL(string: baseURL), let cookies = HTTPCookieStorage.shared.cookies(for: url) else { return }
         cookies.forEach { HTTPCookieStorage.shared.deleteCookie($0) }
+    }
+
+    private func clearCookiesForPublicAuth() {
+        Self.clearSharedCookies(for: baseURL)
     }
 }
 

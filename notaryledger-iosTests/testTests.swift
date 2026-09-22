@@ -41,10 +41,22 @@ struct ValidationAndAPITests {
     }
 
     @Test func stagingBaseURLBuildsOrdersEndpointWithoutDuplicatingAPI() throws {
-        let service = APIService(baseURL: "https://notaryledger-staging-api.onrender.com")
+        let service = APIService(baseURL: "https://api-stage.notaryledger.org")
         let request = try service.makeRequest(path: "/api/orders", method: "GET")
 
-        #expect(request.url?.absoluteString == "https://notaryledger-staging-api.onrender.com/api/orders")
+        #expect(request.url?.absoluteString == "https://api-stage.notaryledger.org/api/orders")
+    }
+
+    @Test func stagingAuthURLsUseCanonicalHost() throws {
+        #if STAGING
+        #expect(APIConfig.baseURL == "https://api-stage.notaryledger.org")
+        #endif
+        let service = APIService(baseURL: "https://api-stage.notaryledger.org")
+        let login = try service.makeRequest(path: "/api/auth/login", method: "POST")
+        let registration = try service.makeRequest(path: "/api/auth/register", method: "POST")
+
+        #expect(login.url?.absoluteString == "https://api-stage.notaryledger.org/api/auth/login")
+        #expect(registration.url?.absoluteString == "https://api-stage.notaryledger.org/api/auth/register")
     }
 
     @Test func defaultSessionUsesServerManagedRefreshCookieHandling() {
@@ -54,6 +66,42 @@ struct ValidationAndAPITests {
         #expect(configuration.httpCookieAcceptPolicy == .always)
         #expect(configuration.httpCookieStorage === HTTPCookieStorage.shared)
     }
+
+#if DEBUG
+    @Test func debugErrorResponseLoggingRedactsSecrets() throws {
+        let json = """
+        {
+          "error": "Forbidden",
+          "message": "Authorization failed for Bearer visible-secret",
+          "code": "CSRF_FAILED",
+          "accessToken": "access-secret",
+          "nested": {
+            "refresh_token": "refresh-secret",
+            "password": "password-secret",
+            "cookie": "cookie-secret",
+            "detail": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEifQ.signaturevalue"
+          }
+        }
+        """.data(using: .utf8)!
+
+        let output = APIService.sanitizedDebugResponseBody(from: json)
+
+        #expect(output.contains(#""error" : "Forbidden""#))
+        #expect(output.contains(#""code" : "CSRF_FAILED""#))
+        #expect(output.contains("<redacted>"))
+        #expect(!output.contains("visible-secret"))
+        #expect(!output.contains("access-secret"))
+        #expect(!output.contains("refresh-secret"))
+        #expect(!output.contains("password-secret"))
+        #expect(!output.contains("cookie-secret"))
+        #expect(!output.contains("eyJhbGci"))
+    }
+
+    @Test func debugErrorResponseLoggingOmitsNonJSONBodies() {
+        let data = Data("upstream token=secret".utf8)
+        #expect(APIService.sanitizedDebugResponseBody(from: data) == "<non-JSON response body omitted>")
+    }
+#endif
 
     @Test func authResponseNormalizesAccessTokenAndIgnoresRefreshToken() throws {
         let json = """
@@ -77,6 +125,90 @@ struct ValidationAndAPITests {
         #expect(response.token == "access-token")
         #expect(response.user?.displayFirstName == "Avery")
         #expect(response.user?.displayLastName == "Notary")
+    }
+
+    @Test func registrationHandlesEmailVerificationResponse() async throws {
+        MockURLProtocol.requests = []
+        MockURLProtocol.requestHandler = { request in
+            #expect(request.url?.path == "/api/auth/register")
+            #expect(request.timeoutInterval == 90)
+            return MockURLProtocol.jsonResponse(
+                for: request,
+                statusCode: 201,
+                body: #"{"success":true,"data":{"emailVerificationRequired":true,"message":"Check your email to verify your account."}}"#
+            )
+        }
+        defer {
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.requests = []
+        }
+
+        let result = try await APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session()).register(
+            firstName: "Avery",
+            lastName: "Notary",
+            email: "avery@example.com",
+            password: "StrongPass12!"
+        )
+
+        guard case .verificationRequired(let message) = result else {
+            Issue.record("Expected registration to require email verification")
+            return
+        }
+        #expect(message == "Check your email to verify your account.")
+    }
+
+    @Test func resendVerificationUsesRecoveryEndpoint() async throws {
+        MockURLProtocol.requests = []
+        MockURLProtocol.requestHandler = { request in
+            #expect(request.url?.path == "/api/auth/resend-verification")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+            return MockURLProtocol.jsonResponse(
+                for: request,
+                body: #"{"success":true,"data":{"message":"If this email can be registered, verification instructions have been sent."}}"#
+            )
+        }
+        defer {
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.requests = []
+        }
+
+        try await APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session())
+            .resendVerification(email: "avery@example.com")
+    }
+
+    @Test func registrationClearsStaleRefreshCookieBeforeRequest() async throws {
+        let baseURL = "https://api.example.test"
+        let cookie = try #require(HTTPCookie(properties: [
+            .domain: "api.example.test",
+            .path: "/",
+            .name: "notary_refresh_token",
+            .value: "stale-token",
+            .secure: "TRUE",
+        ]))
+        HTTPCookieStorage.shared.setCookie(cookie)
+
+        MockURLProtocol.requests = []
+        MockURLProtocol.requestHandler = { request in
+            #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+            return MockURLProtocol.jsonResponse(
+                for: request,
+                statusCode: 201,
+                body: #"{"success":true,"data":{"emailVerificationRequired":true}}"#
+            )
+        }
+        defer {
+            HTTPCookieStorage.shared.deleteCookie(cookie)
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.requests = []
+        }
+
+        _ = try await APIService(baseURL: baseURL, session: MockURLProtocol.session()).register(
+            firstName: "Avery",
+            lastName: "Notary",
+            email: "avery@example.com",
+            password: "StrongPass12!"
+        )
     }
 
     @Test func appLaunchRefreshRestoresSessionAndLoadsCurrentUser() async throws {

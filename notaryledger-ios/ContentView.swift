@@ -346,7 +346,9 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var errorMessage = ""
+    @State private var successMessage = ""
     @State private var isSubmitting = false
+    @State private var isResendingVerification = false
 
     var body: some View {
         AuthShell(title: "Log In", subtitle: "SIGNING AGENT DESK") {
@@ -359,6 +361,7 @@ struct LoginView: View {
                 NLSecureField(title: "Password", text: $password)
                     .textContentType(.password)
 
+                BannerView(kind: .success, message: successMessage)
                 ErrorBanner(message: errorMessage)
 
                 Button {
@@ -373,6 +376,12 @@ struct LoginView: View {
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(isSubmitting)
+
+                Button(isResendingVerification ? "Sending..." : "Resend verification email") {
+                    Task { await resendVerification() }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(isSubmitting || isResendingVerification)
 
                 HStack {
                     NavigationLink("Create account") {
@@ -390,13 +399,23 @@ struct LoginView: View {
     }
 
     private func login() async {
+#if DEBUG
+        print("[Auth] Login tapped")
+#endif
         errorMessage = ""
+        successMessage = ""
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanEmail.isEmpty else {
+#if DEBUG
+            print("[Auth] Login stopped: email is empty")
+#endif
             errorMessage = "Enter your email address."
             return
         }
         guard !password.isEmpty else {
+#if DEBUG
+            print("[Auth] Login stopped: password is empty")
+#endif
             errorMessage = "Enter your password."
             return
         }
@@ -405,7 +424,32 @@ struct LoginView: View {
         defer { isSubmitting = false }
         do {
             let response = try await APIService.shared.login(email: cleanEmail, password: password)
+#if DEBUG
+            print("[Auth] Login succeeded")
+#endif
             await appState.didAuthenticate(response)
+        } catch {
+#if DEBUG
+            print("[Auth] Login failed: \(error.localizedDescription)")
+#endif
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func resendVerification() async {
+        errorMessage = ""
+        successMessage = ""
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanEmail.contains("@") else {
+            errorMessage = "Enter a valid email address."
+            return
+        }
+
+        isResendingVerification = true
+        defer { isResendingVerification = false }
+        do {
+            try await APIService.shared.resendVerification(email: cleanEmail)
+            successMessage = "If this email can be registered, verification instructions have been sent."
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -421,6 +465,7 @@ struct SignUpView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var errorMessage = ""
+    @State private var successMessage = ""
     @State private var isSubmitting = false
 
     var body: some View {
@@ -439,6 +484,7 @@ struct SignUpView: View {
                 NLSecureField(title: "Confirm password", text: $confirmPassword)
                     .textContentType(.newPassword)
 
+                BannerView(kind: .success, message: successMessage)
                 ErrorBanner(message: errorMessage)
 
                 Button {
@@ -460,6 +506,7 @@ struct SignUpView: View {
 
     private func signup() async {
         errorMessage = ""
+        successMessage = ""
         let fullName = [firstName, lastName]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -484,13 +531,22 @@ struct SignUpView: View {
         isSubmitting = true
         defer { isSubmitting = false }
         do {
-            let response = try await APIService.shared.register(
+            let result = try await APIService.shared.register(
                 firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
                 lastName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
                 email: email.trimmingCharacters(in: .whitespacesAndNewlines),
                 password: password
             )
-            await appState.didAuthenticate(response)
+            switch result {
+            case .authenticated(let response):
+                await appState.didAuthenticate(response)
+            case .verificationRequired(let message):
+                successMessage = message
+                password = ""
+                confirmPassword = ""
+            }
+        } catch let urlError as URLError where urlError.code == .timedOut {
+            errorMessage = "Account creation is taking longer than expected. Check your email for a verification link before trying again."
         } catch {
             errorMessage = error.localizedDescription
         }

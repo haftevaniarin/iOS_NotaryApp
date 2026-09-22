@@ -118,6 +118,55 @@ struct AuthResponse: Decodable {
     }
 }
 
+enum RegistrationResult {
+    case authenticated(AuthResponse)
+    case verificationRequired(String)
+}
+
+struct RegistrationResponse: Decodable {
+    struct Payload: Decodable {
+        let token: String?
+        let accessToken: String?
+        let user: AuthUser?
+        let message: String?
+        let emailVerificationRequired: Bool?
+        let requiresEmailVerification: Bool?
+        let verificationRequired: Bool?
+    }
+
+    let token: String?
+    let accessToken: String?
+    let user: AuthUser?
+    let message: String?
+    let code: String?
+    let emailVerificationRequired: Bool?
+    let requiresEmailVerification: Bool?
+    let verificationRequired: Bool?
+    let data: Payload?
+
+    var result: RegistrationResult? {
+        let resolvedToken = data?.accessToken ?? data?.token ?? accessToken ?? token
+        let resolvedUser = data?.user ?? user
+        if let resolvedToken {
+            return .authenticated(AuthResponse(token: resolvedToken, user: resolvedUser))
+        }
+
+        let requiresVerification = data?.emailVerificationRequired == true
+            || data?.requiresEmailVerification == true
+            || data?.verificationRequired == true
+            || emailVerificationRequired == true
+            || requiresEmailVerification == true
+            || verificationRequired == true
+            || code == "EMAIL_VERIFICATION_REQUIRED"
+        if requiresVerification || message != nil || data?.message != nil {
+            return .verificationRequired(
+                data?.message ?? message ?? "Check your email to verify your account, then sign in."
+            )
+        }
+        return nil
+    }
+}
+
 enum SigningStatus: String, Codable, CaseIterable, Identifiable {
     case scheduled = "Scheduled"
     case pending = "Pending"
