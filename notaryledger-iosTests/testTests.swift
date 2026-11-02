@@ -4,6 +4,8 @@ import Foundation
 import Testing
 @testable import notaryledger_ios
 
+@MainActor
+@Suite(.serialized)
 struct ValidationAndAPITests {
     @Test func passwordValidationRequiresLengthAndComplexity() {
         #expect(PasswordValidation.message(for: "Short1!") == "Use at least 12 characters.")
@@ -59,12 +61,12 @@ struct ValidationAndAPITests {
         #expect(registration.url?.absoluteString == "https://api-stage.notaryledger.org/api/auth/register")
     }
 
-    @Test func defaultSessionUsesServerManagedRefreshCookieHandling() {
+    @Test func defaultSessionUsesCookieFreeNativeAuthentication() {
         let configuration = APIService.defaultSessionConfiguration()
 
-        #expect(configuration.httpShouldSetCookies == true)
+        #expect(configuration.httpShouldSetCookies == false)
         #expect(configuration.httpCookieAcceptPolicy == .always)
-        #expect(configuration.httpCookieStorage === HTTPCookieStorage.shared)
+        #expect(configuration.httpCookieStorage == nil)
     }
 
 #if DEBUG
@@ -103,7 +105,7 @@ struct ValidationAndAPITests {
     }
 #endif
 
-    @Test func authResponseNormalizesAccessTokenAndIgnoresRefreshToken() throws {
+    @Test func authResponseDecodesNativeTokens() throws {
         let json = """
         {
           "success": true,
@@ -123,6 +125,7 @@ struct ValidationAndAPITests {
         let response = try APIService(baseURL: "https://api.example.test").decodeEnvelopeOrDirect(AuthResponse.self, from: json)
 
         #expect(response.token == "access-token")
+        #expect(response.refreshToken == "server-cookie-only")
         #expect(response.user?.displayFirstName == "Avery")
         #expect(response.user?.displayLastName == "Notary")
     }
@@ -213,11 +216,12 @@ struct ValidationAndAPITests {
 
     @Test func appLaunchRefreshRestoresSessionAndLoadsCurrentUser() async throws {
         SessionStorage.clearSession()
+        SessionStorage.saveSession(try JSONDecoder().decode(AuthResponse.self, from: Data(#"{"accessToken":"expired-token","refreshToken":"old-refresh"}"#.utf8)))
         MockURLProtocol.requests = []
         MockURLProtocol.requestHandler = { request in
             switch (request.httpMethod, request.url?.path) {
             case ("POST"?, "/api/auth/refresh"):
-                return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"token":"fresh-token"}}"#)
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"token":"fresh-token","refreshToken":"rotated-refresh"}}"#)
             case ("GET"?, "/api/config/maintenance"):
                 return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#)
             case ("GET"?, "/api/auth/me"):
@@ -241,7 +245,7 @@ struct ValidationAndAPITests {
 
     @Test func authenticatedRequest401RefreshesOnceThenRetriesOriginalRequest() async throws {
         SessionStorage.clearSession()
-        SessionStorage.saveAccessToken("expired-token")
+        SessionStorage.saveSession(try JSONDecoder().decode(AuthResponse.self, from: Data(#"{"accessToken":"expired-token","refreshToken":"old-refresh"}"#.utf8)))
         MockURLProtocol.requests = []
         MockURLProtocol.requestHandler = { request in
             switch (request.httpMethod, request.url?.path) {
@@ -251,8 +255,10 @@ struct ValidationAndAPITests {
                 return MockURLProtocol.jsonResponse(for: request, statusCode: 401, body: #"{"message":"Unauthorized"}"#)
             case ("POST"?, "/api/auth/refresh"):
                 #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
-                #expect(request.httpBody == nil)
-                return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"accessToken":"fresh-token"}}"#)
+                let body = try JSONSerialization.jsonObject(with: try #require(request.httpBody)) as? [String: String]
+                #expect(body?["clientType"] == "native")
+                #expect(body?["refreshToken"] == "old-refresh")
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"accessToken":"fresh-token","refreshToken":"rotated-refresh"}}"#)
             case ("GET"?, "/api/orders") where request.value(forHTTPHeaderField: "Authorization") == "Bearer fresh-token":
                 return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":[]}"#)
             default:
@@ -289,6 +295,107 @@ struct ValidationAndAPITests {
         #expect(SessionStorage.getAccessToken() == nil)
     }
 
+    @Test func nativeLoginSendsNoCookiesAndPersistsRotatedCredentials() async throws {
+        SessionStorage.clearSession()
+        defer { SessionStorage.clearSession(); MockURLProtocol.requestHandler = nil }
+        MockURLProtocol.requestHandler = { request in
+            #expect(request.url?.path == "/api/auth/login")
+            #expect(!request.httpShouldHandleCookies)
+            let bytes = try #require(request.httpBody)
+            let body = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: String])
+            #expect(body["clientType"] == "native")
+            return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"accessToken":"a","refreshToken":"r","user":{"id":"u","email":"a@example.test"}}}"#)
+        }
+        _ = try await APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session()).login(email: "a@example.test", password: "password")
+        #expect(SessionStorage.getAccessToken() == "a")
+        #expect(SessionStorage.getRefreshToken() == "r")
+    }
+
+    @Test func exportPreservesReturnedBytesAndRefreshesOnce() async throws {
+        let auth = try JSONDecoder().decode(AuthResponse.self, from: Data(#"{"accessToken":"expired-token","refreshToken":"refresh-token"}"#.utf8))
+        SessionStorage.saveSession(auth)
+        MockURLProtocol.requests = []
+        defer { SessionStorage.clearSession(); MockURLProtocol.requestHandler = nil; MockURLProtocol.requests = [] }
+        let exported = #"{"success":true,"data":{"generatedAt":"2026-11-01","records":{"orders":[{"id":"o1"}]}}}"#
+        MockURLProtocol.requestHandler = { request in
+            switch request.url?.path {
+            case "/api/config/maintenance": return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#)
+            case "/api/auth/refresh": return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"accessToken":"fresh-token","refreshToken":"rotated"}}"#)
+            case "/api/account/data-export":
+                if request.value(forHTTPHeaderField: "Authorization") == "Bearer expired-token" { return MockURLProtocol.jsonResponse(for: request, statusCode: 401, body: #"{"message":"Expired"}"#) }
+                return MockURLProtocol.jsonResponse(for: request, body: exported)
+            default: throw APIError.invalidResponse
+            }
+        }
+        let file = try await APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session()).requestDataExport()
+        #expect(file.pathExtension == "json")
+        #expect(try Data(contentsOf: file) == Data(exported.utf8))
+        #expect(MockURLProtocol.requests.filter { $0.url?.path == "/api/auth/refresh" }.count == 1)
+        try FileManager.default.removeItem(at: file.deletingLastPathComponent())
+    }
+
+    @Test func photoUploadAndScanUseBackendMultipartAndStatusContracts() async throws {
+        SessionStorage.saveAccessToken("access-token")
+        defer { SessionStorage.clearSession(); MockURLProtocol.requestHandler = nil }
+        MockURLProtocol.requestHandler = { request in
+            switch (request.httpMethod, request.url?.path) {
+            case (_, "/api/config/maintenance"): return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#)
+            case ("POST"?, "/api/auth/me/photo"):
+                #expect(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("multipart/form-data; boundary=") == true)
+                let body = String(decoding: try #require(request.httpBody), as: UTF8.self)
+                #expect(body.contains("name=\"photo\"; filename=\"photo.png\""))
+                return MockURLProtocol.jsonResponse(for: request, statusCode: 202, body: #"{"success":true,"data":{"profilePhotoUrl":null,"upload":{"id":"upload-1","status":"SCANNING"}}}"#)
+            case ("GET"?, "/api/auth/me/photo/uploads/upload-1"):
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"profilePhotoUrl":"https://photo.example/me.webp","upload":{"id":"upload-1","status":"COMPLETED"}}}"#)
+            case ("DELETE"?, "/api/auth/me/photo"):
+                #expect(request.httpBody == nil)
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"profilePhotoUrl":null}}"#)
+            default: throw APIError.invalidResponse
+            }
+        }
+        let api = APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session())
+        let pending = try await api.uploadProfilePhoto(MultipartFile(fieldName: "photo", fileName: "photo.png", mimeType: "image/png", data: Data([137, 80, 78, 71])))
+        #expect(pending.upload?.isPending == true)
+        let completed = try await api.photoAction(uploadId: "upload-1", method: "GET")
+        #expect(completed.upload?.status == "COMPLETED")
+        #expect(completed.profilePhotoUrl != nil)
+        #expect(try await api.photoAction(method: "DELETE").profilePhotoUrl == nil)
+    }
+
+    @Test func signingExtractionSurfacesFailureWithoutCreatingAnOrder() async throws {
+        SessionStorage.saveAccessToken("access-token")
+        MockURLProtocol.requests = []
+        defer { SessionStorage.clearSession(); MockURLProtocol.requestHandler = nil; MockURLProtocol.requests = [] }
+        MockURLProtocol.requestHandler = { request in
+            if request.url?.path == "/api/config/maintenance" { return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#) }
+            #expect(request.url?.path == "/api/orders/extract")
+            return MockURLProtocol.jsonResponse(for: request, statusCode: 422, body: #"{"success":false,"error":{"message":"Could not extract signing details from this file."}}"#)
+        }
+        do {
+            _ = try await APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session()).extractSigning(MultipartFile(fieldName: "file", fileName: "order.pdf", mimeType: "application/pdf", data: Data([37, 80, 68, 70])))
+            Issue.record("Extraction must fail")
+        } catch { #expect(error.localizedDescription == "Could not extract signing details from this file.") }
+        #expect(!MockURLProtocol.requests.contains { $0.url?.path == "/api/orders" })
+    }
+
+    @Test func spreadsheetImportUsesMultipartAndReturnsOnlyServerSavedOrders() async throws {
+        SessionStorage.saveAccessToken("access-token")
+        defer { SessionStorage.clearSession(); MockURLProtocol.requestHandler = nil }
+        MockURLProtocol.requestHandler = { request in
+            if request.url?.path == "/api/config/maintenance" { return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#) }
+            #expect(request.url?.path == "/api/orders/import")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("multipart/form-data") == true)
+            let data = try #require(request.httpBody)
+            #expect(String(decoding: data, as: UTF8.self).contains("signings.csv"))
+            return MockURLProtocol.jsonResponse(for: request, statusCode: 201, body: #"{"success":true,"data":{"importedCount":0,"skippedDuplicateCount":1,"orders":[]}}"#)
+        }
+        let result = try await APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session()).importSignings(MultipartFile(fieldName: "file", fileName: "signings.csv", mimeType: "text/csv", data: Data("Customer,Signer,Date,Fee\nAcme,Avery,2026-11-01,100".utf8)))
+        #expect(result.importedCount == 0)
+        #expect(result.skippedDuplicateCount == 1)
+        #expect(result.orders.isEmpty)
+    }
+
     @Test func ordersAndExpensesUseAuthoritativeAPIPaths() throws {
         let service = APIService(baseURL: "https://api.example.test")
         let order = try service.makeRequest(path: "/api/orders/order-1", method: "PUT")
@@ -314,13 +421,26 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func startLoading() {
-        Self.requests.append(request)
+        var observed = request
+        if observed.httpBody == nil, let stream = observed.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var body = Data()
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                body.append(buffer, count: count)
+            }
+            observed.httpBody = body
+        }
+        Self.requests.append(observed)
         guard let requestHandler = Self.requestHandler else {
             client?.urlProtocol(self, didFailWithError: APIError.invalidResponse)
             return
         }
         do {
-            let (response, data) = try requestHandler(request)
+            let (response, data) = try requestHandler(observed)
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: data)
             client?.urlProtocolDidFinishLoading(self)

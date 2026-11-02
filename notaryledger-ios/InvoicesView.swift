@@ -3,7 +3,7 @@ import SwiftUI
 struct InvoicesView: View {
     @EnvironmentObject private var appState: AppState
     @State private var selectedCustomerID: String?
-    @State private var generatedInvoice: Invoice?
+    @State private var exportItem: ShareURL?
     @State private var errorMessage = ""
     @State private var isGenerating = false
     @State private var customCustomerName = ""
@@ -31,7 +31,6 @@ struct InvoicesView: View {
 
                     if customers.isEmpty {
                         EmptyStateView(title: "No invoice candidates", systemImage: "doc.richtext", message: "Unpaid, non-cancelled signing orders will appear here.")
-                        customInvoiceCard
                     } else {
                         NLCard {
                             VStack(alignment: .leading, spacing: NLSpacing.md) {
@@ -95,25 +94,12 @@ struct InvoicesView: View {
                         }
                     }
 
-                if let generatedInvoice {
-                        NLCard {
-                            VStack(alignment: .leading, spacing: NLSpacing.md) {
-                                Text("Generated Invoice")
-                                    .font(.headline)
-                                    .foregroundColor(NLColor.navy)
-                                DetailRow(label: "Invoice", value: generatedInvoice.invoiceNumber)
-                                DetailRow(label: "Payer", value: generatedInvoice.payerName)
-                                DetailRow(label: "Balance", value: generatedInvoice.balanceDue.currencyString)
-                                if let pdfURL = generatedInvoice.pdfURL, let url = URL(string: pdfURL) {
-                                    Link("Open PDF", destination: url)
-                                }
-                            }
-                        }
-                    }
+                    customInvoiceCard
                 }
                 .padding(NLSpacing.lg)
             }
         }
+        .sheet(item: $exportItem) { ShareSheet(activityItems: [$0.url]) }
         .onAppear {
             selectedCustomerID = selectedCustomerID ?? customers.first?.id
         }
@@ -129,7 +115,7 @@ struct InvoicesView: View {
                 NLTextField(title: "Signer details", text: $customSignerName)
                 NLTextField(title: "Line item", text: $customLineDescription)
                 NLTextField(title: "Amount", text: $customLineAmount, keyboardType: .decimalPad)
-                BannerView(kind: .info, message: "Custom invoice PDFs require a saved signing order before generation.")
+                Button("Generate Custom Invoice PDF") { Task { await generateCustom() } }.buttonStyle(PrimaryButtonStyle()).disabled(isGenerating)
             }
         }
     }
@@ -139,17 +125,26 @@ struct InvoicesView: View {
         isGenerating = true
         defer { isGenerating = false }
 
-        let lineItems = customer.invoiceCandidates.map { order in
-            InvoiceLineItem(id: order.id, description: order.signingType ?? "Signing", amount: order.fee)
-        }
-        generatedInvoice = Invoice(
-            id: UUID().uuidString,
-            invoiceNumber: "Preview",
-            payerName: customer.displayName,
-            customerName: customer.displayName,
-            lineItems: lineItems,
-            balanceDue: lineItems.reduce(0) { $0 + $1.amount },
-            pdfURL: nil
-        )
+        do {
+            try await requireInvoiceAccess()
+            exportItem = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: customer.displayName, orders: customer.invoiceCandidates))
+        } catch { errorMessage = error.localizedDescription }
+    }
+    private func requireInvoiceAccess() async throws {
+        let billing = try await APIService.shared.fetchBillingStatus()
+        guard billing.features?["invoiceGeneration"] == true else { throw APIError.serverError("Upgrade to Pro to generate invoices.") }
+    }
+    private func generateCustom() async {
+        errorMessage = ""
+        guard !customCustomerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !customLineDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let amount = Double(customLineAmount), amount.isFinite, amount >= 0 else { errorMessage = "Enter a customer, service description, and valid amount."; return }
+        isGenerating = true
+        defer { isGenerating = false }
+        do {
+            try await requireInvoiceAccess()
+            let description = customLineDescription + (customSignerName.isEmpty ? "" : " for " + customSignerName)
+            exportItem = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: customCustomerName, orders: [], customDescription: description, customAmount: amount))
+        } catch { errorMessage = error.localizedDescription }
     }
 }

@@ -32,8 +32,11 @@ final class AppState: ObservableObject {
             currentUser = try await api.restoreSession()
             route = .app
             await refreshAll()
-        } catch {
+        } catch APIError.unauthorized {
             signOutLocally()
+        } catch {
+            errorMessage = error.localizedDescription
+            route = currentUser == nil ? .auth : .app
         }
     }
 

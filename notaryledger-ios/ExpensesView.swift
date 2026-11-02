@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ExpensesView: View {
     @EnvironmentObject private var appState: AppState
@@ -157,9 +158,11 @@ struct ExpenseFormView: View {
     @Environment(\.dismiss) private var dismiss
     let expense: Expense?
     let onSave: (ExpensePayload) async throws -> Void
+    var extracted: ExtractedExpense? = nil
+    var linkedToOrder = false
 
     @State private var date = Date()
-    @State private var category = "Supplies"
+    @State private var category = "Office supplies"
     @State private var description = ""
     @State private var amount = ""
     @State private var deductible = true
@@ -167,7 +170,7 @@ struct ExpenseFormView: View {
     @State private var errorMessage = ""
     @State private var isSaving = false
 
-    private let categories = ["Supplies", "Software", "Mileage", "Travel", "Education", "Insurance", "Marketing", "Other"]
+    private let categories = ["Paper", "Toner", "Printer and scanner costs", "Shipping", "Parking and tolls", "Background checks", "Commission, bond and E&O insurance", "Training and certifications", "Advertising", "Phone and internet", "Software subscriptions", "Office supplies", "Other"]
 
     var body: some View {
         ZStack {
@@ -183,6 +186,7 @@ struct ExpenseFormView: View {
                     TextField("Description", text: $description)
                     TextField("Amount", text: $amount)
                         .keyboardType(.decimalPad)
+                    if !linkedToOrder {
                     Toggle("Deductible", isOn: $deductible)
                         .tint(NLColor.navy)
                     VStack(alignment: .leading) {
@@ -194,6 +198,7 @@ struct ExpenseFormView: View {
                         }
                         Slider(value: $businessUsePercent, in: 0...100, step: 5)
                             .disabled(!deductible)
+                    }
                     }
                 }
 
@@ -225,6 +230,15 @@ struct ExpenseFormView: View {
     }
 
     private func populate() {
+        if let extracted {
+            category = categories.contains(extracted.category ?? "") ? extracted.category! : "Other"
+            description = extracted.description ?? ""
+            amount = extracted.amount.map { String($0) } ?? ""
+            date = DateParser.date(from: extracted.date) ?? Date()
+            businessUsePercent = extracted.businessUsePercent ?? 100
+            deductible = businessUsePercent > 0
+            return
+        }
         guard let expense else { return }
         date = DateParser.date(from: expense.date) ?? Date()
         category = expense.category.isEmpty ? "Other" : expense.category
@@ -240,7 +254,7 @@ struct ExpenseFormView: View {
             errorMessage = "Enter a description."
             return
         }
-        guard let amountValue = Double(amount), amountValue >= 0 else {
+        guard let amountValue = Double(amount), amountValue.isFinite, amountValue >= 0 else {
             errorMessage = "Enter a valid amount."
             return
         }
@@ -266,27 +280,47 @@ struct ExpenseFormView: View {
 
 struct ReceiptExtractionSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var statusMessage = ""
-
+    @EnvironmentObject private var appState: AppState
+    @State private var showImporter = false
+    @State private var busy = false
+    @State private var error = ""
+    @State private var draft: ExtractedExpense?
     var body: some View {
-        VStack(alignment: .leading, spacing: NLSpacing.lg) {
-            ScreenTitleBlock(title: "Receipt Extraction", subtitle: "Upload or capture a receipt image to extract expense details.")
-            BannerView(kind: .info, message: "Receipt extraction maps category, amount, date, and deductible fields before you save.")
-            BannerView(kind: .success, message: statusMessage)
-
-            Button {
-                statusMessage = "Image extraction preview ready."
-            } label: {
-                Label("Choose Receipt Image", systemImage: "photo")
-            }
-            .buttonStyle(PrimaryButtonStyle())
-
-            Button("Close") {
-                dismiss()
-            }
-            .buttonStyle(SecondaryButtonStyle())
+        NavigationStack {
+            VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                ScreenTitleBlock(title: "Receipt Extraction", subtitle: "Choose a JPEG, PNG, or WebP receipt, then review and save the extracted details.")
+                ErrorBanner(message: error)
+                Button(busy ? "Extracting..." : "Choose Receipt Image") { showImporter = true }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
+                if busy { ProgressView() }
+                Spacer()
+            }.padding().background(ParchmentBackground())
+                .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Close") { dismiss() }.disabled(busy) } }
+                .fileImporter(isPresented: $showImporter, allowedContentTypes: [.jpeg, .png, .webP]) { result in
+                    switch result {
+                    case .success(let url): Task { await extract(url) }
+                    case .failure(let failure): error = failure.localizedDescription
+                    }
+                }
+                .sheet(item: $draft) { extracted in
+                    NavigationStack {
+                        ExpenseFormView(expense: nil, onSave: { payload in
+                            let expense = try await APIService.shared.createExpense(payload)
+                            appState.upsertExpense(expense); dismiss()
+                        }, extracted: extracted)
+                    }
+                }
         }
-        .padding()
-        .presentationDetents([.medium])
+    }
+    private func extract(_ url: URL) async {
+        error = ""; busy = true
+        defer { busy = false }
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= 10 * 1024 * 1024 else { throw APIError.serverError("Choose a file of 10 MB or smaller.") }
+            let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? ""
+            draft = try await APIService.shared.extractExpense(MultipartFile(fieldName: "file", fileName: url.lastPathComponent, mimeType: mime, data: Data(contentsOf: url)))
+        } catch { self.error = error.localizedDescription }
     }
 }

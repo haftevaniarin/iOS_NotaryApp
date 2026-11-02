@@ -1,6 +1,9 @@
 import Foundation
 
 enum SessionStorage {
+    private static let refreshTokenKey = "notary_refresh_token_v1"
+    static func getRefreshToken() -> String? { KeychainHelper.standard.read(for: refreshTokenKey) }
+
     private static let accessTokenKey = "notary_access_token_v1"
     private static let currentUserKey = "notary_current_user_v1"
 
@@ -26,6 +29,7 @@ enum SessionStorage {
 
     static func clearTokens() {
         KeychainHelper.standard.delete(accessTokenKey)
+        KeychainHelper.standard.delete(refreshTokenKey)
     }
 
     static func saveCurrentUser(_ user: AuthUser) {
@@ -45,6 +49,7 @@ enum SessionStorage {
 
     static func saveSession(_ response: AuthResponse) {
         saveAccessToken(response.token)
+        if let token = response.refreshToken { KeychainHelper.standard.save(token, for: refreshTokenKey) }
         if let user = response.user {
             saveCurrentUser(user)
         }
@@ -53,5 +58,7 @@ enum SessionStorage {
     static func clearSession() {
         clearTokens()
         clearCurrentUser()
+        UserDefaults.standard.removeObject(forKey: "notary_pending_checkout")
+        UserDefaults.standard.removeObject(forKey: "notary_pending_checkout_owner")
     }
 }

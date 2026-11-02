@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SigningsView: View {
     @EnvironmentObject private var appState: AppState
@@ -117,9 +118,7 @@ struct SigningsView: View {
             }
         }
         .sheet(item: $mileageOrder) { order in
-            MileageTravelSheet(order: order) { mileage, travelFee in
-                try await updateTravel(order, mileage: mileage, travelFee: travelFee)
-            }
+            MileageTravelSheet(order: order) { updated in appState.upsertOrder(updated) }
         }
         .sheet(item: $invoiceOrder) { order in
             GenerateInvoiceSheet(order: order)
@@ -235,8 +234,9 @@ struct SigningOrderDetailView: View {
                 }
                 Section("Travel") {
                     DetailRow(label: "Mileage", value: liveOrder.mileage.map { String(format: "%.1f mi", $0) } ?? "")
-                    DetailRow(label: "Travel Fee", value: liveOrder.travelFee?.currencyString ?? "")
+                    DetailRow(label: "Parking and tolls", value: liveOrder.travelFee?.currencyString ?? "")
                 }
+                Section("Expenses") { NavigationLink("Signing Expenses") { OrderExpensesView(order: liveOrder) } }
                 Section("Notes") {
                     Text(liveOrder.notes?.isEmpty == false ? liveOrder.notes! : "-")
                         .foregroundColor(NLColor.ink)
@@ -272,6 +272,7 @@ struct SigningOrderFormView: View {
     @Environment(\.dismiss) private var dismiss
     let order: SigningOrder?
     let onSave: (SigningOrderPayload) async throws -> Void
+    var extracted: ExtractedSigning? = nil
 
     @State private var customerName = ""
     @State private var payerName = ""
@@ -300,7 +301,10 @@ struct SigningOrderFormView: View {
                     TextField("Customer name", text: $customerName)
                     TextField("Payer name", text: $payerName)
                     TextField("Signer name", text: $signerName)
-                    TextField("Signing type", text: $signingType)
+                    Picker("Signing type", selection: $signingType) {
+                        Text("Select type").tag("")
+                        ForEach(["Loan Signing", "Refinance", "HELOC", "Seller Package", "General Notary", "Other"], id: \.self) { Text($0).tag($0) }
+                    }
                 }
                 Section("Schedule") {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
@@ -328,7 +332,7 @@ struct SigningOrderFormView: View {
                 Section("Travel") {
                     TextField("Mileage", text: $mileage)
                         .keyboardType(.decimalPad)
-                    TextField("Travel fee", text: $travelFee)
+                    TextField("Parking and tolls", text: $travelFee)
                         .keyboardType(.decimalPad)
                 }
                 Section("Notes") {
@@ -360,6 +364,10 @@ struct SigningOrderFormView: View {
             }
         }
         .onAppear(perform: populate)
+        .onChange(of: paid) { _, value in
+            if value && status != .cancelled { status = .paid }
+            else if !value && status == .paid { status = .pending; hasPaidDate = false }
+        }
         .onChange(of: status) { _, newValue in
             if newValue == .cancelled {
                 paid = false
@@ -367,11 +375,28 @@ struct SigningOrderFormView: View {
             } else if newValue == .paid {
                 paid = true
                 hasPaidDate = true
+            } else {
+                paid = false
+                hasPaidDate = false
             }
         }
     }
 
     private func populate() {
+        if let extracted {
+            customerName = extracted.customerName ?? ""
+            payerName = extracted.payerName ?? extracted.customerName ?? ""
+            signerName = extracted.signerName ?? ""
+            signingType = extracted.signingType ?? ""
+            date = DateParser.date(from: extracted.date) ?? Date()
+            time = extracted.time ?? ""
+            fee = extracted.fee.map { String($0) } ?? ""
+            notarialActFee = "0"
+            invoiceNumber = extracted.invoiceNumber ?? ""
+            notes = extracted.notes ?? ""
+            status = .pending
+            return
+        }
         guard let order else { return }
         customerName = order.customerName
         payerName = order.payerName ?? ""
@@ -388,7 +413,7 @@ struct SigningOrderFormView: View {
         }
         invoiceNumber = order.invoiceNumber
         notes = order.notes ?? ""
-        mileage = order.mileage.map { String(format: "%.1f", $0) } ?? ""
+        mileage = order.mileage.map { String(format: "%.2f", $0) } ?? ""
         travelFee = order.travelFee.map { String(format: "%.2f", $0) } ?? ""
         status = order.normalizedStatus
     }
@@ -403,14 +428,17 @@ struct SigningOrderFormView: View {
             errorMessage = "Enter the signer name."
             return
         }
-        guard let feeValue = Double(fee), feeValue >= 0 else {
+        guard let feeValue = Double(fee), feeValue.isFinite, feeValue >= 0 else {
             errorMessage = "Enter a valid fee."
             return
         }
-        guard let notarialValue = Double(notarialActFee.isEmpty ? "0" : notarialActFee), notarialValue >= 0 else {
+        guard let notarialValue = Double(notarialActFee.isEmpty ? "0" : notarialActFee), notarialValue.isFinite, notarialValue >= 0 else {
             errorMessage = "Enter a valid notarial act fee."
             return
         }
+        guard notarialValue <= feeValue else { errorMessage = "Notarial act fee cannot exceed the total fee."; return }
+        guard notes.count <= 255 else { errorMessage = "Notes must be 255 characters or fewer."; return }
+        guard time.isEmpty || time.range(of: #"^([01][0-9]|2[0-3]):[0-5][0-9]$"#, options: .regularExpression) != nil else { errorMessage = "Enter time as HH:mm (24-hour)."; return }
         let mileageValue = optionalDouble(mileage)
         let travelValue = optionalDouble(travelFee)
         guard mileageValue != nil || mileage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -419,7 +447,7 @@ struct SigningOrderFormView: View {
             return
         }
 
-        let payload = SigningOrderPayload(
+        var payload = SigningOrderPayload(
             customerName: customerName.trimmingCharacters(in: .whitespacesAndNewlines),
             payerName: nilIfBlank(payerName),
             signerName: signerName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -437,6 +465,7 @@ struct SigningOrderFormView: View {
             status: status
         )
 
+        if let order { payload.preserveMileage = mileageValue == order.mileage && travelValue == order.travelFee }
         isSaving = true
         defer { isSaving = false }
         do {
@@ -452,7 +481,8 @@ struct SigningOrderFormView: View {
         if trimmed.isEmpty {
             return nil
         }
-        return Double(trimmed)
+        guard let number = Double(trimmed), number.isFinite, number >= 0 else { return nil }
+        return number
     }
 
     private func nilIfBlank(_ value: String) -> String? {
@@ -463,67 +493,88 @@ struct SigningOrderFormView: View {
 
 struct ImportSigningsSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var rawText = ""
+    @EnvironmentObject private var appState: AppState
+    @State private var showImporter = false
+    @State private var spreadsheet: SpreadsheetDraft?
     @State private var message = ""
-
+    @State private var draft: ExtractedSigning?
+    @State private var error = ""
+    @State private var busy = false
     var body: some View {
         NavigationStack {
             ZStack {
                 ParchmentBackground()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                        ScreenTitleBlock(title: "Import Signings", subtitle: "Paste signing order text to review before creating ledger entries.")
-
-                        NLCard {
-                            VStack(alignment: .leading, spacing: NLSpacing.md) {
-                                FieldLabel(text: "Order text")
-                                TextEditor(text: $rawText)
-                                    .frame(minHeight: 180)
-                                    .padding(8)
-                                    .background(Color.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .stroke(NLColor.line, lineWidth: 1)
-                                    )
-                                BannerView(kind: .info, message: "Imported signings should be reviewed before saving.")
-                                BannerView(kind: .success, message: message)
-                            }
-                        }
-                    }
-                    .padding(NLSpacing.lg)
+                VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Import Signings", subtitle: "Upload a screenshot, PDF, or spreadsheet export, then review and edit before saving.")
+                    ErrorBanner(message: error)
+                    BannerView(kind: .success, message: message)
+                    BannerView(kind: .info, message: "Images and PDFs up to 10 MB; CSV, TSV, and TXT exports up to 5 MB. Export Apple Numbers files as CSV. Your account’s plan limits apply.")
+                    Button(busy ? "Extracting..." : "Choose Signing File") { showImporter = true }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
+                    if busy { ProgressView() }
+                    Spacer()
+                }.padding(NLSpacing.lg)
+            }
+            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Close") { dismiss() }.disabled(busy) } }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.jpeg, .png, .webP, .pdf, .commaSeparatedText, .tabSeparatedText, .plainText]) { result in
+                switch result {
+                case .success(let url): Task { await extract(url) }
+                case .failure(let failure): error = failure.localizedDescription
                 }
             }
-            .navigationTitle("Import Signings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Review") {
-                        message = rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? ""
-                            : "Import preview ready."
-                    }
-                    .disabled(rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .sheet(item: $spreadsheet) { draft in
+                SpreadsheetImportReviewView(draft: draft) { result in
+                    result.orders.forEach { appState.upsertOrder($0) }
+                    message = "Imported \(result.importedCount) signing(s). Skipped \(result.skippedDuplicateCount) duplicate(s)."
                 }
             }
-        }
-        .presentationDetents([.large])
+            .sheet(item: $draft) { extracted in
+                NavigationStack {
+                    SigningOrderFormView(order: nil, onSave: { payload in
+                        let order = try await APIService.shared.createOrder(payload)
+                        appState.upsertOrder(order)
+                        dismiss()
+                    }, extracted: extracted)
+                }
+            }
+        }.presentationDetents([.large])
+    }
+    private func extract(_ url: URL) async {
+        error = ""; message = ""; busy = true
+        defer { busy = false }
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= 10 * 1024 * 1024 else { throw APIError.serverError("Choose a file of 10 MB or smaller.") }
+            let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? ""
+            let data = try Data(contentsOf: url)
+            if ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) {
+                guard !data.isEmpty, data.count <= 5 * 1024 * 1024, let text = String(data: data, encoding: .utf8) else { throw APIError.serverError("Choose a UTF-8 spreadsheet export of 5 MB or smaller.") }
+                spreadsheet = SpreadsheetDraft(filename: url.lastPathComponent, mimeType: mime.isEmpty ? "text/plain" : mime, text: text)
+                return
+            }
+            draft = try await APIService.shared.extractSigning(MultipartFile(fieldName: "file", fileName: url.lastPathComponent, mimeType: mime, data: data))
+        } catch { self.error = error.localizedDescription }
     }
 }
 
 struct MileageTravelSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appState: AppState
     let order: SigningOrder
-    let onSave: (Double?, Double?) async throws -> Void
-
-    @State private var mileage = ""
-    @State private var travelFee = ""
-    @State private var errorMessage = ""
-    @State private var showClearConfirmation = false
-    @State private var isSaving = false
-
+    let onSave: (SigningOrder) -> Void
+    @State private var miles = ""
+    @State private var parking = ""
+    @State private var start = ""
+    @State private var destination = ""
+    @State private var tripType = "ONE_WAY"
+    @State private var mode = "MANUAL"
+    @State private var error = ""
+    @State private var busy = false
+    @State private var calculatedFor = ""
+    @State private var clearing = false
+    @State private var showClear = false
+    private var addressKey: String { start.trimmingCharacters(in: .whitespacesAndNewlines) + "|" + destination.trimmingCharacters(in: .whitespacesAndNewlines) }
     var body: some View {
         NavigationStack {
             ZStack {
@@ -531,82 +582,88 @@ struct MileageTravelSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: NLSpacing.lg) {
                         ScreenTitleBlock(title: "Mileage & Travel", subtitle: order.customerName)
-                        ErrorBanner(message: errorMessage)
-
+                        ErrorBanner(message: error)
                         NLCard {
                             VStack(spacing: NLSpacing.md) {
-                                NLTextField(title: "Mileage", text: $mileage, keyboardType: .decimalPad)
-                                NLTextField(title: "Travel fee", text: $travelFee, keyboardType: .decimalPad)
-                                Button(role: .destructive) {
-                                    showClearConfirmation = true
-                                } label: {
-                                    Label("Clear Mileage", systemImage: "xmark.circle")
+                                NLTextField(title: "Start address", text: $start)
+                                NLTextField(title: "Destination address", text: $destination)
+                                Picker("Entry mode", selection: $mode) { Text("Manual").tag("MANUAL"); Text("Calculated").tag("CALCULATED") }.pickerStyle(.segmented)
+                                Picker("Trip", selection: $tripType) { Text("One way").tag("ONE_WAY"); Text("Round trip").tag("ROUND_TRIP") }.pickerStyle(.segmented)
+                                if mode == "CALCULATED" {
+                                    Button("Calculate Driving Distance") { Task { await calculate() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy || start.isEmpty || destination.isEmpty)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                                NLTextField(title: "One-way miles", text: $miles, keyboardType: .decimalPad).disabled(mode == "CALCULATED")
+                                if let value = Double(miles) { DetailRow(label: "Business miles", value: String(format: "%.2f", (value * 100).rounded() / 100 * (tripType == "ROUND_TRIP" ? 2 : 1))) }
+                                NLTextField(title: "Parking and tolls", text: $parking, keyboardType: .decimalPad)
+                                Button("Clear Mileage & Travel", role: .destructive) { showClear = true }
+                                if clearing { Text("Mileage and travel data will be cleared when you save.").font(.caption) }
                             }
                         }
-                    }
-                    .padding(NLSpacing.lg)
+                        if busy { ProgressView() }
+                    }.padding(NLSpacing.lg)
                 }
             }
-            .navigationTitle("Travel")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Travel").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(isSaving ? "Saving..." : "Save") {
-                        Task { await save() }
-                    }
-                    .disabled(isSaving)
-                }
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.disabled(busy) }
+                ToolbarItem(placement: .topBarTrailing) { Button("Save") { Task { await save() } }.disabled(busy) }
             }
         }
-        .presentationDetents([.medium, .large])
-        .confirmationDialog("Clear mileage and travel fee?", isPresented: $showClearConfirmation) {
-            Button("Clear Mileage", role: .destructive) {
-                mileage = ""
-                travelFee = ""
-            }
-            Button("Cancel", role: .cancel) {}
+        .onChange(of: miles) { _, value in if !value.isEmpty { clearing = false } }
+        .onChange(of: parking) { _, value in if !value.isEmpty { clearing = false } }
+        .onChange(of: start) { _, value in if !value.isEmpty { clearing = false } }
+        .onChange(of: destination) { _, value in if !value.isEmpty { clearing = false } }
+        .confirmationDialog("Clear mileage, addresses, and parking?", isPresented: $showClear) {
+            Button("Clear Mileage & Travel", role: .destructive) { clearing = true; miles = ""; parking = ""; start = ""; destination = ""; mode = "MANUAL" }
         }
         .onAppear {
-            mileage = order.mileage.map { String(format: "%.1f", $0) } ?? ""
-            travelFee = order.travelFee.map { String(format: "%.2f", $0) } ?? ""
+            let detail = order.mileageDetails
+            tripType = detail?.tripType == "round-trip" ? "ROUND_TRIP" : "ONE_WAY"
+            mode = detail?.entryMode ?? "MANUAL"
+            miles = detail?.oneWayMiles.map { String($0) } ?? order.mileage.map { String($0 / (tripType == "ROUND_TRIP" ? 2 : 1)) } ?? ""
+            parking = order.travelFee.map { String($0) } ?? ""
+            start = detail?.tripStartAddress ?? appState.currentUser?.defaultStartAddress ?? ""
+            destination = detail?.tripEndAddress ?? ""
+            if mode == "CALCULATED" { calculatedFor = addressKey }
         }
     }
-
-    private func save() async {
-        errorMessage = ""
-        let mileageValue = optionalDouble(mileage)
-        let travelValue = optionalDouble(travelFee)
-        guard mileageValue != nil || mileage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              travelValue != nil || travelFee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            errorMessage = "Enter valid travel values."
-            return
-        }
-        isSaving = true
-        defer { isSaving = false }
+    private func calculate() async {
+        error = ""; busy = true
+        defer { busy = false }
+        let key = addressKey
         do {
-            try await onSave(mileageValue, travelValue)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+            let distance = try await APIService.shared.drivingDistance(start: start, destination: destination)
+            guard addressKey == key else { error = "Addresses changed. Calculate the distance again."; return }
+            miles = String(distance.oneWayMiles); calculatedFor = key; clearing = false
+        } catch { self.error = error.localizedDescription }
     }
-
-    private func optionalDouble(_ value: String) -> Double? {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return nil }
-        return Double(trimmed)
+    private func save() async {
+        error = ""
+        var object: [String: Any]
+        if clearing {
+            object = Dictionary(uniqueKeysWithValues: ["miles", "oneWayMiles", "mileageTripType", "mileageEntryMode", "parkingFee", "tripStartAddress", "tripEndAddress"].map { ($0, NSNull()) })
+        } else {
+            guard miles.isEmpty || (Double(miles).map { $0.isFinite && $0 >= 0 && $0 <= 10000 / (tripType == "ROUND_TRIP" ? 2 : 1) } == true),
+                  parking.isEmpty || (Double(parking).map { $0.isFinite && $0 >= 0 && $0 <= 100000 } == true) else { error = "Enter valid, nonnegative mileage and parking values."; return }
+            guard mode != "CALCULATED" || (calculatedFor == addressKey && !miles.isEmpty) else { error = "Calculate the distance for the current addresses before saving."; return }
+            object = ["oneWayMiles": Double(miles) as Any? ?? NSNull(), "mileageTripType": tripType, "mileageEntryMode": mode,
+                      "parkingFee": Double(parking) as Any? ?? NSNull(), "tripStartAddress": start.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty as Any? ?? NSNull(),
+                      "tripEndAddress": destination.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty as Any? ?? NSNull()]
+        }
+        busy = true
+        defer { busy = false }
+        do {
+            let updated = try await APIService.shared.saveMileage(orderId: order.id, payload: JSONSerialization.data(withJSONObject: object))
+            onSave(updated); dismiss()
+        } catch { self.error = error.localizedDescription }
     }
 }
 
 struct GenerateInvoiceSheet: View {
     @Environment(\.dismiss) private var dismiss
     let order: SigningOrder
-    @State private var invoice: Invoice?
+    @EnvironmentObject private var appState: AppState
+    @State private var exportItem: ShareURL?
     @State private var errorMessage = ""
     @State private var isGenerating = false
 
@@ -623,18 +680,6 @@ struct GenerateInvoiceSheet: View {
                             DetailRow(label: "Signer", value: order.signerName)
                             DetailRow(label: "Signing date", value: order.displayDate)
                             DetailRow(label: "Balance", value: order.fee.currencyString)
-                        }
-                    }
-
-                    if let invoice {
-                        NLCard {
-                            VStack(alignment: .leading, spacing: NLSpacing.md) {
-                                DetailRow(label: "Invoice", value: invoice.invoiceNumber)
-                                DetailRow(label: "Balance", value: invoice.balanceDue.currencyString)
-                                if let pdfURL = invoice.pdfURL, let url = URL(string: pdfURL) {
-                                    Link("Open PDF", destination: url)
-                                }
-                            }
                         }
                     }
 
@@ -656,6 +701,7 @@ struct GenerateInvoiceSheet: View {
                 }
             }
         }
+        .sheet(item: $exportItem) { ShareSheet(activityItems: [$0.url]) }
         .presentationDetents([.medium, .large])
     }
 
@@ -663,16 +709,10 @@ struct GenerateInvoiceSheet: View {
         errorMessage = ""
         isGenerating = true
         defer { isGenerating = false }
-        invoice = Invoice(
-            id: UUID().uuidString,
-            invoiceNumber: "Preview",
-            payerName: order.payerDisplayName,
-            customerName: order.customerName,
-            lineItems: [
-                InvoiceLineItem(id: order.id, description: order.signingType ?? "Signing", amount: order.fee)
-            ],
-            balanceDue: order.fee,
-            pdfURL: nil
-        )
+        do {
+            let billing = try await APIService.shared.fetchBillingStatus()
+            guard billing.features?["invoiceGeneration"] == true else { throw APIError.serverError("Upgrade to Pro to generate invoices.") }
+            exportItem = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: order.customerName, orders: [order]))
+        } catch { errorMessage = error.localizedDescription }
     }
 }

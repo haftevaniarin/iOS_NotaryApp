@@ -40,6 +40,8 @@ struct TaxSummaryView: View {
                         }
                     }
 
+                    NavigationLink("Manage Estimated Tax Payments") { EstimatedTaxPaymentsView(year: selectedYear) { await loadSummary() } }.buttonStyle(SecondaryButtonStyle())
+
                     if isLoading {
                         ProgressView("Loading tax summary...")
                             .frame(maxWidth: .infinity)
@@ -58,8 +60,8 @@ struct TaxSummaryView: View {
                             ("Travel Expenses", summary.travelExpenses.currencyString)
                         ])
                         TaxSummaryCard(title: "Travel / Mileage Totals", rows: [
-                            ("Mileage", String(format: "%.1f mi", appState.orders.reduce(0) { $0 + ($1.mileage ?? 0) })),
-                            ("Travel fees", summary.travelExpenses.currencyString)
+                            ("Mileage", String(format: "%.2f mi", summary.totalBusinessMiles)),
+                            ("Parking and order expenses", summary.travelExpenses.currencyString)
                         ])
                         TaxSummaryCard(title: "Estimated Tax", rows: [
                             ("Net Self-Employment Income", summary.netSelfEmploymentIncome.currencyString),
@@ -85,36 +87,42 @@ struct TaxSummaryView: View {
         .sheet(item: $exportItem) { item in
             ShareSheet(activityItems: [item.url])
         }
-        .task {
-            await loadSummary()
-        }
-        .onChange(of: selectedYear) { _, _ in
-            Task { await loadSummary() }
-        }
+        .task(id: selectedYear) { await loadSummary() }
     }
 
     private func loadSummary() async {
         errorMessage = ""
+        summary = nil
         isLoading = true
         defer { isLoading = false }
+        let year = selectedYear
         do {
-            summary = try await APIService.shared.fetchTaxSummary(taxYear: selectedYear)
+            let result = try await APIService.shared.fetchTaxSummary(taxYear: year)
+            try Task.checkCancellation()
+            guard selectedYear == year else { return }
+            summary = result
+        } catch is CancellationError {
         } catch {
-            summary = FinancialSummary.localTaxSummary(orders: appState.orders, expenses: appState.expenses, year: selectedYear)
-            errorMessage = "Using local totals because the backend tax summary is unavailable: \(error.localizedDescription)"
+            errorMessage = error.localizedDescription
         }
     }
 
     private func exportPDF() {
-        let user = appState.currentUser
-        let data = TaxPDFGenerator.generatePDF(
-            options: TaxPDFGenerator.Options(
-                userFullName: user?.fullName ?? "Notary Ledger User",
-                userEmail: user?.email ?? "",
-                year: selectedYear,
-                orders: appState.orders
-            )
-        )
+        guard let summary else { return }
+        let data = LedgerPDF.document(title: "Tax Summary \(selectedYear)", lines: [
+            appState.currentUser?.fullName ?? "Notary Ledger",
+            appState.currentUser?.email ?? "",
+            "Income received: \(summary.incomeReceived.currencyString)",
+            "Unpaid income: \(summary.unpaidIncome.currencyString)",
+            "Notarial act fees exempt from SE tax: \(summary.notarialActFeeExemptPortion.currencyString)",
+            "Business expenses: \(summary.businessExpenses.currencyString)",
+            "Travel expenses: \(summary.travelExpenses.currencyString)",
+            String(format: "Business miles: %.2f", summary.totalBusinessMiles),
+            "Net self-employment income: \(summary.netSelfEmploymentIncome.currencyString)",
+            "SE taxable income: \(summary.selfEmploymentTaxableIncome.currencyString)",
+            "Estimated SE tax: \(summary.estimatedSelfEmploymentTax.currencyString)",
+            "Estimated tax payments: \(summary.estimatedTaxPayments.currencyString)"
+        ])
         let filename = "notary-ledger-tax-summary-\(selectedYear).pdf"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
         do {

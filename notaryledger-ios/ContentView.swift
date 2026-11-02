@@ -53,6 +53,7 @@ enum AppSection: String, CaseIterable, Identifiable {
     case taxSummary
     case billing
     case profile
+    case businessCard
     case terms
     case privacy
     case adminAudit
@@ -69,6 +70,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .customers: "Customers"
         case .taxSummary: "Tax Summary"
         case .billing: "Billing"
+        case .businessCard: "Digital Business Card"
         case .profile: "Profile"
         case .terms: "Terms & Conditions"
         case .privacy: "Privacy Policy"
@@ -86,6 +88,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .customers: "person.2"
         case .taxSummary: "sum"
         case .billing: "creditcard.and.123"
+        case .businessCard: "person.text.rectangle"
         case .profile: "person.crop.circle"
         case .terms: "doc.plaintext"
         case .privacy: "lock.shield"
@@ -100,7 +103,7 @@ struct LedgerAppShell: View {
     @State private var isMenuOpen = false
 
     private var primarySections: [AppSection] {
-        [.dashboard, .signings, .rescission, .invoices, .expenses, .customers, .taxSummary, .billing, .profile]
+        [.dashboard, .signings, .rescission, .invoices, .expenses, .customers, .taxSummary, .billing, .businessCard, .profile]
     }
 
     var body: some View {
@@ -158,6 +161,8 @@ struct LedgerAppShell: View {
             TaxSummaryView()
         case .billing:
             BillingView()
+        case .businessCard:
+            BusinessCardView()
         case .profile:
             ProfileView()
         case .terms:

@@ -1,174 +1,96 @@
 import SwiftUI
 
-enum BillingStatus: String, CaseIterable, Identifiable {
-    case free = "Free"
-    case pro = "Pro"
-    case pastDue = "Past Due"
-    case canceled = "Canceled"
-    case inactive = "Inactive"
-
-    var id: String { rawValue }
-}
-
 struct BillingView: View {
-    @State private var status: BillingStatus = .free
-    @State private var showUpgrade = false
-    @State private var showPortal = false
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var billing: BillingStatusPayload?
+    @State private var interval = "monthly"
+    @State private var busy = false
+    @State private var error = ""
+    @AppStorage("notary_pending_checkout_owner") private var pendingOwner = ""
+    @AppStorage("notary_pending_checkout") private var pendingCheckout = ""
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                ScreenTitleBlock(
-                    title: "Billing",
-                    subtitle: "Manage the plan and billing access attached to this Notary Ledger account."
-                )
-
-                planCard
-                stateBanner
-                actionsCard
-
-                NLCard {
-                    VStack(alignment: .leading, spacing: NLSpacing.md) {
-                        Text("Preview Billing States")
-                            .font(.headline)
-                            .foregroundColor(NLColor.navy)
-                        Picker("Status", selection: $status) {
-                            ForEach(BillingStatus.allCases) { state in
-                                Text(state.rawValue).tag(state)
+                ScreenTitleBlock(title: "Billing", subtitle: "Manage the plan and billing access attached to this Notary Ledger account.")
+                ErrorBanner(message: error)
+                if busy { ProgressView() }
+                if let billing {
+                    NLCard {
+                        VStack(alignment: .leading, spacing: NLSpacing.md) {
+                            Text(billing.isPro == true ? "Notary Ledger Pro" : "Notary Ledger Free").font(NLFonts.serif(24, weight: .bold)).foregroundColor(NLColor.navy)
+                            DetailRow(label: "Status", value: billing.subscriptionStatus ?? "Unknown")
+                            if let current = billing.billingInterval { DetailRow(label: "Billing interval", value: current.capitalized) }
+                            if let end = billing.currentPeriodEnd { DetailRow(label: billing.cancelAtPeriodEnd == true ? "Access until" : "Current period ends", value: end) }
+                            if let remaining = billing.remainingFreeOrders, billing.isPro != true { DetailRow(label: "Free orders remaining", value: String(remaining)) }
+                            if billing.cancelAtPeriodEnd == true { BannerView(kind: .warning, message: "Your subscription will not renew. Access follows the current billing period.") }
+                            if let change = billing.scheduledChange {
+                                DetailRow(label: "Scheduled interval", value: change.billingInterval ?? "Pending")
+                                if let date = change.effectiveAt { DetailRow(label: "Effective", value: date) }
+                                Button("Cancel Scheduled Change") { Task { await changeInterval(nil) } }.disabled(busy)
                             }
                         }
-                        .pickerStyle(.segmented)
+                    }
+                    NLCard {
+                        VStack(spacing: NLSpacing.md) {
+                            Picker("Billing interval", selection: $interval) {
+                                Text("Monthly").tag("monthly")
+                                Text("Annual").tag("annual")
+                            }.pickerStyle(.segmented)
+                            if billing.isPro == true {
+                                Button("Schedule Billing Interval Change") { Task { await changeInterval(interval) } }.buttonStyle(SecondaryButtonStyle()).disabled(busy || interval == billing.billingInterval)
+                            } else {
+                                Button("Upgrade to Pro") { Task { await checkout() } }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
+                            }
+                            Button("Manage Billing") { Task { await portal() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
+                            Text("Stripe opens in your browser. Return here to refresh the confirmed billing status.").font(.caption).foregroundColor(NLColor.muted)
+                        }
                     }
                 }
-            }
-            .padding(NLSpacing.lg)
-        }
-        .background(ParchmentBackground())
-        .sheet(isPresented: $showUpgrade) {
-            UpgradeToProSheet(status: $status)
-        }
-        .sheet(isPresented: $showPortal) {
-            BillingPortalSheet(status: status)
-        }
+                Button("Refresh Billing Status") { Task { await load() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
+            }.padding(NLSpacing.lg)
+        }.background(ParchmentBackground()).task { await load() }
+            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await load() } } }
     }
-
-    private var planCard: some View {
-        NLCard {
-            VStack(alignment: .leading, spacing: NLSpacing.md) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Current Plan")
-                            .font(.caption.weight(.semibold))
-                            .foregroundColor(NLColor.muted)
-                        Text(status == .pro ? "Notary Ledger Pro" : "Notary Ledger Free")
-                            .font(NLFonts.serif(24, weight: .bold))
-                            .foregroundColor(NLColor.navy)
-                    }
-                    Spacer()
-                    Text(status.rawValue)
-                        .font(.caption.weight(.bold))
-                        .foregroundColor(status == .pastDue ? NLColor.warning : NLColor.navy)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(NLColor.brass.opacity(0.14))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-
-                DetailRow(label: "Invoice tools", value: status == .free ? "Limited" : "Included")
-                DetailRow(label: "Tax exports", value: status == .free ? "Preview" : "PDF export")
-                DetailRow(label: "Customer history", value: "Included")
+    private func load() async {
+        guard !busy else { return }
+        busy = true; error = ""
+        defer { busy = false }
+        do {
+            if pendingOwner != appState.currentUser?.id { pendingCheckout = ""; pendingOwner = "" }
+            if !pendingCheckout.isEmpty {
+                do { billing = try await APIService.shared.syncCheckoutSession(sessionId: pendingCheckout); pendingCheckout = "" }
+                catch { self.error = error.localizedDescription }
             }
-        }
+            billing = try await APIService.shared.fetchBillingStatus()
+        } catch { self.error = error.localizedDescription }
     }
-
-    @ViewBuilder
-    private var stateBanner: some View {
-        switch status {
-        case .free:
-            BannerView(kind: .info, message: "Upgrade to Pro to unlock full invoice and tax export workflows.")
-        case .pro:
-            BannerView(kind: .success, message: "Your Pro subscription is active.")
-        case .pastDue:
-            BannerView(kind: .warning, message: "Payment is past due. Update billing to keep Pro features available.")
-        case .canceled:
-            BannerView(kind: .warning, message: "Your subscription is canceled and will not renew.")
-        case .inactive:
-            BannerView(kind: .error, message: "Billing is inactive. Choose a plan to restore paid features.")
-        }
+    private func checkout() async {
+        busy = true; error = ""
+        defer { busy = false }
+        do {
+            let session = try await APIService.shared.createCheckoutSession(billingInterval: interval)
+            guard let value = session.url, let url = URL(string: value), url.scheme == "https" else { throw APIError.invalidResponse }
+            pendingCheckout = session.sessionId ?? ""
+            pendingOwner = appState.currentUser?.id ?? ""
+            openURL(url) { accepted in if !accepted { error = "Could not open Stripe checkout." } }
+        } catch { self.error = error.localizedDescription }
     }
-
-    private var actionsCard: some View {
-        NLCard {
-            VStack(spacing: NLSpacing.md) {
-                Button {
-                    showUpgrade = true
-                } label: {
-                    Label(status == .free || status == .inactive ? "Upgrade to Pro" : "Review Plan", systemImage: "arrow.up.circle")
-                }
-                .buttonStyle(PrimaryButtonStyle())
-
-                Button {
-                    showPortal = true
-                } label: {
-                    Label("Manage Billing", systemImage: "creditcard")
-                }
-                .buttonStyle(SecondaryButtonStyle())
-            }
-        }
+    private func portal() async {
+        busy = true; error = ""
+        defer { busy = false }
+        do {
+            let session = try await APIService.shared.createCustomerPortalSession()
+            guard let value = session.url, let url = URL(string: value), url.scheme == "https" else { throw APIError.invalidResponse }
+            openURL(url) { accepted in if !accepted { error = "Could not open the billing portal." } }
+        } catch { self.error = error.localizedDescription }
     }
-}
-
-struct UpgradeToProSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Binding var status: BillingStatus
-    @State private var isLoading = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: NLSpacing.lg) {
-            Text("Upgrade to Pro")
-                .font(NLFonts.serif(24, weight: .bold))
-                .foregroundColor(NLColor.navy)
-            Text("Continue to Stripe checkout to activate Pro billing for invoice PDFs, tax exports, and expanded ledger workflows.")
-                .font(.subheadline)
-                .foregroundColor(NLColor.muted)
-            BannerView(kind: .info, message: "Checkout opens in the connected web billing flow when the production endpoint is configured.")
-            Button(isLoading ? "Opening..." : "Continue to Checkout") {
-                isLoading = true
-                status = .pro
-                dismiss()
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            Button("Cancel") {
-                dismiss()
-            }
-            .buttonStyle(SecondaryButtonStyle())
-        }
-        .padding()
-        .presentationDetents([.medium])
-    }
-}
-
-struct BillingPortalSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let status: BillingStatus
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: NLSpacing.lg) {
-            Text("Manage Billing")
-                .font(NLFonts.serif(24, weight: .bold))
-                .foregroundColor(NLColor.navy)
-            Text("Stripe account portal")
-                .font(.headline)
-                .foregroundColor(NLColor.navy)
-            Text(status == .free ? "No paid subscription is attached to this account yet." : "Open the billing portal to update payment method, invoices, and subscription status.")
-                .font(.subheadline)
-                .foregroundColor(NLColor.muted)
-            Button("Done") {
-                dismiss()
-            }
-            .buttonStyle(PrimaryButtonStyle())
-        }
-        .padding()
-        .presentationDetents([.height(280)])
+    private func changeInterval(_ value: String?) async {
+        busy = true; error = ""
+        defer { busy = false }
+        do { billing = try await APIService.shared.changeBillingInterval(value) }
+        catch { self.error = error.localizedDescription }
     }
 }

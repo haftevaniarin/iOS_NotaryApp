@@ -21,11 +21,11 @@ struct DashboardView: View {
     }
 
     private var travelMileageTotal: Double {
-        appState.orders.reduce(0) { $0 + ($1.mileage ?? 0) }
+        appState.orders.filter(\.countsInFinancialTotals).reduce(0) { $0 + ($1.mileage ?? 0) }
     }
 
     private var travelFeeTotal: Double {
-        appState.orders.reduce(0) { $0 + ($1.travelFee ?? 0) }
+        appState.orders.filter(\.countsInFinancialTotals).reduce(0) { $0 + ($1.travelFee ?? 0) }
     }
 
     private var todaySubtitle: String {
@@ -88,9 +88,31 @@ struct DashboardView: View {
 }
 
 struct CredentialRiskBanners: View {
+    @State private var credentials: Credentials?
+    @State private var error = ""
+    private var risks: [(String, String)] {
+        guard let credentials else { return [] }
+        let items: [(String, String?)] = [
+            ("Commission", credentials.commissionExpirationDate),
+            ("E&O insurance", credentials.eoExpirationDate),
+            ("Background check", credentials.backgroundCheckExpirationDate),
+            (credentials.certificationName ?? "Certification", credentials.certificationExpirationDate)
+        ]
+        return items.compactMap { label, date in
+            guard let date, !date.isEmpty else { return nil }
+            let status = CredentialsEditor.expirationStatus(date)
+            return status == "Current" ? nil : (label, status)
+        }
+    }
     var body: some View {
         VStack(spacing: NLSpacing.sm) {
-            BannerView(kind: .warning, message: "Review commission expiration, bond, E&O insurance, and notary credential details in Profile.")
+            ErrorBanner(message: error)
+            ForEach(risks.indices, id: \.self) { i in
+                BannerView(kind: risks[i].1 == "Expired" ? .error : .warning, message: "\(risks[i].0): \(risks[i].1). Update your credentials in Profile.")
+            }
+        }.task {
+            do { credentials = try await APIService.shared.fetchCredentials() }
+            catch { self.error = "Could not load credential reminders: " + error.localizedDescription }
         }
     }
 }
@@ -134,7 +156,7 @@ struct TravelTotalsSection: View {
             NLCard {
                 VStack(spacing: NLSpacing.md) {
                     DetailRow(label: "Mileage", value: String(format: "%.1f mi", mileage))
-                    DetailRow(label: "Travel fees", value: travelFees.currencyString)
+                    DetailRow(label: "Parking and tolls", value: travelFees.currencyString)
                     DetailRow(label: "IRS mileage note", value: "Track business miles before tax export.")
                 }
             }

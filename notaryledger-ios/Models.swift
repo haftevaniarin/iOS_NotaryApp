@@ -10,6 +10,7 @@ struct SignupRequest: Codable {
 struct LoginRequest: Codable {
     let email: String
     let password: String
+    var clientType = "native"
 }
 
 struct AuthUser: Codable, Equatable {
@@ -20,21 +21,24 @@ struct AuthUser: Codable, Equatable {
     var lastName: String?
     var role: String?
     var isAdmin: Bool?
+    var defaultStartAddress: String?
+    var profilePhotoUrl: String?
+    var profilePhotoUpload: PhotoUpload?
 
     var displayFirstName: String {
-        firstName ?? fullName.split(separator: " ").first.map(String.init) ?? ""
+        firstName ?? fullName.split(separator: " ").first.map { String($0) } ?? ""
     }
 
     var displayLastName: String {
         if let lastName {
             return lastName
         }
-        let pieces = fullName.split(separator: " ").map(String.init)
+        let pieces = fullName.split(separator: " ").map { String($0) }
         return pieces.dropFirst().joined(separator: " ")
     }
 
     var canAccessAdminAudit: Bool {
-        isAdmin == true || role?.localizedCaseInsensitiveContains("admin") == true
+        role?.uppercased() == "ADMIN"
     }
 
     enum CodingKeys: String, CodingKey {
@@ -46,7 +50,7 @@ struct AuthUser: Codable, Equatable {
         case firstName
         case lastName
         case role
-        case isAdmin
+        case isAdmin, defaultStartAddress, profilePhotoUrl, profilePhotoUpload
     }
 
     init(
@@ -70,8 +74,7 @@ struct AuthUser: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id)
-            ?? container.decodeIfPresent(String.self, forKey: .mongoId)
-            ?? UUID().uuidString
+            ?? container.decode(String.self, forKey: .mongoId)
         email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
         firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
         lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
@@ -81,6 +84,9 @@ struct AuthUser: Codable, Equatable {
             ?? [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
         role = try container.decodeIfPresent(String.self, forKey: .role)
         isAdmin = try container.decodeIfPresent(Bool.self, forKey: .isAdmin)
+        defaultStartAddress = try container.decodeIfPresent(String.self, forKey: .defaultStartAddress)
+        profilePhotoUrl = try container.decodeIfPresent(String.self, forKey: .profilePhotoUrl)
+        profilePhotoUpload = try container.decodeIfPresent(PhotoUpload.self, forKey: .profilePhotoUpload)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -92,16 +98,21 @@ struct AuthUser: Codable, Equatable {
         try container.encodeIfPresent(lastName, forKey: .lastName)
         try container.encodeIfPresent(role, forKey: .role)
         try container.encodeIfPresent(isAdmin, forKey: .isAdmin)
+        try container.encodeIfPresent(defaultStartAddress, forKey: .defaultStartAddress)
+        try container.encodeIfPresent(profilePhotoUrl, forKey: .profilePhotoUrl)
+        try container.encodeIfPresent(profilePhotoUpload, forKey: .profilePhotoUpload)
     }
 }
 
 struct AuthResponse: Decodable {
     let token: String
     let user: AuthUser?
+    var refreshToken: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case token
         case accessToken
+        case refreshToken
         case user
     }
 
@@ -115,6 +126,7 @@ struct AuthResponse: Decodable {
         token = try container.decodeIfPresent(String.self, forKey: .token)
             ?? container.decode(String.self, forKey: .accessToken)
         user = try container.decodeIfPresent(AuthUser.self, forKey: .user)
+        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
     }
 }
 
@@ -210,6 +222,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
     var travelFee: Double?
     var status: SigningStatus?
     var userId: String?
+    var mileageDetails: OrderMileage?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -275,23 +288,27 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id)
-            ?? container.decodeIfPresent(String.self, forKey: .mongoId)
-            ?? UUID().uuidString
+            ?? container.decode(String.self, forKey: .mongoId)
         customerName = try container.decodeIfPresent(String.self, forKey: .customerName) ?? ""
         payerName = try container.decodeIfPresent(String.self, forKey: .payerName)
         signerName = try container.decodeIfPresent(String.self, forKey: .signerName) ?? ""
         signingType = try container.decodeIfPresent(String.self, forKey: .signingType)
         date = try container.decodeIfPresent(String.self, forKey: .date) ?? ""
         time = try container.decodeIfPresent(String.self, forKey: .time)
+        if time == nil, date.contains("T"), let scheduled = DateParser.date(from: date) {
+            let clock = DateFormatter(); clock.locale = Locale(identifier: "en_US_POSIX"); clock.dateFormat = "HH:mm"
+            time = clock.string(from: scheduled)
+        }
         fee = try container.decodeFlexibleDouble(forKey: .fee) ?? 0
         notarialActFee = try container.decodeFlexibleDouble(forKey: .notarialActFee) ?? 0
         paid = try container.decodeIfPresent(Bool.self, forKey: .paid) ?? false
         paidDate = try container.decodeIfPresent(String.self, forKey: .paidDate)
         invoiceNumber = try container.decodeIfPresent(String.self, forKey: .invoiceNumber) ?? ""
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
-        mileage = try container.decodeFlexibleDouble(forKey: .mileage)
+        mileageDetails = try? container.decodeIfPresent(OrderMileage.self, forKey: .mileage)
+        mileage = mileageDetails?.businessMiles ?? container.decodeFlexibleDoubleIfPresent(forKey: .mileage)
             ?? container.decodeFlexibleDoubleIfPresent(forKey: .miles)
-        travelFee = try container.decodeFlexibleDouble(forKey: .travelFee)
+        travelFee = mileageDetails?.parkingFee ?? container.decodeFlexibleDoubleIfPresent(forKey: .travelFee)
         let rawStatus = try container.decodeIfPresent(String.self, forKey: .status)
             ?? container.decodeIfPresent(String.self, forKey: .paymentStatus)
         status = rawStatus == nil ? nil : SigningStatus(normalizing: rawStatus)
@@ -337,7 +354,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
     }
 }
 
-struct SigningOrderPayload: Codable, Equatable {
+struct SigningOrderPayload: Encodable, Equatable {
     var customerName: String
     var payerName: String?
     var signerName: String
@@ -353,6 +370,7 @@ struct SigningOrderPayload: Codable, Equatable {
     var mileage: Double?
     var travelFee: Double?
     var status: SigningStatus
+    var preserveMileage = false
 
     enum CodingKeys: String, CodingKey {
         case customerName
@@ -367,9 +385,10 @@ struct SigningOrderPayload: Codable, Equatable {
         case paidDate
         case invoiceNumber
         case notes
-        case mileage
-        case travelFee
-        case status
+        case mileage = "miles"
+        case travelFee = "parkingFee"
+        case status = "paymentStatus"
+        case oneWayMiles, mileageTripType, mileageEntryMode
     }
 
     init(
@@ -398,22 +417,32 @@ struct SigningOrderPayload: Codable, Equatable {
         self.fee = fee
         self.notarialActFee = notarialActFee
         self.paid = status == .cancelled ? false : paid
-        self.paidDate = status == .cancelled ? nil : paidDate
+        self.paidDate = paid && status != .cancelled ? paidDate : nil
         self.invoiceNumber = invoiceNumber
         self.notes = notes
         self.mileage = mileage
         self.travelFee = travelFee
-        self.status = status
+        self.status = status == .cancelled ? .cancelled : paid ? .paid : status == .paid ? .pending : status
+    }
+
+    static func scheduledDate(date: String, time: String?) -> String {
+        guard let time, !time.isEmpty, let day = DateParser.date(from: date) else { return date }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+        guard let clock = formatter.date(from: time) else { return date }
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: clock)
+        guard let scheduled = Calendar.current.date(bySettingHour: parts.hour ?? 0, minute: parts.minute ?? 0, second: 0, of: day) else { return date }
+        return ISO8601DateFormatter().string(from: scheduled)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(customerName, forKey: .customerName)
-        try container.encodeIfPresent(payerName, forKey: .payerName)
+        try container.encode(payerName, forKey: .payerName)
         try container.encode(signerName, forKey: .signerName)
-        try container.encodeIfPresent(signingType, forKey: .signingType)
-        try container.encode(date, forKey: .date)
-        try container.encodeIfPresent(time, forKey: .time)
+        try container.encode(signingType, forKey: .signingType)
+        try container.encode(Self.scheduledDate(date: date, time: time), forKey: .date)
         try container.encode(fee, forKey: .fee)
         try container.encode(notarialActFee, forKey: .notarialActFee)
         try container.encode(paid, forKey: .paid)
@@ -423,9 +452,14 @@ struct SigningOrderPayload: Codable, Equatable {
             try container.encodeNil(forKey: .paidDate)
         }
         try container.encode(invoiceNumber, forKey: .invoiceNumber)
-        try container.encodeIfPresent(notes, forKey: .notes)
-        try container.encodeIfPresent(mileage, forKey: .mileage)
-        try container.encodeIfPresent(travelFee, forKey: .travelFee)
+        try container.encode(notes, forKey: .notes)
+        if !preserveMileage {
+            try container.encode(mileage, forKey: .mileage)
+            try container.encode(mileage, forKey: .oneWayMiles)
+            try container.encode(mileage == nil ? nil : "ONE_WAY", forKey: .mileageTripType)
+            try container.encode(mileage == nil ? nil : "MANUAL", forKey: .mileageEntryMode)
+            try container.encode(travelFee, forKey: .travelFee)
+        }
         try container.encode(status.rawValue, forKey: .status)
     }
 }
@@ -463,8 +497,7 @@ struct Expense: Decodable, Identifiable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id)
-            ?? container.decodeIfPresent(String.self, forKey: .mongoId)
-            ?? UUID().uuidString
+            ?? container.decode(String.self, forKey: .mongoId)
         date = try container.decodeIfPresent(String.self, forKey: .date) ?? ""
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? ""
         description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
@@ -485,31 +518,94 @@ struct ExpensePayload: Codable, Equatable {
 struct MileagePayload: Codable, Equatable {
     var mileage: Double?
     var travelFee: Double?
+    enum CodingKeys: String, CodingKey { case mileage = "miles", travelFee = "parkingFee" }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(mileage, forKey: .mileage)
+        try c.encode(travelFee, forKey: .travelFee)
+    }
 }
 
 struct Credentials: Codable, Equatable {
-    var commissionNumber: String?
-    var commissionExpiration: String?
-    var bondExpiration: String?
-    var insuranceExpiration: String?
+    var commissionNumber: String? = nil
+    var commissionState: String? = nil
+    var commissionStartDate: String? = nil
+    var commissionExpirationDate: String? = nil
+    var eoProvider: String? = nil
+    var eoPolicyNumber: String? = nil
+    var eoCoverageAmount: String? = nil
+    var eoStartDate: String? = nil
+    var eoExpirationDate: String? = nil
+    var certificationName: String? = nil
+    var certificationExpirationDate: String? = nil
+    var backgroundCheckProvider: String? = nil
+    var backgroundCheckCompletedDate: String? = nil
+    var backgroundCheckExpirationDate: String? = nil
+    init() {}
+    enum CodingKeys: String, CodingKey { case commissionNumber, commissionState, commissionStartDate, commissionExpirationDate, eoProvider, eoPolicyNumber, eoCoverageAmount, eoStartDate, eoExpirationDate, certificationName, certificationExpirationDate, backgroundCheckProvider, backgroundCheckCompletedDate, backgroundCheckExpirationDate }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        guard c.contains(.commissionNumber) || c.contains(.backgroundCheckProvider) else { throw APIError.invalidResponse }
+        commissionNumber = try c.decodeIfPresent(String.self, forKey: .commissionNumber)
+        commissionState = try c.decodeIfPresent(String.self, forKey: .commissionState)
+        commissionStartDate = try c.decodeIfPresent(String.self, forKey: .commissionStartDate)
+        commissionExpirationDate = try c.decodeIfPresent(String.self, forKey: .commissionExpirationDate)
+        eoProvider = try c.decodeIfPresent(String.self, forKey: .eoProvider)
+        eoPolicyNumber = try c.decodeIfPresent(String.self, forKey: .eoPolicyNumber)
+        eoCoverageAmount = (try? c.decode(String.self, forKey: .eoCoverageAmount)) ?? (try? c.decode(Double.self, forKey: .eoCoverageAmount)).map { String($0) }
+        eoStartDate = try c.decodeIfPresent(String.self, forKey: .eoStartDate)
+        eoExpirationDate = try c.decodeIfPresent(String.self, forKey: .eoExpirationDate)
+        certificationName = try c.decodeIfPresent(String.self, forKey: .certificationName)
+        certificationExpirationDate = try c.decodeIfPresent(String.self, forKey: .certificationExpirationDate)
+        backgroundCheckProvider = try c.decodeIfPresent(String.self, forKey: .backgroundCheckProvider)
+        backgroundCheckCompletedDate = try c.decodeIfPresent(String.self, forKey: .backgroundCheckCompletedDate)
+        backgroundCheckExpirationDate = try c.decodeIfPresent(String.self, forKey: .backgroundCheckExpirationDate)
+    }
+    func requestBody() throws -> Data {
+        var object: [String: Any] = [:]
+        object["commissionNumber"] = commissionNumber?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["commissionState"] = commissionState?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["commissionStartDate"] = commissionStartDate?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["commissionExpirationDate"] = commissionExpirationDate?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["eoProvider"] = eoProvider?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["eoPolicyNumber"] = eoPolicyNumber?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        if let value = eoCoverageAmount?.nilIfEmpty {
+            guard let number = Double(value), number.isFinite, number >= 0 else { throw APIError.serverError("Enter a valid E&O coverage amount.") }
+            object["eoCoverageAmount"] = number
+        } else { object["eoCoverageAmount"] = NSNull() }
+        object["eoStartDate"] = eoStartDate?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["eoExpirationDate"] = eoExpirationDate?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["certificationName"] = certificationName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["certificationExpirationDate"] = certificationExpirationDate?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["backgroundCheckProvider"] = backgroundCheckProvider?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["backgroundCheckCompletedDate"] = backgroundCheckCompletedDate?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        object["backgroundCheckExpirationDate"] = backgroundCheckExpirationDate?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? NSNull()
+        return try JSONSerialization.data(withJSONObject: object)
+    }
 }
 
-struct CredentialsPayload: Codable, Equatable {
-    var commissionNumber: String?
-    var commissionExpiration: String?
-    var bondExpiration: String?
-    var insuranceExpiration: String?
-}
+typealias CredentialsPayload = Credentials
 
 struct BillingStatusPayload: Codable, Equatable {
-    var status: String?
     var plan: String?
     var subscriptionStatus: String?
+    var billingInterval: String?
+    var isPro: Bool?
+    var cancelAtPeriodEnd: Bool?
+    var currentPeriodEnd: String?
+    var remainingFreeOrders: Int?
+    var features: [String: Bool]?
+    var scheduledChange: ScheduledBillingChange?
+}
+struct ScheduledBillingChange: Codable, Equatable {
+    var billingInterval: String?
+    var effectiveAt: String?
 }
 
 struct BillingSession: Codable, Equatable {
     var url: String?
     var sessionId: String?
+    enum CodingKeys: String, CodingKey { case url; case sessionId = "id" }
 }
 
 struct CustomerSummary: Identifiable, Equatable {
@@ -576,6 +672,7 @@ struct TaxSummary: Codable, Equatable {
     var selfEmploymentTaxableIncome: Double
     var estimatedSelfEmploymentTax: Double
     var estimatedTaxPayments: Double
+    var totalBusinessMiles: Double = 0
 }
 
 struct SupportContactRequest: Codable, Equatable {
@@ -587,7 +684,7 @@ struct SupportContactRequest: Codable, Equatable {
     var sourcePage: String
 }
 
-struct MaintenanceStatus: Decodable, Equatable {
+nonisolated struct MaintenanceStatus: Decodable, Equatable {
     var enabled: Bool
     var title: String?
     var message: String?
@@ -715,7 +812,9 @@ enum DateParser {
         if let date = Formatters.apiDate.date(from: value) {
             return date
         }
-        return ISO8601DateFormatter().date(from: value)
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return iso.date(from: value) ?? ISO8601DateFormatter().date(from: value)
     }
 
     static func apiDateString(from date: Date) -> String {
@@ -755,13 +854,13 @@ extension Double {
 
 private extension KeyedDecodingContainer {
     func decodeFlexibleDouble(forKey key: Key) throws -> Double? {
-        if let value = try decodeIfPresent(Double.self, forKey: key) {
+        if let value = try? decodeIfPresent(Double.self, forKey: key) {
             return value
         }
-        if let value = try decodeIfPresent(Int.self, forKey: key) {
+        if let value = try? decodeIfPresent(Int.self, forKey: key) {
             return Double(value)
         }
-        if let value = try decodeIfPresent(String.self, forKey: key) {
+        if let value = try? decodeIfPresent(String.self, forKey: key) {
             return Double(value)
         }
         return nil

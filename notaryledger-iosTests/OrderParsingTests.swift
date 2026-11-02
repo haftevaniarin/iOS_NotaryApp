@@ -4,6 +4,7 @@ import Foundation
 import Testing
 @testable import notaryledger_ios
 
+@MainActor
 struct OrderParsingTests {
     @Test func decodesBackendOrderShapeAndNormalizesCancelledStatus() throws {
         let json = """
@@ -61,7 +62,7 @@ struct OrderParsingTests {
 
         #expect(object?["paid"] as? Bool == false)
         #expect(object?["paidDate"] is NSNull)
-        #expect(object?["status"] as? String == "Cancelled")
+        #expect(object?["paymentStatus"] as? String == "Cancelled")
     }
 
     @Test func dashboardTotalsExcludeCancelledOrders() throws {

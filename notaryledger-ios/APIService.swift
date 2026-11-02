@@ -1,11 +1,12 @@
 import Foundation
 
-enum APIError: Error, LocalizedError, Equatable {
+nonisolated enum APIError: Error, LocalizedError, Equatable {
     case invalidURL
     case invalidResponse
     case unauthorized
     case maintenance(MaintenanceStatus)
     case serverError(String)
+    case httpError(Int, String)
 
     var errorDescription: String? {
         switch self {
@@ -17,7 +18,7 @@ enum APIError: Error, LocalizedError, Equatable {
             return "Please sign in again."
         case .maintenance(let status):
             return status.message ?? "Notary Ledger is temporarily unavailable for maintenance."
-        case .serverError(let message):
+        case .serverError(let message), .httpError(_, let message):
             return message
         }
     }
@@ -33,6 +34,7 @@ final class APIService {
     private var lastMaintenanceCheck: Date?
     private var cachedMaintenance = MaintenanceStatus.disabled
     private let maintenanceTTL: TimeInterval = 60
+    private var refreshTask: Task<Bool, Error>?
 
     init(baseURL: String = APIConfig.baseURL, session: URLSession? = nil) {
         self.baseURL = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -41,9 +43,9 @@ final class APIService {
 
     static func defaultSessionConfiguration() -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.default
-        configuration.httpShouldSetCookies = true
+        configuration.httpShouldSetCookies = false
         configuration.httpCookieAcceptPolicy = .always
-        configuration.httpCookieStorage = .shared
+        configuration.httpCookieStorage = nil
         return configuration
     }
 
@@ -66,6 +68,8 @@ final class APIService {
         }
 
         var request = URLRequest(url: url)
+        request.httpShouldHandleCookies = false
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.httpMethod = method
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -153,6 +157,7 @@ final class APIService {
         let payload = LoginRequest(email: email, password: password)
         let request = try makeRequest(path: "/api/auth/login", method: "POST", body: encodedBody(payload))
         let response = try await perform(request, decodeTo: AuthResponse.self)
+        guard response.refreshToken != nil else { throw APIError.invalidResponse }
         SessionStorage.saveSession(response)
         return response
     }
@@ -264,11 +269,12 @@ final class APIService {
             method: "GET",
             queryItems: [URLQueryItem(name: "taxYear", value: String(taxYear))]
         )
-        return try await performAuthenticated(request, decodeTo: TaxSummary.self)
+        let report = try await performAuthenticated(request, decodeTo: BackendTaxSummary.self)
+        return report.summary(year: taxYear)
     }
 
-    func updateProfile(firstName: String, lastName: String) async throws -> AuthUser {
-        let body = try encodedMutableBody(["firstName": firstName, "lastName": lastName])
+    func updateProfile(firstName: String, lastName: String, defaultStartAddress: String = "") async throws -> AuthUser {
+        let body = try encodedMutableBody(["firstName": firstName, "lastName": lastName, "defaultStartAddress": defaultStartAddress])
         let request = try await authenticatedRequest(path: "/api/auth/me", method: "PATCH", body: body)
         let user = try await performAuthenticated(request, decodeTo: AuthUser.self)
         SessionStorage.saveCurrentUser(user)
@@ -281,23 +287,34 @@ final class APIService {
         _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
     }
 
-    func requestDataExport() async throws {
+    func requestDataExport() async throws -> URL {
         let request = try await authenticatedRequest(path: "/api/account/data-export", method: "POST")
-        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+        let (data, response) = try await authenticatedData(request)
+        guard !data.isEmpty,
+              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let export = (object["data"] as? [String: Any]) ?? (object["records"] != nil ? object : nil),
+              export["records"] is [String: Any], export["generatedAt"] is String else { throw APIError.invalidResponse }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let suggested = response.value(forHTTPHeaderField: "Content-Disposition") == nil ? "notary-ledger-export.json" : response.suggestedFilename ?? "notary-ledger-export.json"
+        let filename = URL(fileURLWithPath: suggested).lastPathComponent
+        let url = directory.appendingPathComponent(filename == "Unknown" ? "notary-ledger-export.json" : filename)
+        try data.write(to: url, options: [.atomic, .completeFileProtection])
+        return url
     }
 
-    func requestAccountDeletion() async throws {
-        let request = try await authenticatedRequest(path: "/api/account/deletion-request", method: "POST")
-        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+    func fetchAccountDeletion() async throws -> DeletionStatus {
+        try await accountDeletion(method: "GET", path: "/api/account/deletion-request")
     }
-
-    func cancelAccountDeletion() async throws {
-        let request = try await authenticatedRequest(path: "/api/account/deletion-cancel", method: "POST")
-        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+    func requestAccountDeletion() async throws -> DeletionStatus {
+        try await accountDeletion(method: "POST", path: "/api/account/deletion-request")
     }
-
-    func deleteAccount() async throws {
-        try await requestAccountDeletion()
+    func cancelAccountDeletion() async throws -> DeletionStatus {
+        try await accountDeletion(method: "POST", path: "/api/account/deletion-cancel")
+    }
+    private func accountDeletion(method: String, path: String) async throws -> DeletionStatus {
+        let request = try await authenticatedRequest(path: path, method: method)
+        return try await performAuthenticated(request, decodeTo: DeletionStatus.self)
     }
 
     func contactSupport(_ payload: SupportContactRequest) async throws {
@@ -306,7 +323,7 @@ final class APIService {
     }
 
     func logout() async {
-        if let request = try? await authenticatedRequest(path: "/api/auth/logout", method: "POST") {
+        if let request = try? await authenticatedRequest(path: "/api/auth/logout", method: "POST", body: encodedBody(["clientType": "native", "refreshToken": SessionStorage.getRefreshToken() ?? ""])) {
             _ = try? await performAuthenticated(request, decodeTo: EmptyResponse.self)
         }
         SessionStorage.clearSession()
@@ -319,7 +336,7 @@ final class APIService {
     }
 
     func updateCredentials(_ credentials: CredentialsPayload) async throws -> Credentials {
-        let request = try await authenticatedRequest(path: "/api/credentials", method: "PUT", body: encodedMutableBody(credentials))
+        let request = try await authenticatedRequest(path: "/api/credentials", method: "PUT", body: credentials.requestBody())
         return try await performAuthenticated(request, decodeTo: Credentials.self)
     }
 
@@ -328,8 +345,8 @@ final class APIService {
         return try await performAuthenticated(request, decodeTo: BillingStatusPayload.self)
     }
 
-    func createCheckoutSession() async throws -> BillingSession {
-        let request = try await authenticatedRequest(path: "/api/stripe/checkout-session", method: "POST")
+    func createCheckoutSession(billingInterval: String = "monthly") async throws -> BillingSession {
+        let request = try await authenticatedRequest(path: "/api/stripe/checkout-session", method: "POST", body: encodedBody(["billingInterval": billingInterval]))
         return try await performAuthenticated(request, decodeTo: BillingSession.self)
     }
 
@@ -342,6 +359,106 @@ final class APIService {
         let body = try encodedMutableBody(["sessionId": sessionId])
         let request = try await authenticatedRequest(path: "/api/stripe/sync-checkout-session", method: "POST", body: body)
         return try await performAuthenticated(request, decodeTo: BillingStatusPayload.self)
+    }
+
+    func uploadProfilePhoto(_ file: MultipartFile) async throws -> PhotoResponse {
+        try UploadValidation.validate(data: file.data, mimeType: file.mimeType, photo: true)
+        let auth = try await authenticatedRequest(path: "/api/auth/me/photo", method: "POST")
+        var request = try makeMultipartRequest(path: "/api/auth/me/photo", token: SessionStorage.getAccessToken(), files: [file])
+        request.setValue(auth.value(forHTTPHeaderField: "Authorization"), forHTTPHeaderField: "Authorization")
+        return try await performAuthenticated(request, decodeTo: PhotoResponse.self)
+    }
+    func photoAction(uploadId: String? = nil, method: String) async throws -> PhotoResponse {
+        let suffix = uploadId.map { "/uploads/" + $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)! } ?? ""
+        let request = try await authenticatedRequest(path: "/api/auth/me/photo" + suffix, method: method)
+        return try await performAuthenticated(request, decodeTo: PhotoResponse.self)
+    }
+    func fetchBusinessCard() async throws -> BusinessCard {
+        let request = try await authenticatedRequest(path: "/api/business-card/me", method: "GET")
+        return try await performAuthenticated(request, decodeTo: CardResponse.self).card
+    }
+    func saveBusinessCard(_ card: BusinessCard) async throws -> BusinessCard {
+        let request = try await authenticatedRequest(path: "/api/business-card/me", method: "PUT", body: card.updateBody())
+        return try await performAuthenticated(request, decodeTo: CardResponse.self).card
+    }
+    func publishBusinessCard(_ publish: Bool) async throws -> BusinessCard {
+        let request = try await authenticatedRequest(path: "/api/business-card/me/" + (publish ? "publish" : "unpublish"), method: "POST", body: encodedBody([String: String]()))
+        return try await performAuthenticated(request, decodeTo: CardResponse.self).card
+    }
+    func downloadCardContact(slug: String) async throws -> URL {
+        guard slug.range(of: #"^[a-z0-9]+(?:-[a-z0-9]+)*$"#, options: .regularExpression) != nil else { throw APIError.invalidURL }
+        let request = try makeRequest(path: "/api/public/cards/\(slug)/contact.vcf", method: "GET")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard (200...299).contains(http.statusCode) else { throw APIError.httpError(http.statusCode, Self.normalizedErrorMessage(from: data)) }
+        guard !data.isEmpty, String(data: data.prefix(64), encoding: .utf8)?.hasPrefix("BEGIN:VCARD") == true else { throw APIError.invalidResponse }
+        return try LedgerPDF.save(data: data, filename: slug + ".vcf")
+    }
+    func fetchAuditLogs(page: Int, action: String = "") async throws -> AuditPage {
+        let request = try await authenticatedRequest(path: "/api/admin/audit-logs", method: "GET", queryItems: [URLQueryItem(name: "page", value: String(page)), URLQueryItem(name: "pageSize", value: "25")] + (action.isEmpty ? [] : [URLQueryItem(name: "action", value: action)]))
+        return try await performAuthenticated(request, decodeTo: AuditPage.self)
+    }
+    func importSignings(_ file: MultipartFile) async throws -> SigningImportResult {
+        guard !file.data.isEmpty, file.data.count <= 5 * 1024 * 1024,
+              ["csv", "tsv", "txt"].contains(URL(fileURLWithPath: file.fileName).pathExtension.lowercased()) else { throw APIError.serverError("Choose a CSV, TSV, or TXT export of 5 MB or smaller.") }
+        _ = try await authenticatedRequest(path: "/api/orders/import", method: "POST")
+        var request = try makeMultipartRequest(path: "/api/orders/import", token: SessionStorage.getAccessToken(), files: [file])
+        request.timeoutInterval = 120
+        return try await performAuthenticated(request, decodeTo: SigningImportResult.self)
+    }
+    func extractSigning(_ file: MultipartFile) async throws -> ExtractedSigning {
+        try UploadValidation.validate(data: file.data, mimeType: file.mimeType, photo: false)
+        _ = try await authenticatedRequest(path: "/api/orders/extract", method: "POST")
+        var request = try makeMultipartRequest(path: "/api/orders/extract", token: SessionStorage.getAccessToken(), files: [file])
+        request.timeoutInterval = 120
+        return try await performAuthenticated(request, decodeTo: ExtractedSigning.self)
+    }
+    func extractExpense(_ file: MultipartFile) async throws -> ExtractedExpense {
+        try UploadValidation.validate(data: file.data, mimeType: file.mimeType, photo: false)
+        guard file.mimeType != "application/pdf" else { throw APIError.serverError("Choose a JPEG, PNG, or WebP receipt image.") }
+        _ = try await authenticatedRequest(path: "/api/expenses/extract", method: "POST")
+        var request = try makeMultipartRequest(path: "/api/expenses/extract", token: SessionStorage.getAccessToken(), files: [file])
+        request.timeoutInterval = 120
+        return try await performAuthenticated(request, decodeTo: ExtractedExpense.self)
+    }
+    func drivingDistance(start: String, destination: String) async throws -> DistanceResponse {
+        let request = try await authenticatedRequest(path: "/api/orders/mileage/driving-distance", method: "POST", body: encodedBody(["startAddress": start, "destinationAddress": destination]))
+        return try await performAuthenticated(request, decodeTo: DistanceResponse.self)
+    }
+    func saveMileage(orderId: String, payload: Data) async throws -> SigningOrder {
+        let request = try await authenticatedRequest(path: "/api/orders/\(orderId)/mileage", method: "PATCH", body: payload)
+        return try await performAuthenticated(request, decodeTo: SigningOrder.self)
+    }
+    func changeBillingInterval(_ interval: String?) async throws -> BillingStatusPayload {
+        let request = try await authenticatedRequest(path: "/api/stripe/change-interval", method: interval == nil ? "DELETE" : "POST", body: try interval.map { try encodedBody(["billingInterval": $0]) })
+        return try await performAuthenticated(request, decodeTo: BillingStatusPayload.self)
+    }
+
+    func fetchTaxPayments() async throws -> [EstimatedTaxPayment] {
+        let request = try await authenticatedRequest(path: "/api/estimated-tax-payments", method: "GET")
+        return try await performAuthenticated(request, decodeTo: [EstimatedTaxPayment].self)
+    }
+    func saveTaxPayment(id: String?, payload: EstimatedTaxPaymentPayload) async throws -> EstimatedTaxPayment {
+        let request = try await authenticatedRequest(path: "/api/estimated-tax-payments" + (id.map { "/" + $0 } ?? ""), method: id == nil ? "POST" : "PUT", body: encodedMutableBody(payload))
+        return try await performAuthenticated(request, decodeTo: EstimatedTaxPayment.self)
+    }
+    func deleteTaxPayment(id: String) async throws {
+        let request = try await authenticatedRequest(path: "/api/estimated-tax-payments/\(id)", method: "DELETE")
+        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+    }
+    func fetchOrderExpenses(orderId: String) async throws -> [Expense] {
+        let request = try await authenticatedRequest(path: "/api/orders/\(orderId)/expenses", method: "GET")
+        return try await performAuthenticated(request, decodeTo: [Expense].self)
+    }
+    func saveOrderExpense(orderId: String, expenseId: String?, payload: ExpensePayload) async throws -> Expense {
+        var object = try JSONSerialization.jsonObject(with: encodedMutableBody(payload)) as! [String: Any]
+        object.removeValue(forKey: "businessUsePercent")
+        let request = try await authenticatedRequest(path: "/api/orders/\(orderId)/expenses" + (expenseId.map { "/" + $0 } ?? ""), method: expenseId == nil ? "POST" : "PATCH", body: JSONSerialization.data(withJSONObject: object))
+        return try await performAuthenticated(request, decodeTo: Expense.self)
+    }
+    func deleteOrderExpense(orderId: String, expenseId: String) async throws {
+        let request = try await authenticatedRequest(path: "/api/orders/\(orderId)/expenses/\(expenseId)", method: "DELETE")
+        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
     }
 
     private func authenticatedRequest(
@@ -372,8 +489,9 @@ final class APIService {
         do {
             return try await perform(request, decodeTo: type)
         } catch APIError.unauthorized {
-            guard try await refreshSession() else {
-                throw APIError.unauthorized
+            let current = SessionStorage.getAccessToken()
+            if current == nil || request.value(forHTTPHeaderField: "Authorization") == current.map({ "Bearer " + $0 }) {
+                guard try await refreshSession() else { throw APIError.unauthorized }
             }
             var retry = request
             if let token = SessionStorage.getAccessToken() {
@@ -384,15 +502,40 @@ final class APIService {
     }
 
     private func refreshSession() async throws -> Bool {
-        let request = try makeRequest(path: "/api/auth/refresh", method: "POST")
-        do {
-            let response = try await perform(request, decodeTo: AuthResponse.self)
-            SessionStorage.saveSession(response)
-            return true
-        } catch {
-            SessionStorage.clearTokens()
-            return false
+        if let refreshTask { return try await refreshTask.value }
+        let task = Task<Bool, Error> { @MainActor in
+            guard let token = SessionStorage.getRefreshToken() else { return false }
+            let request = try makeRequest(path: "/api/auth/refresh", method: "POST", body: encodedBody(["clientType": "native", "refreshToken": token]))
+            do {
+                let response = try await perform(request, decodeTo: AuthResponse.self)
+                guard response.refreshToken != nil else { throw APIError.invalidResponse }
+                SessionStorage.saveSession(response)
+                return true
+            } catch APIError.unauthorized {
+                SessionStorage.clearTokens()
+                return false
+            }
         }
+        refreshTask = task
+        defer { refreshTask = nil }
+        return try await task.value
+    }
+
+    private func authenticatedData(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        if http.statusCode == 401 {
+            guard try await refreshSession(), let token = SessionStorage.getAccessToken() else { throw APIError.unauthorized }
+            var retry = request
+            retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            let (retryData, retryResponse) = try await session.data(for: retry)
+            guard let retryHTTP = retryResponse as? HTTPURLResponse else { throw APIError.invalidResponse }
+            guard retryHTTP.statusCode != 401 else { throw APIError.unauthorized }
+            guard (200...299).contains(retryHTTP.statusCode) else { throw APIError.httpError(retryHTTP.statusCode, Self.normalizedErrorMessage(from: retryData)) }
+            return (retryData, retryHTTP)
+        }
+        guard (200...299).contains(http.statusCode) else { throw APIError.httpError(http.statusCode, Self.normalizedErrorMessage(from: data)) }
+        return (data, http)
     }
 
     private func perform<T: Decodable>(
@@ -440,7 +583,7 @@ final class APIService {
             throw APIError.unauthorized
         }
         if !(200...299).contains(httpResponse.statusCode) {
-            throw APIError.serverError(Self.normalizedErrorMessage(from: data))
+            throw APIError.httpError(httpResponse.statusCode, Self.normalizedErrorMessage(from: data))
         }
         if T.self == EmptyResponse.self {
             return EmptyResponse() as! T
@@ -453,11 +596,19 @@ final class APIService {
 
     func decodeEnvelopeOrDirect<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         let decoder = JSONDecoder()
-        if let direct = try? decoder.decode(T.self, from: data) {
-            return direct
-        }
-        if let envelope = try? decoder.decode(ResponseEnvelope<T>.self, from: data) {
-            return envelope.value
+        // Inspect wrappers before permissive DTOs can decode an empty/default object.
+        if let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if object["success"] as? Bool == false { throw APIError.serverError(Self.normalizedErrorMessage(from: data)) }
+            for key in ["data", "draft", "billing", "checkoutSession", "portalSession", "user", "summary", "items", "orders", "expenses", "invoice"] {
+                if let value = object[key], !(value is NSNull), JSONSerialization.isValidJSONObject(value) {
+                    // Collections with pagination and AuthResponse must retain their sibling fields.
+                    if key == "user" && (object["accessToken"] != nil || object["token"] != nil) { continue }
+                    if key == "items" && object["pagination"] != nil { continue }
+                    if key == "orders" && (object["totals"] != nil || object["importedCount"] != nil) { continue }
+                    let nested = try JSONSerialization.data(withJSONObject: value)
+                    return try decodeEnvelopeOrDirect(type, from: nested)
+                }
+            }
         }
         return try decoder.decode(T.self, from: data)
     }
@@ -497,7 +648,7 @@ final class APIService {
             }
         }
         if let array = value as? [Any] {
-            return array.map(sanitizeDebugJSON)
+            return array.map { sanitizeDebugJSON($0) }
         }
         if let string = value as? String {
             return redactTokenPatterns(in: string)
@@ -566,7 +717,19 @@ private struct BackendError: Decodable {
     struct ErrorPayload: Decodable {
         let code: String?
         let message: String?
+        var details: [FieldDetail]? = nil
+        var rows: [RowError]? = nil
+        struct RowError: Decodable { let row: Int; let message: String }
+        enum CodingKeys: String, CodingKey { case code, message, details, rows }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            code = try c.decodeIfPresent(String.self, forKey: .code)
+            message = try c.decodeIfPresent(String.self, forKey: .message)
+            details = try? c.decodeIfPresent([FieldDetail].self, forKey: .details)
+            rows = try? c.decodeIfPresent([RowError].self, forKey: .rows)
+        }
     }
+    struct FieldDetail: Decodable { let field: String?; let message: String }
 
     let message: String?
     let error: ErrorPayload?
@@ -592,6 +755,8 @@ private struct BackendError: Decodable {
 
     var displayMessage: String {
         if let message, !message.isEmpty { return message }
+        if let rows = error?.rows, !rows.isEmpty { return rows.map { "Row \($0.row): \($0.message)" }.joined(separator: "\n") }
+        if let details = error?.details, !details.isEmpty { return details.map { ($0.field.map { $0 + ": " } ?? "") + $0.message }.joined(separator: "\n") }
         if let message = error?.message, !message.isEmpty { return message }
         if let errorText, !errorText.isEmpty { return errorText }
         if let errors, !errors.isEmpty { return errors.joined(separator: "\n") }
