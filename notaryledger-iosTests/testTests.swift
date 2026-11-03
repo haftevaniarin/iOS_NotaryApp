@@ -49,6 +49,35 @@ struct ValidationAndAPITests {
         #expect(request.url?.absoluteString == "https://api-stage.notaryledger.org/api/orders")
     }
 
+    @Test func profileUpdateDecodesUserWithBillingAndPersistsIt() async throws {
+        SessionStorage.saveAccessToken("access-token")
+        MockURLProtocol.requests = []
+        defer {
+            SessionStorage.clearSession()
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.requests = []
+        }
+        MockURLProtocol.requestHandler = { request in
+            if request.url?.path == "/api/config/maintenance" {
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#)
+            }
+            #expect(request.url?.path == "/api/auth/me")
+            #expect(request.httpMethod == "PATCH")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer access-token")
+            let requestBody = try #require(request.httpBody)
+            let body = try #require(JSONSerialization.jsonObject(with: requestBody) as? [String: String])
+            #expect(body == ["firstName": "Updated", "lastName": "Notary", "defaultStartAddress": ""])
+            return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"user":{"id":"u1","firstName":"Updated","lastName":"Notary","fullName":"Updated Notary","email":"a@example.test","role":"NOTARY","defaultStartAddress":null,"profilePhotoUrl":null,"profilePhotoUpload":null,"billing":{"plan":"FREE","subscriptionStatus":"INACTIVE"}}}}"#)
+        }
+        let api = APIService(baseURL: "https://api.example.test", session: MockURLProtocol.session())
+        let user = try await api.updateProfile(firstName: "Updated", lastName: "Notary")
+        #expect(user.id == "u1")
+        #expect(user.displayFirstName == "Updated")
+        #expect(user.defaultStartAddress == nil)
+        #expect(SessionStorage.getCurrentUser() == user)
+        #expect(MockURLProtocol.requests.filter { $0.httpMethod == "PATCH" }.count == 1)
+    }
+
     @Test func stagingAuthURLsUseCanonicalHost() throws {
         #if STAGING
         #expect(APIConfig.baseURL == "https://api-stage.notaryledger.org")

@@ -599,6 +599,10 @@ final class APIService {
         // Inspect wrappers before permissive DTOs can decode an empty/default object.
         if let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
             if object["success"] as? Bool == false { throw APIError.serverError(Self.normalizedErrorMessage(from: data)) }
+            // A user owns its billing details; they are not another response wrapper.
+            if type == AuthUser.self, object["id"] != nil || object["_id"] != nil {
+                return try decoder.decode(type, from: data)
+            }
             for key in ["data", "draft", "billing", "checkoutSession", "portalSession", "user", "summary", "items", "orders", "expenses", "invoice"] {
                 if let value = object[key], !(value is NSNull), JSONSerialization.isValidJSONObject(value) {
                     // Collections with pagination and AuthResponse must retain their sibling fields.

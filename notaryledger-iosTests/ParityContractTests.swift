@@ -24,6 +24,17 @@ struct ParityContractTests {
         #expect(AuthUser(id: "u", fullName: "A", email: "a", role: "ADMIN").canAccessAdminAudit)
     }
 
+    @Test func profileWithBillingKeepsUserFields() throws {
+        let userJSON = Data(#"{"id":"u1","firstName":"Updated","lastName":"Notary","fullName":"Updated Notary","email":"a@example.test","role":"NOTARY","defaultStartAddress":null,"profilePhotoUrl":null,"profilePhotoUpload":null,"billing":{"plan":"FREE","subscriptionStatus":"INACTIVE","lifetimeOrdersCreated":3}}"#.utf8)
+        for json in [userJSON, Data(#"{"success":true,"data":{"user":\#(String(decoding: userJSON, as: UTF8.self))}}"#.utf8)] {
+            let user = try api.decodeEnvelopeOrDirect(AuthUser.self, from: json)
+            #expect(user.id == "u1")
+            #expect(user.fullName == "Updated Notary")
+            #expect(user.email == "a@example.test")
+            #expect(user.defaultStartAddress == nil)
+        }
+    }
+
     @Test func credentialsDecodeDecimalCoverageAndClearFieldsWithNull() throws {
         var credentials = try api.decodeEnvelopeOrDirect(Credentials.self, from: Data(#"{"commissionNumber":"CA123","commissionExpirationDate":"2027-01-31T00:00:00.000Z","eoCoverageAmount":"25000.50","backgroundCheckExpirationDate":"2027-06-20"}"#.utf8))
         #expect(credentials.eoCoverageAmount == "25000.50")
