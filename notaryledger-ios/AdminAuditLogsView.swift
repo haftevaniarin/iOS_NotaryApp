@@ -27,7 +27,7 @@ struct AdminAuditLogsView: View {
                     ForEach(logs) { log in
                         NLCard {
                             VStack(alignment: .leading, spacing: NLSpacing.sm) {
-                                Text(log.action).font(.headline).foregroundColor(NLColor.navy)
+                                Text(log.action).font(NLTypography.cardTitle).foregroundColor(NLColor.navy)
                                 DetailRow(label: "Date", value: log.createdAt)
                                 DetailRow(label: "Actor", value: log.actorUserId ?? "System")
                                 DetailRow(label: "Target", value: [log.entityType, log.entityId].compactMap { $0 }.joined(separator: " · "))
@@ -40,12 +40,12 @@ struct AdminAuditLogsView: View {
                     HStack {
                         Button("Previous") { page -= 1; Task { await load() } }.disabled(page <= 1 || busy)
                         Spacer()
-                        Text("Page \(page) · \(total) records").font(.caption)
+                        Text("Page \(page) · \(total) records").font(NLTypography.caption)
                         Spacer()
                         Button("Next") { page += 1; Task { await load() } }.disabled(page * 25 >= total || busy)
                     }
                 }
-            }.padding(NLSpacing.lg)
+            }.nlScreenPadding()
         }.background(ParchmentBackground()).task { await load() }.refreshable { await load() }
             .onChange(of: appState.currentUser?.canAccessAdminAudit) { _, allowed in if allowed != true { logs = []; total = 0 } }
     }

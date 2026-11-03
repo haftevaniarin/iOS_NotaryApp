@@ -30,7 +30,7 @@ struct RescissionCalculatorView: View {
 
                 NLCard {
                     VStack(alignment: .leading, spacing: NLSpacing.md) {
-                        DatePicker("Signing Date", selection: $signingDate, displayedComponents: .date)
+                        NLDateField(title: "Signing Date", selection: $signingDate)
                             .datePickerStyle(.compact)
                             .tint(NLColor.navy)
 
@@ -47,10 +47,10 @@ struct RescissionCalculatorView: View {
                 NLCard {
                     VStack(alignment: .leading, spacing: NLSpacing.md) {
                         Text("Right to Cancel Expires")
-                            .font(.caption.weight(.semibold))
+                            .font(NLTypography.label)
                             .foregroundColor(NLColor.muted)
                         Text(Formatters.displayDate.string(from: rescissionDate))
-                            .font(NLFonts.serif(30, weight: .bold))
+                            .font(NLFonts.serif(28, weight: .bold))
                             .foregroundColor(NLColor.navy)
 
                         Divider()
@@ -60,7 +60,7 @@ struct RescissionCalculatorView: View {
                     }
                 }
             }
-            .padding(NLSpacing.lg)
+            .nlScreenPadding()
         }
         .background(ParchmentBackground())
     }

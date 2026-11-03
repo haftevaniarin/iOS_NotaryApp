@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DashboardView: View {
+    @Environment(\.nlViewportWidth) private var width
     @EnvironmentObject private var appState: AppState
     @State private var showAddOrder = false
 
@@ -56,7 +57,7 @@ struct DashboardView: View {
 
                     UpcomingSigningsSection(orders: upcomingSignings)
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: NLSpacing.md)], spacing: NLSpacing.md) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: NLLayout.metricColumns(for: width)), spacing: 16) {
                         MetricCard(title: "Signings", value: "\(metrics.ytdSigningOrderCount)", systemImage: "doc.text")
                         MetricCard(title: "Monthly Revenue", value: metrics.monthRevenue.currencyString, systemImage: "dollarsign.circle")
                         MetricCard(title: "Fees Earned", value: metrics.feesEarned.currencyString, systemImage: "checkmark.seal")
@@ -67,7 +68,7 @@ struct DashboardView: View {
                     TravelTotalsSection(mileage: travelMileageTotal, travelFees: travelFeeTotal)
                     RecentActivitySection(orders: Array(appState.orders.prefix(8)))
                 }
-                .padding(NLSpacing.lg)
+                .nlScreenPadding()
             }
             .refreshable {
                 await appState.refreshAll()
@@ -123,22 +124,23 @@ struct MetricCard: View {
     let systemImage: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: NLSpacing.sm) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Image(systemName: systemImage)
-                    .foregroundColor(NLColor.brass)
+                Text(title.uppercased())
+                    .font(NLTypography.label)
+                    .foregroundColor(NLColor.muted)
                 Spacer()
+                Image(systemName: systemImage)
+                    .font(.system(size: 16))
+                    .foregroundColor(NLColor.brass)
             }
             Text(value)
-                .font(.title2.weight(.bold))
+                .font(NLTypography.metric)
                 .foregroundColor(NLColor.navy)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-            Text(title)
-                .font(.caption)
-                .foregroundColor(NLColor.muted)
         }
-        .frame(maxWidth: .infinity, minHeight: 98, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .nlPanel()
     }
 }
@@ -150,7 +152,7 @@ struct TravelTotalsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NLSpacing.md) {
             Text("Travel Totals")
-                .font(.headline)
+                .font(NLTypography.cardTitle)
                 .foregroundColor(NLColor.navy)
 
             NLCard {
@@ -170,7 +172,7 @@ struct UpcomingSigningsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NLSpacing.md) {
             Text("Upcoming Signings")
-                .font(.headline)
+                .font(NLTypography.cardTitle)
                 .foregroundColor(NLColor.navy)
 
             if orders.isEmpty {
@@ -196,7 +198,7 @@ struct RecentActivitySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NLSpacing.md) {
             Text("Recent Activity")
-                .font(.headline)
+                .font(NLTypography.cardTitle)
                 .foregroundColor(NLColor.navy)
             if orders.isEmpty {
                 EmptyStateView(title: "No signing orders", systemImage: "tray", message: "Create a signing order to start your ledger.")
@@ -222,20 +224,20 @@ struct SigningOrderCompactRow: View {
         HStack(alignment: .top, spacing: NLSpacing.md) {
             VStack(alignment: .leading, spacing: NLSpacing.xs) {
                 Text(order.customerName)
-                    .font(.subheadline.weight(.semibold))
+                    .font(NLTypography.bodyStrong)
                     .foregroundColor(NLColor.ink)
                     .lineLimit(1)
                 Text(order.signerName)
-                    .font(.caption)
+                    .font(NLTypography.caption)
                     .foregroundColor(NLColor.muted)
                 Text([order.displayDate, order.time].compactMap { $0 }.joined(separator: " at "))
-                    .font(.caption)
+                    .font(NLTypography.caption)
                     .foregroundColor(NLColor.muted)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: NLSpacing.xs) {
                 Text(order.fee.currencyString)
-                    .font(.subheadline.weight(.semibold))
+                    .font(NLTypography.bodyStrong)
                     .foregroundColor(NLColor.navy)
                 StatusBadge(status: order.normalizedStatus)
             }

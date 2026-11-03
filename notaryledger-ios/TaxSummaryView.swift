@@ -28,9 +28,9 @@ struct TaxSummaryView: View {
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
                             Text("Tax Year")
-                                .font(.headline)
+                                .font(NLTypography.cardTitle)
                                 .foregroundColor(NLColor.navy)
-                            Picker("Year", selection: $selectedYear) {
+                            NLSelectField(title: "Year", selection: $selectedYear, value: String(selectedYear)) {
                                 ForEach(years, id: \.self) { year in
                                     Text(String(year)).tag(year)
                                 }
@@ -78,7 +78,7 @@ struct TaxSummaryView: View {
                         .buttonStyle(PrimaryButtonStyle())
                     }
                 }
-                .padding(NLSpacing.lg)
+                .nlScreenPadding()
             }
             .refreshable {
                 await loadSummary()
@@ -142,7 +142,7 @@ struct TaxSummaryCard: View {
         NLCard {
             VStack(alignment: .leading, spacing: NLSpacing.md) {
                 Text(title)
-                    .font(.headline)
+                    .font(NLTypography.cardTitle)
                     .foregroundColor(NLColor.navy)
                 ForEach(rows, id: \.0) { row in
                     DetailRow(label: row.0, value: row.1)

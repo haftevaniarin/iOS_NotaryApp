@@ -15,13 +15,13 @@ struct CredentialsEditor: View {
     var body: some View {
         NLCard {
             VStack(alignment: .leading, spacing: NLSpacing.md) {
-                Text("Credentials").font(.headline).foregroundColor(NLColor.navy)
-                Text("Dates use YYYY-MM-DD. Clear all fields in a credential to remove it.").font(.caption).foregroundColor(NLColor.muted)
+                Text("Credentials").font(NLTypography.cardTitle).foregroundColor(NLColor.navy)
+                Text("Dates use YYYY-MM-DD. Clear all fields in a credential to remove it.").font(NLTypography.caption).foregroundColor(NLColor.muted)
                 ErrorBanner(message: error)
                 BannerView(kind: .success, message: success)
                 ForEach(sections.indices, id: \.self) { index in
                     let section = sections[index]
-                    Text(section.0).font(.subheadline.bold()).foregroundColor(NLColor.navy)
+                    Text(section.0).font(NLFonts.serif(15)).foregroundColor(NLColor.navy)
                     ForEach(section.1.indices, id: \.self) { fieldIndex in
                         let field = section.1[fieldIndex]
                         NLTextField(title: field.0, text: binding(field.1))

@@ -18,7 +18,7 @@ struct OrderExpensesView: View {
                 ForEach(expenses) { expense in
                     ExpenseCard(expense: expense, onEdit: { editing = expense; showForm = true }, onDelete: { deleting = expense })
                 }
-            }.padding(NLSpacing.lg)
+            }.nlScreenPadding()
         }.background(ParchmentBackground()).task { await load() }.refreshable { await load() }
             .sheet(isPresented: $showForm) {
                 NavigationStack {

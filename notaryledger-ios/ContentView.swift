@@ -6,7 +6,8 @@ struct ContentView: View {
     @State private var resetSheet: TokenSheet?
 
     var body: some View {
-        Group {
+        GeometryReader { geometry in
+            Group {
             switch appState.route {
             case .auth:
                 NavigationStack {
@@ -17,6 +18,10 @@ struct ContentView: View {
             case .maintenance(let status):
                 MaintenanceView(status: status)
             }
+            }
+            .environment(\.nlViewportWidth, geometry.size.width)
+            .font(NLTypography.body)
+            .foregroundStyle(NLColor.ink)
         }
         .environmentObject(appState)
         .task {
@@ -180,33 +185,24 @@ struct LedgerTopBar: View {
     let onMenu: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: NLSpacing.md) {
+        HStack(spacing: NLSpacing.md) {
                 Button(action: onMenu) {
                     Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 20, weight: .semibold))
-                        .frame(width: 42, height: 42)
+                        .font(.system(size: 19))
+                        .frame(width: 38, height: 38)
                         .foregroundColor(.white)
+                        .background(NLColor.navySoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .accessibilityLabel("Open navigation menu")
 
                 BrandLockup(compact: true)
 
                 Spacer(minLength: 8)
-            }
-            .padding(.horizontal, NLSpacing.lg)
-            .padding(.top, 6)
-            .padding(.bottom, 10)
-
-            HStack {
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.88))
-                Spacer()
-            }
-            .padding(.horizontal, NLSpacing.lg)
-            .padding(.bottom, 10)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .frame(minHeight: 58)
         .background(NLColor.navy.ignoresSafeArea(edges: .top))
     }
 }
@@ -251,11 +247,11 @@ struct LedgerSideMenu: View {
                 if let user = appState.currentUser {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(user.fullName.isEmpty ? "Notary Ledger user" : user.fullName)
-                            .font(.subheadline.weight(.semibold))
+                            .font(NLTypography.bodyStrong)
                             .foregroundColor(.white)
                             .lineLimit(1)
                         Text(user.email)
-                            .font(.caption)
+                            .font(NLTypography.caption)
                             .foregroundColor(.white.opacity(0.70))
                             .lineLimit(1)
                     }
@@ -265,7 +261,7 @@ struct LedgerSideMenu: View {
                     Task { await appState.signOut() }
                 } label: {
                     Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
-                        .font(.subheadline.weight(.semibold))
+                        .font(NLTypography.bodyStrong)
                         .foregroundColor(.white)
                 }
             }
@@ -273,7 +269,7 @@ struct LedgerSideMenu: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(NLColor.navySoft.opacity(0.55))
         }
-        .frame(width: 318)
+        .frame(width: 264)
         .frame(maxHeight: .infinity)
         .background(NLColor.navy.ignoresSafeArea())
     }
@@ -293,11 +289,11 @@ struct LedgerSideMenu: View {
                     .minimumScaleFactor(0.85)
                 Spacer()
             }
-            .font(.subheadline.weight(.semibold))
-            .foregroundColor(selectedSection == section ? NLColor.navy : .white)
+            .font(NLFonts.sans(14, weight: .medium))
+            .foregroundColor(selectedSection == section ? .white : Color(red: 0.718, green: 0.753, blue: 0.855))
             .padding(.horizontal, NLSpacing.md)
-            .padding(.vertical, 11)
-            .background(selectedSection == section ? NLColor.parchment : Color.white.opacity(0.0001))
+            .padding(.vertical, 10)
+            .background(selectedSection == section ? NLColor.navySoft : Color.white.opacity(0.0001))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .accessibilityLabel(section.title)
@@ -318,29 +314,34 @@ struct AuthShell<Content: View>: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
+            GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: NLSpacing.xl) {
                     VStack(spacing: NLSpacing.sm) {
-                        NLSeal(size: 58)
+                        NLSeal(size: 52)
                         Text("Notary Ledger")
-                            .font(NLFonts.serif(34, weight: .bold))
+                            .font(NLFonts.serif(22))
                             .foregroundColor(NLColor.navy)
                         Text(subtitle)
-                            .font(.subheadline)
+                            .font(NLFonts.sans(11.5))
+                            .tracking(0.69)
                             .foregroundColor(NLColor.muted)
                             .multilineTextAlignment(.center)
                     }
-                    .padding(.top, 30)
 
-                    VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                        Text(title)
-                            .font(NLFonts.serif(22, weight: .semibold))
-                            .foregroundColor(NLColor.ink)
-                        content
+                    NLCard(inset: 28) {
+                        VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                            Text(title)
+                                .font(NLFonts.serif(20))
+                                .foregroundColor(NLColor.ink)
+                            content
+                        }
                     }
-                    .nlPanel()
                 }
-                .padding(NLSpacing.lg)
+                .frame(maxWidth: 410)
+                .padding(24)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+            }
             }
         }
     }
@@ -397,7 +398,7 @@ struct LoginView: View {
                         ForgotPasswordView()
                     }
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(NLTypography.bodyStrong)
                 .foregroundColor(NLColor.navy)
             }
         }
@@ -664,10 +665,10 @@ struct VerificationView: View {
             VStack(spacing: NLSpacing.lg) {
                 NLSeal(size: 54)
                 Text("Email Verification")
-                    .font(NLFonts.serif(24, weight: .bold))
+                    .font(NLFonts.serif(19))
                     .foregroundColor(NLColor.navy)
                 Text(state)
-                    .font(.subheadline)
+                    .font(NLTypography.body)
                     .foregroundColor(NLColor.muted)
                     .multilineTextAlignment(.center)
                 Button("Done") {
@@ -702,10 +703,10 @@ struct MaintenanceView: View {
                     .font(.system(size: 46))
                     .foregroundColor(NLColor.brass)
                 Text(status.title ?? "Maintenance in Progress")
-                    .font(.title2.bold())
+                    .font(NLFonts.serif(20))
                     .foregroundColor(NLColor.navy)
                 Text(status.message ?? "Notary Ledger is temporarily unavailable. Please try again soon.")
-                    .font(.body)
+                    .font(NLTypography.body)
                     .foregroundColor(NLColor.muted)
                     .multilineTextAlignment(.center)
             }
