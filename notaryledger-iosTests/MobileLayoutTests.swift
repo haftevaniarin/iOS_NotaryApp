@@ -9,6 +9,56 @@ final class MobileLayoutTests: XCTestCase {
     private var snapshotWindow: UIWindow?
     private var snapshotHost: UIHostingController<AnyView>?
 
+    func testCredentialsSummaryAndExpandedEditorAtPhoneWidths() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let host = UIHostingController(rootView: AnyView(Color.clear))
+        host.safeAreaRegions = []
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        snapshotWindow = window
+        snapshotHost = host
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            snapshotWindow = nil
+            snapshotHost = nil
+        }
+        let previousToken = SessionStorage.getAccessToken()
+        SessionStorage.saveAccessToken("layout-fixture-token")
+        defer {
+            if let previousToken { SessionStorage.saveAccessToken(previousToken) } else { SessionStorage.clearTokens() }
+        }
+        var credentials = Credentials()
+        credentials.commissionNumber = "CA123456"
+        credentials.commissionState = "CA"
+        credentials.commissionExpirationDate = "2020-01-31"
+        credentials.eoProvider = "Example Insurance"
+        credentials.eoCoverageAmount = "100000"
+        credentials.eoExpirationDate = DateParser.apiDateString(from: Date())
+        credentials.backgroundCheckProvider = "Example Background Checks"
+        credentials.backgroundCheckExpirationDate = "2099-01-31"
+        credentials.certificationName = "Certified Notary Signing Agent"
+        credentials.certificationExpirationDate = "2099-01-31"
+        let state = AppState()
+        for width: CGFloat in [375, 402, 440] {
+            for expanded in [false, true] {
+                let model = CredentialsEditorModel(saved: credentials, fetch: {
+                    XCTFail("Preloaded renders must not fetch live credentials")
+                    return Credentials()
+                })
+                model.isExpanded = expanded
+                model.isAdditionalExpanded = true
+                let screen = AnyView(ScrollView { CredentialsEditor(model: model).nlScreenPadding() })
+                try await captureMobileScreen(screen, title: expanded ? "Credentials Expanded" : "Credentials Summary", width: width, state: state)
+            }
+        }
+        let empty = CredentialsEditorModel(saved: Credentials())
+        try await captureMobileScreen(AnyView(ScrollView { CredentialsEditor(model: empty).nlScreenPadding() }), title: "Credentials Empty", width: 375, state: state)
+        let large = CredentialsEditorModel(saved: credentials)
+        try await captureMobileScreen(AnyView(ScrollView { CredentialsEditor(model: large).nlScreenPadding() }), title: "Credentials Large Text", width: 375, state: state, dynamicTypeSize: .accessibility1)
+    }
+
     func testMobileScreensRenderWithBundledFontsAtPhoneWidths() async throws {
         for name in ["NLDisplay-SemiBold", "NLBody-Regular", "NLBody-SemiBold", "IBMPlexMono-Regular"] {
             XCTAssertNotNil(UIFont(name: name, size: 14), "Missing bundled font: \(name)")

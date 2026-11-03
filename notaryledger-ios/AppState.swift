@@ -18,6 +18,11 @@ final class AppState: ObservableObject {
 
     private let api: APIService
 
+    // SwiftUI can release this outside a Swift task. No actor-bound cleanup is
+    // needed; avoid the isolated-deinit crash on older iOS concurrency runtimes.
+    // https://github.com/swiftlang/swift/issues/88036
+    nonisolated deinit {}
+
     init(api: APIService? = nil) {
         self.api = api ?? APIService.shared
     }

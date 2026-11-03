@@ -458,11 +458,15 @@ struct NLTextField: View {
     let title: String
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
+    var showsLabel = true
+    var accessibilityName: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            FieldLabel(text: title)
+            if showsLabel { FieldLabel(text: title) }
             TextField(title, text: $text)
+                .accessibilityLabel(accessibilityName ?? title)
+                .accessibilityIdentifier(accessibilityName ?? title)
                 .font(businessCard ? NLFonts.sans(15) : NLTypography.input)
                 .keyboardType(keyboardType)
                 .textFieldStyle(.plain)

@@ -49,6 +49,50 @@ struct ValidationAndAPITests {
         #expect(request.url?.absoluteString == "https://api-stage.notaryledger.org/api/orders")
     }
 
+    @Test func credentialsEditorLoadsAndSavesThroughTheAuthenticatedAPI() async throws {
+        let previousToken = SessionStorage.getAccessToken()
+        SessionStorage.saveAccessToken("credential-fixture-token")
+        MockURLProtocol.requests = []
+        defer {
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.requests = []
+            if let previousToken { SessionStorage.saveAccessToken(previousToken) } else { SessionStorage.clearTokens() }
+        }
+        MockURLProtocol.requestHandler = { request in
+            if request.url?.path == "/api/config/maintenance" {
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#)
+            }
+            #expect(request.url?.path == "/api/credentials")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer credential-fixture-token")
+            if request.httpMethod == "GET" {
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"commissionNumber":"CA123","commissionState":"CA","commissionExpirationDate":"2027-01-31T00:00:00.000Z","eoProvider":"Example Insurance","eoCoverageAmount":"25000.50","eoExpirationDate":"2027-06-01"}}"#)
+            }
+            #expect(request.httpMethod == "PUT")
+            let body = try #require(request.httpBody)
+            let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            #expect(json["commissionNumber"] is NSNull)
+            #expect(json["commissionState"] is NSNull)
+            #expect(json["commissionExpirationDate"] is NSNull)
+            #expect(json["eoCoverageAmount"] as? Double == 75000.50)
+            return MockURLProtocol.jsonResponse(for: request, body: #"{"success":true,"data":{"commissionNumber":null,"commissionState":null,"commissionExpirationDate":null,"eoProvider":"Example Insurance","eoCoverageAmount":"75000.50","eoExpirationDate":"2027-06-01T00:00:00.000Z"}}"#)
+        }
+        let service = APIService(baseURL: "https://credentials.example.test", session: MockURLProtocol.session())
+        let model = CredentialsEditorModel(fetch: { try await service.fetchCredentials() }, persist: { try await service.updateCredentials($0) })
+        await model.load()
+        #expect(model.error.isEmpty && model.canEdit)
+        #expect(model.draft.commissionExpirationDate == "2027-01-31")
+        for field in CredentialSection.commission.fields { model.edit(field, value: "") }
+        let coverage = try #require(CredentialSection.insurance.fields.first { $0.id == "eoCoverageAmount" })
+        model.edit(coverage, value: "75000.50")
+        await model.save()
+        #expect(model.error.isEmpty && !model.success.isEmpty)
+        #expect(model.saved?.eoCoverageAmount == "75000.50")
+        #expect(model.saved?.eoExpirationDate == "2027-06-01")
+        #expect(model.addedSections == [.insurance])
+        #expect(!model.hasChanges)
+        #expect(MockURLProtocol.requests.filter { $0.httpMethod == "PUT" }.count == 1)
+    }
+
     @Test func profileUpdateDecodesUserWithBillingAndPersistsIt() async throws {
         SessionStorage.saveAccessToken("access-token")
         MockURLProtocol.requests = []
