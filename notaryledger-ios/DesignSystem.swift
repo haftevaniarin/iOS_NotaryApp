@@ -556,6 +556,74 @@ struct NLTextArea: View {
     }
 }
 
+struct NLTimeField: View {
+    let title: String
+    @Binding var time: String
+    @State private var draftTime = Date()
+    @State private var isChoosingTime = false
+
+    private var displayValue: String {
+        guard let date = TimeParser.date(from: time) else { return time.isEmpty ? "Select time" : time }
+        return date.formatted(date: .omitted, time: .shortened)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            FieldLabel(text: title)
+            Button {
+                draftTime = TimeParser.date(from: time) ?? Date()
+                isChoosingTime = true
+            } label: {
+                HStack {
+                    Text(displayValue)
+                    Spacer()
+                    Image(systemName: "clock")
+                }
+                .font(NLTypography.input)
+                .foregroundStyle(time.isEmpty ? NLColor.muted : NLColor.ink)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .frame(minHeight: 42)
+                .background(Color(red: 0.992, green: 0.988, blue: 0.973))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(NLColor.line, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityValue(time.isEmpty ? "Not set" : displayValue)
+        }
+        .sheet(isPresented: $isChoosingTime) {
+            NavigationStack {
+                VStack(spacing: 16) {
+                    DatePicker(title, selection: $draftTime, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                        .accessibilityLabel(title)
+                    if !time.isEmpty {
+                        Button("Clear Time", role: .destructive) {
+                            time = ""
+                            isChoosingTime = false
+                        }
+                    }
+                }
+                .padding(14)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { isChoosingTime = false } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            time = TimeParser.apiTimeString(from: draftTime)
+                            isChoosingTime = false
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+    }
+}
+
 struct NLDateField: View {
     let title: String
     @Binding var selection: Date

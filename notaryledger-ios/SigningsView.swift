@@ -308,7 +308,7 @@ struct SigningOrderFormView: View {
                 }
                 NLFormSection("Schedule") {
                     NLDateField(title: "Date", selection: $date)
-                    NLTextField(title: "Time", text: $time)
+                    NLTimeField(title: "Time", time: $time)
                     NLSelectField(title: "Status", selection: $status, value: status.rawValue) {
                         ForEach(SigningStatus.allCases) { status in
                             Text(status.rawValue).tag(status)
@@ -385,7 +385,7 @@ struct SigningOrderFormView: View {
             signerName = extracted.signerName ?? ""
             signingType = extracted.signingType ?? ""
             date = DateParser.date(from: extracted.date) ?? Date()
-            time = extracted.time ?? ""
+            time = TimeParser.normalized(extracted.time)
             fee = extracted.fee.map { String($0) } ?? ""
             notarialActFee = "0"
             invoiceNumber = extracted.invoiceNumber ?? ""
@@ -399,7 +399,7 @@ struct SigningOrderFormView: View {
         signerName = order.signerName
         signingType = order.signingType ?? ""
         date = DateParser.date(from: order.date) ?? Date()
-        time = order.time ?? ""
+        time = TimeParser.normalized(order.time)
         fee = String(format: "%.2f", order.fee)
         notarialActFee = String(format: "%.2f", order.notarialActFee)
         paid = order.paid
