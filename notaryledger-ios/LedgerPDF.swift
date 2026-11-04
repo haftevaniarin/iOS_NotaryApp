@@ -35,18 +35,8 @@ enum LedgerPDF {
         return url
     }
     static func invoice(user: AuthUser?, customer: String, orders: [SigningOrder], customDescription: String? = nil, customAmount: Double? = nil) throws -> URL {
-        let items = orders.filter(\.isUnpaidCandidate)
-        guard !items.isEmpty || (customAmount != nil && customDescription?.isEmpty == false) else { throw APIError.serverError("There are no unpaid signings to invoice.") }
-        let issueDate = DateParser.apiDateString(from: Date())
-        let dueDate = DateParser.apiDateString(from: Calendar.current.date(byAdding: .day, value: 30, to: Date())!)
-        let reference = items.count == 1 && !items[0].invoiceNumber.isEmpty ? items[0].invoiceNumber : "INV-\(issueDate.replacingOccurrences(of: "-", with: ""))-\(TaxPDFGenerator.sanitizedFilename(customer).prefix(18))"
-        let total = customAmount ?? items.reduce(0) { $0 + $1.fee }
-        var lines = ["Invoice: \(reference)", "Issued: \(issueDate)    Due: \(dueDate)", "Bill from: \(user?.fullName ?? "Notary Ledger User")", user?.email ?? "", "Bill to: \(customer)", "Payer: \(items.first?.payerDisplayName ?? customer)", ""]
-        for item in items {
-            lines += ["\(item.displayDate) | \(item.signingType ?? "Notary signing") for \(item.signerName)", "Reference: \(item.invoiceNumber) | \(item.normalizedStatus.rawValue) | \(item.fee.currencyString)"]
-        }
-        if let customDescription, let customAmount { lines += ["\(customDescription) | \(customAmount.currencyString)"] }
-        lines += ["", "Subtotal: \(total.currencyString)", "Total: \(total.currencyString)", "Balance due: \(total.currencyString)"]
-        return try save(data: document(title: "Invoice", lines: lines), filename: "invoice-\(TaxPDFGenerator.sanitizedFilename(reference)).pdf")
+        let invoice = try InvoiceDocument(user: user, customer: customer, orders: orders,
+                                          customDescription: customDescription, customAmount: customAmount)
+        return try save(data: InvoicePDF.document(invoice), filename: invoice.filename)
     }
 }
