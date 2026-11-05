@@ -35,7 +35,7 @@ struct SigningsView: View {
 
                     VStack(alignment: .leading, spacing: NLSpacing.md) {
                         NLTextField(title: "Search", text: $searchText)
-                        Picker("Status", selection: $selectedStatus) {
+                        NLSelectField(title: "Status", selection: $selectedStatus, value: selectedStatus?.rawValue ?? "All") {
                             Text("All").tag(SigningStatus?.none)
                             ForEach(SigningStatus.allCases) { status in
                                 Text(status.rawValue).tag(Optional(status))
@@ -46,7 +46,7 @@ struct SigningsView: View {
                     }
                     .nlPanel()
 
-                    HStack(spacing: NLSpacing.md) {
+                    NLActionRow {
                         Button {
                             showForm = true
                         } label: {
@@ -80,7 +80,7 @@ struct SigningsView: View {
                         }
                     }
                 }
-                .padding(NLSpacing.lg)
+                .nlScreenPadding()
             }
             .refreshable {
                 await appState.refreshAll()
@@ -150,16 +150,16 @@ struct SigningOrderCard: View {
     let onDelete: () -> Void
 
     var body: some View {
-        NLCard {
+        NLCard(inset: 14) {
             VStack(alignment: .leading, spacing: NLSpacing.md) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(order.customerName)
-                            .font(.headline)
+                            .font(NLFonts.serif(15.5))
                             .foregroundColor(NLColor.ink)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text("Signer: \(order.signerName)")
-                            .font(.subheadline)
+                            .font(NLFonts.sans(12.5))
                             .foregroundColor(NLColor.muted)
                     }
                     Spacer()
@@ -215,8 +215,8 @@ struct SigningOrderDetailView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            Form {
-                Section("Signing") {
+            NLForm {
+                NLFormSection("Signing") {
                     DetailRow(label: "Customer", value: liveOrder.customerName)
                     DetailRow(label: "Payer", value: liveOrder.payerName ?? "")
                     DetailRow(label: "Signer", value: liveOrder.signerName)
@@ -225,19 +225,19 @@ struct SigningOrderDetailView: View {
                     DetailRow(label: "Time", value: liveOrder.time ?? "")
                     DetailRow(label: "Status", value: liveOrder.normalizedStatus.rawValue)
                 }
-                Section("Payment") {
+                NLFormSection("Payment") {
                     DetailRow(label: "Fee", value: liveOrder.fee.currencyString)
                     DetailRow(label: "Notarial Act Fee", value: liveOrder.notarialActFee.currencyString)
                     DetailRow(label: "Paid", value: liveOrder.paid ? "Yes" : "No")
                     DetailRow(label: "Paid Date", value: liveOrder.paidDate ?? "")
                     DetailRow(label: "Invoice", value: liveOrder.invoiceNumber)
                 }
-                Section("Travel") {
+                NLFormSection("Travel") {
                     DetailRow(label: "Mileage", value: liveOrder.mileage.map { String(format: "%.1f mi", $0) } ?? "")
                     DetailRow(label: "Parking and tolls", value: liveOrder.travelFee?.currencyString ?? "")
                 }
-                Section("Expenses") { NavigationLink("Signing Expenses") { OrderExpensesView(order: liveOrder) } }
-                Section("Notes") {
+                NLFormSection("Expenses") { NavigationLink("Signing Expenses") { OrderExpensesView(order: liveOrder) } }
+                NLFormSection("Notes") {
                     Text(liveOrder.notes?.isEmpty == false ? liveOrder.notes! : "-")
                         .foregroundColor(NLColor.ink)
                 }
@@ -296,51 +296,47 @@ struct SigningOrderFormView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            Form {
-                Section("Parties") {
-                    TextField("Customer name", text: $customerName)
-                    TextField("Payer name", text: $payerName)
-                    TextField("Signer name", text: $signerName)
-                    Picker("Signing type", selection: $signingType) {
+            NLForm {
+                NLFormSection("Parties") {
+                    NLTextField(title: "Customer name", text: $customerName)
+                    NLTextField(title: "Payer name", text: $payerName)
+                    NLTextField(title: "Signer name", text: $signerName)
+                    NLSelectField(title: "Signing type", selection: $signingType, value: signingType.isEmpty ? "Select type" : signingType) {
                         Text("Select type").tag("")
                         ForEach(["Loan Signing", "Refinance", "HELOC", "Seller Package", "General Notary", "Other"], id: \.self) { Text($0).tag($0) }
                     }
                 }
-                Section("Schedule") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
-                    TextField("Time", text: $time)
-                    Picker("Status", selection: $status) {
+                NLFormSection("Schedule") {
+                    NLDateField(title: "Date", selection: $date)
+                    NLTimeField(title: "Time", time: $time)
+                    NLSelectField(title: "Status", selection: $status, value: status.rawValue) {
                         ForEach(SigningStatus.allCases) { status in
                             Text(status.rawValue).tag(status)
                         }
                     }
                 }
-                Section("Payment") {
-                    TextField("Fee", text: $fee)
-                        .keyboardType(.decimalPad)
-                    TextField("Notarial act fee", text: $notarialActFee)
-                        .keyboardType(.decimalPad)
+                NLFormSection("Payment") {
+                    NLTextField(title: "Fee", text: $fee, keyboardType: .decimalPad)
+                    NLTextField(title: "Notarial act fee", text: $notarialActFee, keyboardType: .decimalPad)
                     Toggle("Paid", isOn: $paid)
                         .disabled(status == .cancelled)
                     Toggle("Has paid date", isOn: $hasPaidDate)
                         .disabled(status == .cancelled || !paid)
                     if hasPaidDate && paid && status != .cancelled {
-                        DatePicker("Paid date", selection: $paidDate, displayedComponents: .date)
+                        NLDateField(title: "Paid date", selection: $paidDate)
                     }
-                    TextField("Invoice number", text: $invoiceNumber)
+                    NLTextField(title: "Invoice number", text: $invoiceNumber)
                 }
-                Section("Travel") {
-                    TextField("Mileage", text: $mileage)
-                        .keyboardType(.decimalPad)
-                    TextField("Parking and tolls", text: $travelFee)
-                        .keyboardType(.decimalPad)
+                NLFormSection("Travel") {
+                    NLTextField(title: "Mileage", text: $mileage, keyboardType: .decimalPad)
+                    NLTextField(title: "Parking and tolls", text: $travelFee, keyboardType: .decimalPad)
                 }
-                Section("Notes") {
+                NLFormSection("Notes") {
                     TextEditor(text: $notes)
                         .frame(minHeight: 90)
                 }
                 if !errorMessage.isEmpty {
-                    Section {
+                    NLFormSection {
                         Text(errorMessage)
                             .foregroundColor(.red)
                     }
@@ -389,7 +385,7 @@ struct SigningOrderFormView: View {
             signerName = extracted.signerName ?? ""
             signingType = extracted.signingType ?? ""
             date = DateParser.date(from: extracted.date) ?? Date()
-            time = extracted.time ?? ""
+            time = TimeParser.normalized(extracted.time)
             fee = extracted.fee.map { String($0) } ?? ""
             notarialActFee = "0"
             invoiceNumber = extracted.invoiceNumber ?? ""
@@ -403,7 +399,7 @@ struct SigningOrderFormView: View {
         signerName = order.signerName
         signingType = order.signingType ?? ""
         date = DateParser.date(from: order.date) ?? Date()
-        time = order.time ?? ""
+        time = TimeParser.normalized(order.time)
         fee = String(format: "%.2f", order.fee)
         notarialActFee = String(format: "%.2f", order.notarialActFee)
         paid = order.paid
@@ -512,7 +508,7 @@ struct ImportSigningsSheet: View {
                     Button(busy ? "Extracting..." : "Choose Signing File") { showImporter = true }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
                     if busy { ProgressView() }
                     Spacer()
-                }.padding(NLSpacing.lg)
+                }.nlScreenPadding()
             }
             .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Close") { dismiss() }.disabled(busy) } }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.jpeg, .png, .webP, .pdf, .commaSeparatedText, .tabSeparatedText, .plainText]) { result in
@@ -596,11 +592,11 @@ struct MileageTravelSheet: View {
                                 if let value = Double(miles) { DetailRow(label: "Business miles", value: String(format: "%.2f", (value * 100).rounded() / 100 * (tripType == "ROUND_TRIP" ? 2 : 1))) }
                                 NLTextField(title: "Parking and tolls", text: $parking, keyboardType: .decimalPad)
                                 Button("Clear Mileage & Travel", role: .destructive) { showClear = true }
-                                if clearing { Text("Mileage and travel data will be cleared when you save.").font(.caption) }
+                                if clearing { Text("Mileage and travel data will be cleared when you save.").font(NLTypography.caption) }
                             }
                         }
                         if busy { ProgressView() }
-                    }.padding(NLSpacing.lg)
+                    }.nlScreenPadding()
                 }
             }
             .navigationTitle("Travel").navigationBarTitleDisplayMode(.inline)
@@ -691,7 +687,7 @@ struct GenerateInvoiceSheet: View {
 
                     Spacer()
                 }
-                .padding(NLSpacing.lg)
+                .nlScreenPadding()
             }
             .navigationTitle("Invoice PDF")
             .navigationBarTitleDisplayMode(.inline)

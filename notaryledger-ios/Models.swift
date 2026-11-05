@@ -806,6 +806,39 @@ struct DashboardMetrics: Equatable {
     var ytdSigningOrderCount: Int
 }
 
+enum TimeParser {
+    static func date(from value: String?) -> Date? {
+        guard let value else { return nil }
+        let clock = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let patterns = [
+            ("HH:mm", #"^([01][0-9]|2[0-3]):[0-5][0-9]$"#),
+            ("h:mm a", #"^(0?[1-9]|1[0-2]):[0-5][0-9] [AP]M$"#)
+        ]
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.isLenient = false
+        for (format, pattern) in patterns where clock.range(of: pattern, options: .regularExpression) != nil {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: clock) { return date }
+        }
+        return nil
+    }
+
+    static func apiTimeString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+
+    static func normalized(_ value: String?) -> String {
+        guard let date = date(from: value) else { return value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
+        return apiTimeString(from: date)
+    }
+}
+
 enum DateParser {
     static func date(from value: String?) -> Date? {
         guard let value, !value.isEmpty else { return nil }

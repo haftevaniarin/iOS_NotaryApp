@@ -20,7 +20,7 @@ struct BillingView: View {
                 if let billing {
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
-                            Text(billing.isPro == true ? "Notary Ledger Pro" : "Notary Ledger Free").font(NLFonts.serif(24, weight: .bold)).foregroundColor(NLColor.navy)
+                            Text(billing.isPro == true ? "Notary Ledger Pro" : "Notary Ledger Free").font(NLFonts.serif(17)).foregroundColor(NLColor.navy)
                             DetailRow(label: "Status", value: billing.subscriptionStatus ?? "Unknown")
                             if let current = billing.billingInterval { DetailRow(label: "Billing interval", value: current.capitalized) }
                             if let end = billing.currentPeriodEnd { DetailRow(label: billing.cancelAtPeriodEnd == true ? "Access until" : "Current period ends", value: end) }
@@ -45,12 +45,12 @@ struct BillingView: View {
                                 Button("Upgrade to Pro") { Task { await checkout() } }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
                             }
                             Button("Manage Billing") { Task { await portal() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
-                            Text("Stripe opens in your browser. Return here to refresh the confirmed billing status.").font(.caption).foregroundColor(NLColor.muted)
+                            Text("Stripe opens in your browser. Return here to refresh the confirmed billing status.").font(NLTypography.caption).foregroundColor(NLColor.muted)
                         }
                     }
                 }
                 Button("Refresh Billing Status") { Task { await load() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
-            }.padding(NLSpacing.lg)
+            }.nlScreenPadding()
         }.background(ParchmentBackground()).task { await load() }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await load() } } }
     }

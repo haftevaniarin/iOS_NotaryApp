@@ -13,6 +13,8 @@ struct DetailRow: View {
                 .foregroundColor(NLColor.ink)
                 .multilineTextAlignment(.trailing)
         }
+        .font(NLFonts.sans(13))
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -25,7 +27,7 @@ struct DeleteConfirmationSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NLSpacing.lg) {
             Text(title)
-                .font(.title3.bold())
+                .font(NLTypography.sectionTitle)
                 .foregroundColor(NLColor.navy)
             Text(message)
                 .foregroundColor(NLColor.muted)
@@ -43,7 +45,7 @@ struct DeleteConfirmationSheet: View {
             }
         }
         .padding()
-        .presentationDetents([.height(230)])
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -52,7 +54,7 @@ struct SectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.headline)
+            .font(NLTypography.sectionTitle)
             .foregroundColor(NLColor.navy)
             .frame(maxWidth: .infinity, alignment: .leading)
     }

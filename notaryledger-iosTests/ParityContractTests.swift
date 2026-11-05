@@ -7,6 +7,25 @@ import Testing
 struct ParityContractTests {
     private let api = APIService(baseURL: "https://api.example.test")
 
+    @Test func timePickerNormalizesClockValuesWithoutChangingTheirMeaning() throws {
+        for (input, expected) in [("00:00", "00:00"), ("12:00 AM", "00:00"), ("12:00 PM", "12:00"), ("2:45 PM", "14:45"), (" 10:30 am ", "10:30"), ("23:59", "23:59")] {
+            let date = try #require(TimeParser.date(from: input))
+            #expect(TimeParser.apiTimeString(from: date) == expected)
+            #expect(TimeParser.normalized(input) == expected)
+        }
+        #expect(TimeParser.normalized(nil).isEmpty)
+        #expect(TimeParser.date(from: "24:00") == nil)
+        #expect(TimeParser.date(from: "12:60") == nil)
+    }
+
+    @Test func selectedTimeIsEncodedOnTheSelectedSigningDay() throws {
+        let value = SigningOrderPayload.scheduledDate(date: "2026-11-15", time: TimeParser.normalized("2:45 PM"))
+        let scheduled = try #require(DateParser.date(from: value))
+        #expect(DateParser.apiDateString(from: scheduled) == "2026-11-15")
+        #expect(Calendar.current.component(.hour, from: scheduled) == 14)
+        #expect(Calendar.current.component(.minute, from: scheduled) == 45)
+    }
+
     @Test func profileEnvelopeDoesNotDecodeAsAnEmptyUser() throws {
         let json = Data(#"{"success":true,"data":{"user":{"id":"u1","fullName":"Avery Notary","email":"a@example.test","role":"ADMIN","defaultStartAddress":"123 Main St","profilePhotoUrl":"https://photo.example/me.webp","profilePhotoUpload":{"id":"scan-1","status":"SCANNING"}}}}"#.utf8)
         let user = try api.decodeEnvelopeOrDirect(AuthUser.self, from: json)

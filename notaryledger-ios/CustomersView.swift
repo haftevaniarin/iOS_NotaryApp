@@ -28,7 +28,7 @@ struct CustomersView: View {
                         }
                     }
                 }
-                .padding(NLSpacing.lg)
+                .nlScreenPadding()
             }
         }
     }
@@ -42,11 +42,11 @@ struct CustomerSummaryCard: View {
             VStack(alignment: .leading, spacing: NLSpacing.md) {
                 HStack(alignment: .top) {
                     Text(summary.displayName)
-                        .font(.headline)
+                        .font(NLTypography.cardTitle)
                         .foregroundColor(NLColor.ink)
                     Spacer()
                     Text(summary.revenue.currencyString)
-                        .font(.headline)
+                        .font(NLFonts.mono(15, weight: .semibold))
                         .foregroundColor(NLColor.navy)
                 }
                 DetailRow(label: "Latest signing", value: summary.orders.first?.displayDate ?? "-")

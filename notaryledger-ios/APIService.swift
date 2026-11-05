@@ -27,7 +27,12 @@ nonisolated enum APIError: Error, LocalizedError, Equatable {
 struct EmptyResponse: Decodable {}
 
 final class APIService {
+    #if DEBUG
+    // Allows UI snapshots to use an isolated fixture service without calling staging.
+    static var shared = APIService()
+    #else
     static let shared = APIService()
+    #endif
 
     private let baseURL: String
     private let session: URLSession

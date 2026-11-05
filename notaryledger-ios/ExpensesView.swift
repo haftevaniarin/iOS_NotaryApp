@@ -28,7 +28,7 @@ struct ExpensesView: View {
                     NLTextField(title: "Search expenses", text: $searchText)
                         .nlPanel()
 
-                    HStack(spacing: NLSpacing.md) {
+                    NLActionRow {
                         Button {
                             showForm = true
                         } label: {
@@ -60,7 +60,7 @@ struct ExpensesView: View {
                         }
                     }
                 }
-                .padding(NLSpacing.lg)
+                .nlScreenPadding()
             }
             .refreshable {
                 await appState.refreshAll()
@@ -120,16 +120,16 @@ struct ExpenseCard: View {
                 HStack(alignment: .top, spacing: NLSpacing.md) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(expense.description)
-                            .font(.headline)
+                            .font(NLTypography.cardTitle)
                             .foregroundColor(NLColor.ink)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(expense.category)
-                            .font(.subheadline)
+                            .font(NLTypography.body)
                             .foregroundColor(NLColor.muted)
                     }
                     Spacer()
                     Text(expense.amount.currencyString)
-                        .font(.headline)
+                        .font(NLFonts.mono(13.5, weight: .semibold))
                         .foregroundColor(NLColor.navy)
                 }
 
@@ -175,17 +175,16 @@ struct ExpenseFormView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            Form {
-                Section("Expense") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
-                    Picker("Category", selection: $category) {
+            NLForm {
+                NLFormSection("Expense") {
+                    NLDateField(title: "Date", selection: $date)
+                    NLSelectField(title: "Category", selection: $category, value: category) {
                         ForEach(categories, id: \.self) { category in
                             Text(category).tag(category)
                         }
                     }
-                    TextField("Description", text: $description)
-                    TextField("Amount", text: $amount)
-                        .keyboardType(.decimalPad)
+                    NLTextField(title: "Description", text: $description)
+                    NLTextField(title: "Amount", text: $amount, keyboardType: .decimalPad)
                     if !linkedToOrder {
                     Toggle("Deductible", isOn: $deductible)
                         .tint(NLColor.navy)
@@ -203,7 +202,7 @@ struct ExpenseFormView: View {
                 }
 
                 if !errorMessage.isEmpty {
-                    Section {
+                    NLFormSection {
                         Text(errorMessage)
                             .foregroundColor(.red)
                     }

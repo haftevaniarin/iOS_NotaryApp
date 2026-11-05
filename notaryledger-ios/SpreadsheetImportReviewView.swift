@@ -13,12 +13,12 @@ struct SpreadsheetImportReviewView: View {
                 ParchmentBackground()
                 VStack(alignment: .leading, spacing: NLSpacing.md) {
                     ScreenTitleBlock(title: "Review Spreadsheet", subtitle: draft.filename)
-                    Text("Review or edit the spreadsheet text before saving. Keep the header row and separators. Required columns: Customer, Signer, Date, and Fee.").font(.subheadline).foregroundColor(NLColor.muted)
+                    Text("Review or edit the spreadsheet text before saving. Keep the header row and separators. Required columns: Customer, Signer, Date, and Fee.").font(NLTypography.body).foregroundColor(NLColor.muted)
                     ErrorBanner(message: error)
-                    TextEditor(text: $text).font(.system(.body, design: .monospaced))
+                    TextEditor(text: $text).font(NLFonts.mono(13.5))
                         .padding(8).background(Color.white).clipShape(RoundedRectangle(cornerRadius: 8)).disabled(busy)
-                    Text("Saving imports valid rows together. The server validates rows, skips existing duplicates, and applies your plan limits.").font(.caption).foregroundColor(NLColor.muted)
-                }.padding(NLSpacing.lg)
+                    Text("Saving imports valid rows together. The server validates rows, skips existing duplicates, and applies your plan limits.").font(NLTypography.caption).foregroundColor(NLColor.muted)
+                }.nlScreenPadding()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.disabled(busy) }

@@ -43,17 +43,17 @@ struct LegalDocumentView: View {
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.sm) {
                             Text(section.0)
-                                .font(.headline)
+                                .font(NLTypography.cardTitle)
                                 .foregroundColor(NLColor.navy)
                             Text(section.1)
-                                .font(.subheadline)
+                                .font(NLTypography.body)
                                 .foregroundColor(NLColor.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
             }
-            .padding(NLSpacing.lg)
+            .nlScreenPadding()
         }
         .background(ParchmentBackground())
     }

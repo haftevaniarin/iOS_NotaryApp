@@ -29,7 +29,7 @@ struct EstimatedTaxPaymentsView: View {
                         }
                     }
                 }
-            }.padding(NLSpacing.lg)
+            }.nlScreenPadding()
         }.background(ParchmentBackground()).task { await load() }.refreshable { await load() }
             .sheet(isPresented: $showEditor) { NavigationStack { PaymentEditor(payment: editor, year: year) { payload in
                 _ = try await APIService.shared.saveTaxPayment(id: editor?.id, payload: payload)
@@ -64,11 +64,11 @@ private struct PaymentEditor: View {
     @State private var error = ""
     @State private var busy = false
     var body: some View {
-        Form {
-            Section("Tax payment for \(String(year))") {
-                DatePicker("Payment date", selection: $date, displayedComponents: .date)
-                TextField("Amount", text: $amount).keyboardType(.decimalPad)
-                Picker("Quarter", selection: $quarter) { ForEach(["Q1", "Q2", "Q3", "Q4"], id: \.self) { Text($0).tag($0) } }
+        NLForm {
+            NLFormSection("Tax payment for \(String(year))") {
+                NLDateField(title: "Payment date", selection: $date)
+                NLTextField(title: "Amount", text: $amount, keyboardType: .decimalPad)
+                NLSelectField(title: "Quarter", selection: $quarter, value: quarter) { ForEach(["Q1", "Q2", "Q3", "Q4"], id: \.self) { Text($0).tag($0) } }
                 ErrorBanner(message: error)
             }
         }.navigationTitle(payment == nil ? "Add Tax Payment" : "Edit Tax Payment")

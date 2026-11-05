@@ -18,46 +18,55 @@ struct BusinessCardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                ScreenTitleBlock(title: "Digital Business Card", subtitle: "Edit your public contact information and control what you share.")
+                ScreenTitleBlock(title: "Digital Business Card", subtitle: "Edit your public contact information and control what you share.", titleSize: 28, titleWeight: .bold, subtitleSize: 15)
                 ErrorBanner(message: error)
                 BannerView(kind: .success, message: message)
-                NLCard {
-                    VStack(alignment: .leading, spacing: NLSpacing.md) {
-                        Text(saved?.isPublished == true ? "Published" : "Draft").font(.headline).foregroundColor(NLColor.navy)
+                NLCard(inset: 16, radius: 10) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text(saved?.isPublished == true ? "Published" : "Draft").font(NLTypography.cardTitle).foregroundColor(NLColor.navy)
                         fields(identity)
                         NLTextField(title: "Service areas (comma separated)", text: listBinding(\.serviceAreas))
                         NLTextField(title: "Languages (comma separated)", text: listBinding(\.languages))
                     }
                 }
-                NLCard {
-                    VStack(alignment: .leading, spacing: NLSpacing.md) {
-                        Text("Contact & Privacy").font(.headline).foregroundColor(NLColor.navy)
+                NLCard(inset: 16, radius: 10) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Contact & Privacy").font(NLFonts.serif(23)).foregroundColor(NLColor.navy)
                         fields(contact)
                         Toggle("Show business phone publicly", isOn: $card.showBusinessPhone)
                         Toggle("Show business email publicly", isOn: $card.showBusinessEmail)
                         Toggle("Use my profile photo publicly", isOn: $card.useProfilePhoto)
-                        Text("Publishing makes these details visible to anyone with the link. Hidden phone and email stay private. Your default start address is never included.").font(.caption).foregroundColor(NLColor.muted)
+                        Text("Publishing makes these details visible to anyone with the link. Hidden phone and email stay private. Your default start address is never included.").font(NLTypography.caption).foregroundColor(NLColor.muted)
                     }
                 }
                 Button(loaded ? "Save Card" : "Reload Card") { Task { if loaded { await save() } else { await load() } } }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
                 if loaded {
                     Button(saved?.isPublished == true ? "Unpublish" : "Publish") { Task { await publish() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy || saved == nil || saved != card)
-                    if saved != card { Text("Save your edits before publishing or sharing.").font(.caption) }
+                    if saved != card { Text("Save your edits before publishing or sharing.").font(NLTypography.caption) }
                     if let saved, saved.isPublished, let value = saved.canonicalUrl, let url = URL(string: value), url.scheme == "https" || url.scheme == "http" {
-                        Text(value).font(.caption).textSelection(.enabled)
+                        Text(value).font(NLTypography.caption).textSelection(.enabled)
                         ShareLink(item: url) { Label("Share Card", systemImage: "square.and.arrow.up") }.buttonStyle(SecondaryButtonStyle()).disabled(saved != card)
                         Button("Share Contact File") { Task { await shareContact() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy || saved != card)
                     }
                 }
                 if busy { ProgressView() }
-            }.padding(NLSpacing.lg)
+            }.nlScreenPadding()
         }.background(ParchmentBackground())
+            .environment(\.nlBusinessCardFields, true)
+            .font(NLFonts.sans(13))
             .sheet(item: $share) { ShareSheet(activityItems: [$0.url]) }
             .task { await load() }
     }
     private func fields(_ items: [(String, WritableKeyPath<BusinessCard, String?>)]) -> some View {
         ForEach(items.indices, id: \.self) { i in
-            NLTextField(title: items[i].0, text: Binding(get: { card[keyPath: items[i].1] ?? "" }, set: { card[keyPath: items[i].1] = $0.nilIfEmpty }))
+            let binding = Binding(get: { card[keyPath: items[i].1] ?? "" }, set: { card[keyPath: items[i].1] = $0.nilIfEmpty })
+            Group {
+                if items[i].1 == \.bio {
+                    NLTextArea(title: items[i].0, text: binding)
+                } else {
+                    NLTextField(title: items[i].0, text: binding)
+                }
+            }
                 .textInputAutocapitalization(.never).disabled(!loaded || busy)
         }
     }

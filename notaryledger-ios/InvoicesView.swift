@@ -35,12 +35,12 @@ struct InvoicesView: View {
                         NLCard {
                             VStack(alignment: .leading, spacing: NLSpacing.md) {
                                 Text("Customer")
-                                    .font(.headline)
+                                    .font(NLTypography.cardTitle)
                                     .foregroundColor(NLColor.navy)
-                        Picker("Customer", selection: Binding(
+                        NLSelectField(title: "Customer", selection: Binding(
                             get: { selectedCustomerID ?? customers.first?.id ?? "" },
                             set: { selectedCustomerID = $0 }
-                        )) {
+                        ), value: selectedCustomer?.displayName ?? "Select customer") {
                             ForEach(customers) { customer in
                                 Text(customer.displayName).tag(customer.id)
                             }
@@ -54,7 +54,7 @@ struct InvoicesView: View {
                             NLCard {
                                 VStack(alignment: .leading, spacing: NLSpacing.md) {
                                     Text("Customer / Signer Details")
-                                        .font(.headline)
+                                        .font(NLTypography.cardTitle)
                                         .foregroundColor(NLColor.navy)
                                     DetailRow(label: "Customer", value: selectedCustomer.displayName)
                                     DetailRow(label: "Signing count", value: "\(selectedCustomer.signingCount)")
@@ -69,11 +69,11 @@ struct InvoicesView: View {
                                         VStack(alignment: .leading, spacing: NLSpacing.sm) {
                                             HStack {
                                                 Text(order.signerName)
-                                                    .font(.subheadline.weight(.semibold))
+                                                    .font(NLTypography.bodyStrong)
                                                     .foregroundColor(NLColor.ink)
                                                 Spacer()
                                                 Text(order.fee.currencyString)
-                                                    .font(.subheadline.weight(.bold))
+                                                    .font(NLFonts.mono(13.5, weight: .semibold))
                                                     .foregroundColor(NLColor.navy)
                                             }
                                             DetailRow(label: "Date", value: order.displayDate)
@@ -96,7 +96,7 @@ struct InvoicesView: View {
 
                     customInvoiceCard
                 }
-                .padding(NLSpacing.lg)
+                .nlScreenPadding()
             }
         }
         .sheet(item: $exportItem) { ShareSheet(activityItems: [$0.url]) }
@@ -109,7 +109,7 @@ struct InvoicesView: View {
         NLCard {
             VStack(alignment: .leading, spacing: NLSpacing.md) {
                 Text("Custom Invoice Generator")
-                    .font(.headline)
+                    .font(NLTypography.cardTitle)
                     .foregroundColor(NLColor.navy)
                 NLTextField(title: "Customer name", text: $customCustomerName)
                 NLTextField(title: "Signer details", text: $customSignerName)

@@ -38,20 +38,20 @@ struct ProfileView: View {
                                 PhotosPicker(selection: $photoItem, matching: .images) {
                                     ZStack {
                                         Circle().fill(NLColor.brass.opacity(0.15))
-                                        Text(initials).font(.title2.bold()).foregroundColor(NLColor.navy)
+                                        Text(initials).font(NLFonts.serif(20)).foregroundColor(NLColor.navy)
                                         if let preview, let image = UIImage(data: preview) {
                                             Image(uiImage: image).resizable().scaledToFill()
                                         } else if let value = storedPhotoURL, let url = URL(string: value) {
                                             AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Color.clear }
                                         }
                                     }
-                                    .frame(width: 72, height: 72).clipShape(Circle())
+                                    .frame(width: 52, height: 52).clipShape(Circle())
                                 }
                                 .accessibilityLabel("Choose profile photo")
                                 .disabled(photoBusy || appState.currentUser?.profilePhotoUpload != nil)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Profile").font(.headline).foregroundColor(NLColor.navy)
-                                    Text("Tap your avatar to change your photo").font(.caption).foregroundColor(NLColor.muted)
+                                    Text(appState.currentUser?.fullName ?? "Profile").font(NLFonts.serif(19)).foregroundColor(NLColor.navy)
+                                    Text("Tap your avatar to change your photo").font(NLTypography.caption).foregroundColor(NLColor.muted)
                                 }
                             }
                             if preview != nil {
@@ -60,7 +60,7 @@ struct ProfileView: View {
                                     Button("Discard") { preview = nil; photoItem = nil }.disabled(photoBusy)
                                 }
                             } else if let upload = appState.currentUser?.profilePhotoUpload {
-                                Text(scanNotice.isEmpty ? "Photo is being scanned. Your current photo stays visible." : scanNotice).font(.caption)
+                                Text(scanNotice.isEmpty ? "Photo is being scanned. Your current photo stays visible." : scanNotice).font(NLTypography.caption)
                                 Button("Cancel Photo Upload") { Task { await photoAction(uploadId: upload.id) } }.disabled(photoBusy)
                             } else if appState.currentUser?.profilePhotoUrl != nil {
                                 Button("Remove Photo", role: .destructive) { Task { await photoAction() } }.disabled(photoBusy)
@@ -77,14 +77,14 @@ struct ProfileView: View {
                     CredentialsEditor()
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
-                            Text("Password").font(.headline).foregroundColor(NLColor.navy)
+                            Text("Password").font(NLTypography.cardTitle).foregroundColor(NLColor.navy)
                             NavigationLink { ChangePasswordView() } label: { Label("Change Password", systemImage: "key") }
                                 .buttonStyle(SecondaryButtonStyle())
                         }
                     }
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
-                            Text("Data & Privacy").font(.headline).foregroundColor(NLColor.navy)
+                            Text("Data & Privacy").font(NLTypography.cardTitle).foregroundColor(NLColor.navy)
                             Button(isRequestingExport ? "Preparing..." : "Export My Data") { Task { await requestExport() } }
                                 .buttonStyle(SecondaryButtonStyle()).disabled(isRequestingExport)
                             if let deletion, deletion.isActive {
@@ -102,12 +102,12 @@ struct ProfileView: View {
                     }
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
-                            Text("Support").font(.headline).foregroundColor(NLColor.navy)
+                            Text("Support").font(NLTypography.cardTitle).foregroundColor(NLColor.navy)
                             Button { showSupport = true } label: { Label("Contact Support", systemImage: "envelope") }.buttonStyle(SecondaryButtonStyle())
                             Button("Sign Out") { Task { await appState.signOut() } }.buttonStyle(SecondaryButtonStyle())
                         }
                     }
-                }.padding(NLSpacing.lg)
+                }.nlScreenPadding()
             }
         }
         .sheet(isPresented: $showSupport) { NavigationStack { SupportContactView(sourcePage: "Profile") } }
@@ -253,27 +253,27 @@ struct ChangePasswordView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            Form {
-                Section("Password") {
-                    SecureField("Current password", text: $currentPassword)
-                    SecureField("New password", text: $newPassword)
-                    SecureField("Confirm new password", text: $confirmPassword)
+            NLForm {
+                NLFormSection("Password") {
+                    NLSecureField(title: "Current password", text: $currentPassword)
+                    NLSecureField(title: "New password", text: $newPassword)
+                    NLSecureField(title: "Confirm new password", text: $confirmPassword)
                 }
 
                 if !successMessage.isEmpty {
-                    Section {
+                    NLFormSection {
                         Text(successMessage)
                             .foregroundColor(NLColor.navy)
                     }
                 }
                 if !errorMessage.isEmpty {
-                    Section {
+                    NLFormSection {
                         Text(errorMessage)
                             .foregroundColor(.red)
                     }
                 }
 
-                Section {
+                NLFormSection {
                     Button(isSaving ? "Saving..." : "Change Password") {
                         Task { await save() }
                     }
@@ -334,34 +334,33 @@ struct SupportContactView: View {
     var body: some View {
         ZStack {
             ParchmentBackground()
-            Form {
-                Section("Contact") {
-                    TextField("Name", text: $name)
-                    TextField("Email", text: $email)
-                        .keyboardType(.emailAddress)
+            NLForm {
+                NLFormSection("Contact") {
+                    NLTextField(title: "Name", text: $name)
+                    NLTextField(title: "Email", text: $email, keyboardType: .emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Picker("Topic", selection: $topic) {
+                    NLSelectField(title: "Topic", selection: $topic, value: topic) {
                         ForEach(topics, id: \.self) { topic in
                             Text(topic).tag(topic)
                         }
                     }
                 }
 
-                Section("Message") {
-                    TextField("Subject", text: $subject)
+                NLFormSection("Message") {
+                    NLTextField(title: "Subject", text: $subject)
                     TextEditor(text: $message)
                         .frame(minHeight: 120)
                 }
 
                 if !successMessage.isEmpty {
-                    Section {
+                    NLFormSection {
                         Text(successMessage)
                             .foregroundColor(NLColor.navy)
                     }
                 }
                 if !errorMessage.isEmpty {
-                    Section {
+                    NLFormSection {
                         Text(errorMessage)
                             .foregroundColor(.red)
                     }
