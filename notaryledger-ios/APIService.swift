@@ -283,6 +283,14 @@ final class APIService {
         return report.summary(year: taxYear)
     }
 
+    func fetchTaxPDFReport(taxYear: Int) async throws -> TaxPDFReport {
+        let request = try await authenticatedRequest(
+            path: "/api/reports/tax-summary", method: "GET",
+            queryItems: [URLQueryItem(name: "taxYear", value: String(taxYear)),
+                         URLQueryItem(name: "_", value: String(Int64(Date().timeIntervalSince1970 * 1000)))])
+        return try await performAuthenticated(request, decodeTo: TaxPDFReport.self)
+    }
+
     func updateProfile(firstName: String, lastName: String, defaultStartAddress: String = "") async throws -> AuthUser {
         let body = try encodedMutableBody(["firstName": firstName, "lastName": lastName, "defaultStartAddress": defaultStartAddress])
         let request = try await authenticatedRequest(path: "/api/auth/me", method: "PATCH", body: body)

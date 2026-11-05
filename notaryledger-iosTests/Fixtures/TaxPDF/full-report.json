@@ -1,0 +1,260 @@
+{
+  "taxYear": 2026,
+  "totals": {
+    "totalIncomeReceived": 12500.5,
+    "unpaidIncome": 750,
+    "businessExpenses": 1700,
+    "orderExpenses": 35,
+    "totalTravelExpenses": 22,
+    "totalBusinessMiles": 456.75,
+    "parkingTotal": 22,
+    "totalNotarialActExemptFees": 600,
+    "netSelfEmploymentIncome": 10743.5,
+    "seTaxableIncome": 10143.5,
+    "estimatedSelfEmploymentTax": 1551.96,
+    "estimatedTaxPayments": 2400,
+    "rawExpenseTotal": 2300,
+    "deductibleExpenseTotal": 1735,
+    "totalDeductibleExpenses": 1757,
+    "selfEmploymentTaxRate": 15.3
+  },
+  "paidOrders": [
+    {
+      "id": "o-0",
+      "paidDate": null
+    },
+    {
+      "id": "o-1",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-2",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-3",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-4",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-5",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-6",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-7",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-8",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-9",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-10",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-11",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-12",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-13",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-14",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-15",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-16",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-17",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-18",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-19",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-20",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-21",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-22",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-23",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-24",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-25",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-26",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-27",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-28",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-29",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-30",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-31",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-32",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-33",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-34",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-35",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-36",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-37",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-38",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-39",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-40",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-41",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-42",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-43",
+      "paidDate": "2026-09-01"
+    },
+    {
+      "id": "o-44",
+      "paidDate": "2026-09-01"
+    }
+  ],
+  "unpaidOrders": [
+    {}
+  ],
+  "incomeByClient": [
+    {
+      "clientName": "Summit Title Co.",
+      "payerName": "Summit Title Company",
+      "signingCount": 35,
+      "totalPaid": 11250.5
+    },
+    {
+      "clientName": "Harbor Legal Docs",
+      "payerName": "Harbor Legal Docs",
+      "signingCount": 10,
+      "totalPaid": 1250
+    }
+  ],
+  "expensesByCategory": [
+    {
+      "category": "Paper",
+      "count": 12,
+      "rawTotal": 1000,
+      "deductibleTotal": 800
+    },
+    {
+      "category": "Phone and internet",
+      "count": 12,
+      "rawTotal": 1300,
+      "deductibleTotal": 935
+    }
+  ],
+  "estimatedPaymentsWithTotals": [
+    {
+      "date": "2026-04-15",
+      "quarter": "Q1",
+      "amount": 600,
+      "runningTotal": 600
+    },
+    {
+      "date": "2026-06-15",
+      "quarter": "Q2",
+      "amount": 600,
+      "runningTotal": 1200
+    },
+    {
+      "date": "2026-09-15",
+      "quarter": "Q3",
+      "amount": 600,
+      "runningTotal": 1800
+    },
+    {
+      "date": "2027-01-15",
+      "quarter": "Q4",
+      "amount": 600,
+      "runningTotal": 2400
+    }
+  ]
+}

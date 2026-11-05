@@ -81,120 +81,16 @@ struct InvoiceDocument {
 // US Letter points; text uses PDF baseline positions and Helvetica/Times fonts.
 // Plan pages first so every footer can include the final page count.
 enum InvoicePDF {
-    private static let ink = color(27, 42, 74)
-    private static let parchment = color(250, 246, 236)
-    private static let brass = color(184, 137, 91)
-    private static let slate = color(91, 100, 114)
-    private static let border = color(228, 221, 203)
-    private static func color(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> UIColor {
-        UIColor(red: r / 255, green: g / 255, blue: b / 255, alpha: 1)
-    }
+    private typealias Layout = BrandedPDF.Layout
+    private typealias Mark = BrandedPDF.Mark
+    private static let ink = BrandedPDF.ink
+    private static let parchment = BrandedPDF.parchment
+    private static let brass = BrandedPDF.brass
+    private static let slate = BrandedPDF.slate
+    private static let border = BrandedPDF.border
     private static func font(_ size: CGFloat, bold: Bool = false, serif: Bool = false) -> UIFont {
-        UIFont(name: serif ? (bold ? "TimesNewRomanPS-BoldMT" : "TimesNewRomanPSMT") : (bold ? "Helvetica-Bold" : "Helvetica"), size: size) ?? UIFont.systemFont(ofSize: size)
+        BrandedPDF.font(size, bold: bold, serif: serif)
     }
-    private enum Mark {
-        case text(String, CGPoint, UIFont, UIColor)
-        case box(CGRect, CGFloat, UIColor, UIColor?)
-        case line(CGPoint, CGPoint, UIColor, CGFloat)
-        case stamp
-
-        func draw(in context: CGContext) {
-            context.saveGState()
-            defer { context.restoreGState() }
-            switch self {
-            case let .text(text, origin, font, color):
-                let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color]))
-                context.translateBy(x: origin.x, y: origin.y)
-                context.scaleBy(x: 1, y: -1)
-                context.textMatrix = .identity
-                context.textPosition = .zero
-                CTLineDraw(line, context)
-            case let .box(rect, radius, fill, stroke):
-                let path = UIBezierPath(roundedRect: rect, cornerRadius: radius).cgPath
-                context.addPath(path)
-                context.setFillColor(fill.cgColor)
-                if let stroke {
-                    context.setStrokeColor(stroke.cgColor)
-                    context.setLineWidth(1)
-                    context.drawPath(using: .fillStroke)
-                } else { context.fillPath() }
-            case let .line(start, end, color, width):
-                context.setStrokeColor(color.cgColor)
-                context.setLineWidth(width)
-                context.move(to: start); context.addLine(to: end); context.strokePath()
-            case .stamp:
-                context.setStrokeColor(brass.cgColor)
-                context.setLineWidth(1.2)
-                context.setLineDash(phase: 0, lengths: [2.2, 2.2])
-                context.strokeEllipse(in: CGRect(x: 44, y: 46, width: 32, height: 32))
-                context.setLineDash(phase: 0, lengths: [])
-                context.setFillColor(ink.cgColor)
-                context.fillEllipse(in: CGRect(x: 48, y: 50, width: 24, height: 24))
-                let face = InvoicePDF.font(11, bold: true, serif: true)
-                let width = ("NL" as NSString).size(withAttributes: [.font: face]).width
-                Mark.text("NL", CGPoint(x: 60 - width / 2, y: 66), face, parchment).draw(in: context)
-            }
-        }
-    }
-
-    private final class Layout {
-        var pages: [[Mark]] = [[]]
-        var y: CGFloat = 52
-        // This drawing plan needs no actor-bound cleanup. Match the other model
-        // lifetime workaround for iOS 26.1 (swiftlang/swift#88036).
-        nonisolated deinit {}
-        func add(_ mark: Mark) { pages[pages.count - 1].append(mark) }
-        func nextPage() { pages.append([]); y = 52 }
-        @discardableResult func ensure(_ height: CGFloat) -> Bool {
-            guard y + height > 736 else { return false }
-            nextPage(); return true
-        }
-        func box(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat, radius: CGFloat = 0, fill: UIColor = parchment, stroke: UIColor? = nil) {
-            add(.box(CGRect(x: x, y: y, width: width, height: height), radius, fill, stroke))
-        }
-        func line(_ x1: CGFloat, _ y1: CGFloat, _ x2: CGFloat, _ y2: CGFloat, color: UIColor = border, width: CGFloat = 1) {
-            add(.line(CGPoint(x: x1, y: y1), CGPoint(x: x2, y: y2), color, width))
-        }
-        static func wrapped(_ text: String, width: CGFloat, font: UIFont) -> [String] {
-            text.components(separatedBy: "\n").flatMap { paragraph -> [String] in
-                guard !paragraph.isEmpty else { return [""] }
-                let string = paragraph as NSString
-                let typesetter = CTTypesetterCreateWithAttributedString(NSAttributedString(string: paragraph, attributes: [.font: font]))
-                var result: [String] = []
-                var offset = 0
-                while offset < string.length {
-                    let count = max(1, CTTypesetterSuggestLineBreak(typesetter, offset, Double(width)))
-                    result.append(string.substring(with: NSRange(location: offset, length: count)).trimmingCharacters(in: .whitespaces))
-                    offset += count
-                }
-                return result
-            }
-        }
-        @discardableResult func text(_ value: String, _ x: CGFloat, _ baseline: CGFloat, size: CGFloat = 10, bold: Bool = false,
-                                     serif: Bool = false, color: UIColor = ink, width: CGFloat = 524, align: NSTextAlignment = .left) -> CGFloat {
-            let face = InvoicePDF.font(size, bold: bold, serif: serif)
-            let lines = Self.wrapped(value, width: width, font: face)
-            drawLines(lines, x, baseline, font: face, color: color, align: align)
-            return CGFloat(lines.count) * (size * 1.15 + 3)
-        }
-        func drawLines(_ lines: [String], _ x: CGFloat, _ baseline: CGFloat, font: UIFont, color: UIColor, align: NSTextAlignment = .left) {
-            for (index, text) in lines.enumerated() {
-                let width = (text as NSString).size(withAttributes: [.font: font]).width
-                let offset: CGFloat = align == .right ? width : align == .center ? width / 2 : 0
-                add(.text(text, CGPoint(x: x - offset, y: baseline + CGFloat(index) * font.pointSize * 1.15), font, color))
-            }
-        }
-        func tableHeader() {
-            ensure(32)
-            box(44, y, 524, 24, radius: 5, fill: ink)
-            for (title, x, width) in [("DATE", 52.0, 70.0), ("SERVICE", 132, 230), ("REF", 374, 80), ("STATUS", 458, 62)] {
-                text(title, x, y + 16, size: 8.5, bold: true, color: parchment, width: width)
-            }
-            text("AMOUNT", 560, y + 16, size: 8.5, bold: true, color: parchment, width: 70, align: .right)
-            y += 30
-        }
-    }
-
     static func document(_ invoice: InvoiceDocument) -> Data {
         let layout = Layout()
         layout.add(.stamp)
@@ -232,7 +128,7 @@ enum InvoicePDF {
         layout.line(44, billY + 62 + billExtra, 568, billY + 62 + billExtra)
         layout.y += 84 + billExtra
         layout.y += layout.text(invoice.summary, 44, layout.y, color: slate) + 14
-        layout.tableHeader()
+        layout.invoiceTableHeader()
 
         for (index, item) in invoice.items.enumerated() {
             let values = [item.date.nilIfEmpty ?? "-", item.service, item.reference.nilIfEmpty ?? "-", item.status, InvoiceDocument.currency(item.amount)]
@@ -245,9 +141,9 @@ enum InvoicePDF {
             // Ordinary rows stay together. Oversized descriptions continue onto
             // additional pages, with repeated column headings and no lost text.
             let rowHeight = max(26, CGFloat(lineCount) * 13 + 10)
-            if rowHeight <= 654, layout.ensure(rowHeight) { layout.tableHeader() }
+            if rowHeight <= 654, layout.ensure(rowHeight) { layout.invoiceTableHeader() }
             while offset < lineCount {
-                if layout.y + 26 > 736 { layout.nextPage(); layout.tableHeader() }
+                if layout.y + 26 > 736 { layout.nextPage(); layout.invoiceTableHeader() }
                 let count = min(lineCount - offset, max(1, Int((736 - layout.y - 10) / 13)))
                 let height = max(26, CGFloat(count) * 13 + 10)
                 if index % 2 == 1 { layout.box(44, layout.y - 4, 524, height) }
@@ -260,7 +156,7 @@ enum InvoicePDF {
                 }
                 offset += count
                 layout.y += height
-                if offset < lineCount { layout.nextPage(); layout.tableHeader() }
+                if offset < lineCount { layout.nextPage(); layout.invoiceTableHeader() }
             }
         }
         layout.y += 16
@@ -282,16 +178,6 @@ enum InvoicePDF {
         layout.text("Payment note", 60, layout.y + 20, size: 11, bold: true, width: 492)
         layout.text("Thank you for your business. Please remit payment according to the terms arranged for this signing.", 60, layout.y + 38, size: 9.5, color: slate, width: 492)
 
-        return UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 612, height: 792)).pdfData { context in
-            for (index, page) in layout.pages.enumerated() {
-                context.beginPage()
-                page.forEach { $0.draw(in: context.cgContext) }
-                Mark.line(CGPoint(x: 44, y: 758), CGPoint(x: 568, y: 758), border, 0.7).draw(in: context.cgContext)
-                let footer = "Page \(index + 1) of \(layout.pages.count) · Generated via Notary Ledger · notaryledger.org"
-                let face = font(8)
-                let width = (footer as NSString).size(withAttributes: [.font: face]).width
-                Mark.text(footer, CGPoint(x: 306 - width / 2, y: 774), face, slate).draw(in: context.cgContext)
-            }
-        }
+        return BrandedPDF.document(layout.pages, includeDomain: true)
     }
 }
