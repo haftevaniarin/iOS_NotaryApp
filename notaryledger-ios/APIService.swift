@@ -34,6 +34,7 @@ final class APIService {
     static let shared = APIService()
     #endif
 
+    var onAuthenticationRequired: (() -> Void)?
     private let baseURL: String
     private let session: URLSession
     private var lastMaintenanceCheck: Date?
@@ -161,8 +162,12 @@ final class APIService {
         clearCookiesForPublicAuth()
         let payload = LoginRequest(email: email, password: password)
         let request = try makeRequest(path: "/api/auth/login", method: "POST", body: encodedBody(payload))
-        let response = try await perform(request, decodeTo: AuthResponse.self)
-        guard response.refreshToken != nil else { throw APIError.invalidResponse }
+        let response: AuthResponse
+        do { response = try await perform(request, decodeTo: AuthResponse.self) }
+        catch is DecodingError { throw APIError.serverError("Login response was missing session data.") }
+        guard !response.token.isEmpty, response.user != nil, response.refreshToken?.isEmpty == false else {
+            throw APIError.serverError("Login response was missing session data.")
+        }
         SessionStorage.saveSession(response)
         return response
     }
@@ -183,7 +188,7 @@ final class APIService {
 
     func resetPassword(token: String, password: String) async throws {
         clearCookiesForPublicAuth()
-        let body = try encodedBody(["token": token, "password": password])
+        let body = try encodedBody(["token": token, "newPassword": password])
         let request = try makeRequest(path: "/api/auth/reset-password", method: "POST", body: body)
         _ = try await perform(request, decodeTo: EmptyResponse.self)
     }
@@ -474,6 +479,7 @@ final class APIService {
     ) async throws -> URLRequest {
         try await ensureMaintenanceAllowsRequests()
         guard let token = SessionStorage.getAccessToken() else {
+            onAuthenticationRequired?()
             throw APIError.unauthorized
         }
         return try makeRequest(path: path, method: method, token: token, body: body, queryItems: queryItems)
@@ -492,17 +498,22 @@ final class APIService {
 
     private func performAuthenticated<T: Decodable>(_ request: URLRequest, decodeTo type: T.Type) async throws -> T {
         do {
-            return try await perform(request, decodeTo: type)
+            do {
+                return try await perform(request, decodeTo: type)
+            } catch APIError.unauthorized {
+                let current = SessionStorage.getAccessToken()
+                if current == nil || request.value(forHTTPHeaderField: "Authorization") == current.map({ "Bearer " + $0 }) {
+                    guard try await refreshSession() else { throw APIError.unauthorized }
+                }
+                var retry = request
+                if let token = SessionStorage.getAccessToken() {
+                    retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                }
+                return try await perform(retry, decodeTo: type)
+            }
         } catch APIError.unauthorized {
-            let current = SessionStorage.getAccessToken()
-            if current == nil || request.value(forHTTPHeaderField: "Authorization") == current.map({ "Bearer " + $0 }) {
-                guard try await refreshSession() else { throw APIError.unauthorized }
-            }
-            var retry = request
-            if let token = SessionStorage.getAccessToken() {
-                retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            }
-            return try await perform(retry, decodeTo: type)
+            onAuthenticationRequired?()
+            throw APIError.unauthorized
         }
     }
 
@@ -530,12 +541,18 @@ final class APIService {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         if http.statusCode == 401 {
-            guard try await refreshSession(), let token = SessionStorage.getAccessToken() else { throw APIError.unauthorized }
+            guard try await refreshSession(), let token = SessionStorage.getAccessToken() else {
+                onAuthenticationRequired?()
+                throw APIError.unauthorized
+            }
             var retry = request
             retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             let (retryData, retryResponse) = try await session.data(for: retry)
             guard let retryHTTP = retryResponse as? HTTPURLResponse else { throw APIError.invalidResponse }
-            guard retryHTTP.statusCode != 401 else { throw APIError.unauthorized }
+            guard retryHTTP.statusCode != 401 else {
+                onAuthenticationRequired?()
+                throw APIError.unauthorized
+            }
             guard (200...299).contains(retryHTTP.statusCode) else { throw APIError.httpError(retryHTTP.statusCode, Self.normalizedErrorMessage(from: retryData)) }
             return (retryData, retryHTTP)
         }
@@ -584,7 +601,16 @@ final class APIService {
         if allowNotFoundAsEmptyMaintenance, httpResponse.statusCode == 404, let disabled = MaintenanceStatus.disabled as? T {
             return disabled
         }
-        if httpResponse.statusCode == 401 {
+        let publicAuth = ["/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email", "/api/auth/resend-verification"].contains(request.url?.path ?? "")
+        if publicAuth {
+            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+            if request.url?.path == "/api/auth/register", Self.isDuplicateSignup(object, status: httpResponse.statusCode) {
+                throw APIError.httpError(409, AuthCopy.duplicateEmail)
+            }
+            if !(200...299).contains(httpResponse.statusCode) || object["success"] as? Bool == false {
+                throw APIError.httpError(httpResponse.statusCode, Self.publicAuthErrorMessage(object))
+            }
+        } else if httpResponse.statusCode == 401 {
             throw APIError.unauthorized
         }
         if !(200...299).contains(httpResponse.statusCode) {
@@ -620,6 +646,26 @@ final class APIService {
             }
         }
         return try decoder.decode(T.self, from: data)
+    }
+
+    private static func isDuplicateSignup(_ object: [String: Any], status: Int) -> Bool {
+        if status == 409 { return true }
+        if let data = object["data"] as? [String: Any], isDuplicateSignup(data, status: status) { return true }
+        let error = object["error"] as? [String: Any] ?? [:]
+        let code = (error["code"] as? String ?? object["code"] as? String ?? "").uppercased()
+        let message = (error["message"] as? String ?? object["message"] as? String ?? "").lowercased()
+        return ["EMAIL_ALREADY_EXISTS", "USER_ALREADY_EXISTS", "ACCOUNT_ALREADY_EXISTS", "DUPLICATE_EMAIL"].contains(code)
+            || ["email already exists", "account already exists", "already registered", "already in use"].contains(where: message.contains)
+    }
+
+    private static func publicAuthErrorMessage(_ object: [String: Any]) -> String {
+        let error = object["error"] as? [String: Any] ?? [:]
+        let message = (error["message"] as? String ?? object["message"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let allowed = ["invalid email or password.", "invalid credentials.", "password must be at least 12 characters.", AuthCopy.passwordRequirements.lowercased()]
+        if allowed.contains(message.lowercased()) { return message }
+        guard !message.isEmpty, message.count <= 300, !message.contains("\n"),
+              message.range(of: #"(?i)\b(password|token|cookie|authorization|bearer|tax\s?id|ssn|stack|trace)\b"#, options: .regularExpression) == nil else { return "Request failed." }
+        return message
     }
 
     static func normalizedErrorMessage(from data: Data) -> String {

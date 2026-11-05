@@ -289,15 +289,19 @@ struct ChangePasswordView: View {
         errorMessage = ""
         successMessage = ""
         guard !currentPassword.isEmpty else {
-            errorMessage = "Enter your current password."
+            errorMessage = "Please enter your current password."
             return
         }
         if let validationMessage = PasswordValidation.message(for: newPassword) {
-            errorMessage = validationMessage
+            errorMessage = validationMessage.replacingOccurrences(of: "Password must", with: "New password must")
+            return
+        }
+        guard currentPassword != newPassword else {
+            errorMessage = "New password must be different from your current password."
             return
         }
         guard newPassword == confirmPassword else {
-            errorMessage = "Passwords do not match."
+            errorMessage = "New passwords do not match."
             return
         }
 
@@ -308,7 +312,7 @@ struct ChangePasswordView: View {
             currentPassword = ""
             newPassword = ""
             confirmPassword = ""
-            successMessage = "Password changed."
+            successMessage = "Your password has been updated."
         } catch {
             errorMessage = error.localizedDescription
         }

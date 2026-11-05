@@ -16,6 +16,11 @@ final class AppState: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage = ""
 
+    let auth: AuthFlowModel
+    @Published var selectedSection: AppSection = .dashboard
+    @Published private(set) var isRestoringSession = true
+    private var intendedSection: AppSection?
+    private var hasIncomingAuthLink = false
     private let api: APIService
 
     // SwiftUI can release this outside a Swift task. No actor-bound cleanup is
@@ -25,21 +30,31 @@ final class AppState: ObservableObject {
 
     init(api: APIService? = nil) {
         self.api = api ?? APIService.shared
+        self.auth = AuthFlowModel(api: self.api)
+        self.api.onAuthenticationRequired = { [weak self] in self?.requireAuthentication() }
     }
 
     func boot() async {
+        defer { isRestoringSession = false }
+        guard !hasIncomingAuthLink else { return }
         let maintenance = await api.fetchMaintenanceStatus()
+        guard !hasIncomingAuthLink else { return }
         if maintenance.enabled {
             route = .maintenance(maintenance)
             return
         }
         do {
-            currentUser = try await api.restoreSession()
+            let restored = try await api.restoreSession()
+            guard !hasIncomingAuthLink else { return }
+            currentUser = restored
+            selectedSection = allowedDestination(intendedSection ?? selectedSection)
+            intendedSection = nil
             route = .app
             await refreshAll()
         } catch APIError.unauthorized {
-            signOutLocally()
+            if !hasIncomingAuthLink { signOutLocally(preserveDestination: intendedSection != nil) }
         } catch {
+            guard !hasIncomingAuthLink else { return }
             errorMessage = error.localizedDescription
             route = currentUser == nil ? .auth : .app
         }
@@ -52,8 +67,53 @@ final class AppState: ObservableObject {
         } else {
             currentUser = try? await api.fetchCurrentUser()
         }
+        selectedSection = allowedDestination(intendedSection ?? .dashboard)
+        intendedSection = nil
+        hasIncomingAuthLink = false
         route = .app
         await refreshAll()
+    }
+
+    func openURL(_ url: URL) {
+        guard let link = AuthLink(url: url) else { return }
+        if link.screen == .login || link.screen == .signup { intendedSection = link.destination }
+        else if let destination = link.destination { intendedSection = destination }
+        if let screen = link.screen {
+            if (screen == .login || screen == .signup), !isRestoringSession,
+               currentUser != nil, SessionStorage.getAccessToken() != nil {
+                selectedSection = allowedDestination(intendedSection ?? .dashboard)
+                intendedSection = nil
+                route = .app
+                return
+            }
+            isRestoringSession = false
+            hasIncomingAuthLink = true
+            auth.navigate(screen, token: link.token)
+            route = .auth
+        } else if let destination = link.destination {
+            // Preserve a protected link while the saved session is checked.
+            guard !isRestoringSession else { return }
+            if currentUser != nil, SessionStorage.getAccessToken() != nil {
+                selectedSection = allowedDestination(destination)
+                intendedSection = nil
+                route = .app
+            } else {
+                hasIncomingAuthLink = true
+                auth.navigate(.login)
+                route = .auth
+            }
+        }
+    }
+
+    private func allowedDestination(_ section: AppSection) -> AppSection {
+        section == .adminAudit && currentUser?.canAccessAdminAudit != true ? .dashboard : section
+    }
+
+    private func requireAuthentication() {
+        guard case .app = route else { return }
+        signOutLocally(preserveDestination: true)
+        errorMessage = "Your session has expired. Please sign in again."
+        auth.showError(errorMessage)
     }
 
     func signOut() async {
@@ -61,7 +121,12 @@ final class AppState: ObservableObject {
         signOutLocally()
     }
 
-    func signOutLocally() {
+    func signOutLocally(preserveDestination: Bool = false) {
+        if preserveDestination { intendedSection = intendedSection ?? selectedSection }
+        else { intendedSection = nil }
+        selectedSection = .dashboard
+        hasIncomingAuthLink = false
+        auth.reset()
         SessionStorage.clearSession()
         currentUser = nil
         orders = []
@@ -80,8 +145,7 @@ final class AppState: ObservableObject {
         } catch APIError.maintenance(let status) {
             route = .maintenance(status)
         } catch APIError.unauthorized {
-            signOutLocally()
-            errorMessage = "Please sign in again."
+            requireAuthentication()
         } catch {
             errorMessage = error.localizedDescription
         }

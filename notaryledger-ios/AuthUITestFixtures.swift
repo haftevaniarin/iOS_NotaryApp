@@ -1,0 +1,72 @@
+#if DEBUG
+import Foundation
+
+// Activated only by UI-test launch arguments. Every request is intercepted so
+// signup, recovery, and session tests never reach a live account or service.
+final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+    override func startLoading() {
+        do {
+            var body = request.httpBody
+            if body == nil, let stream = request.httpBodyStream {
+                stream.open()
+                defer { stream.close() }
+                var data = Data()
+                var buffer = [UInt8](repeating: 0, count: 4096)
+                while stream.hasBytesAvailable {
+                    let count = stream.read(&buffer, maxLength: buffer.count)
+                    if count <= 0 { break }
+                    data.append(buffer, count: count)
+                }
+                body = data
+            }
+            let payload = (body.flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: String] ?? [:]
+            let path = request.url?.path ?? ""
+            var status = 200
+            let responseBody: String
+            let user = #"{"id":"auth-fixture-user","firstName":"Avery","lastName":"Notary","fullName":"Avery Notary","email":"avery@example.test","role":"NOTARY"}"#
+            switch path {
+            case "/api/config/maintenance": responseBody = #"{"enabled":false}"#
+            case "/api/auth/refresh": status = 401; responseBody = #"{"message":"Session expired."}"#
+            case "/api/auth/register":
+                if payload["email"] == "exists@example.test" {
+                    status = 409; responseBody = #"{"error":{"code":"EMAIL_ALREADY_EXISTS","message":"An account with this email already exists."}}"#
+                } else if payload["email"] == "immediate@example.test" {
+                    responseBody = #"{"accessToken":"fixture-access","refreshToken":"fixture-refresh","user":\#(user)}"#
+                } else {
+                    responseBody = #"{"success":true,"data":{"emailVerificationRequired":true,"message":"Check your email to verify your account, then sign in."}}"#
+                }
+            case "/api/auth/login":
+                if payload["password"] != "StrongPass12!" {
+                    status = 401; responseBody = #"{"error":{"code":"INVALID_CREDENTIALS","message":"Invalid email or password."}}"#
+                } else { responseBody = #"{"accessToken":"fixture-access","refreshToken":"fixture-refresh","user":\#(user)}"# }
+            case "/api/auth/forgot-password", "/api/auth/logout": responseBody = "{}"
+            case "/api/auth/reset-password":
+                if payload["token"] == "expired" { status = 400; responseBody = #"{"message":"Invalid or expired reset link."}"# }
+                else { responseBody = "{}" }
+            case "/api/auth/verify-email":
+                if payload["token"] == "offline" { throw URLError(.notConnectedToInternet) }
+                if payload["token"] == "server-error" { status = 503; responseBody = #"{"message":"Unavailable."}"# }
+                else if payload["token"] == "valid" { responseBody = "{}" }
+                else { status = 400; responseBody = #"{"message":"Verification link expired."}"# }
+            case "/api/auth/me": responseBody = user
+            case "/api/orders", "/api/expenses": responseBody = "[]"
+            case "/api/credentials": responseBody = #"{"commissionNumber":null}"#
+            case "/api/stripe/billing-status": responseBody = #"{"billing":{"plan":"PRO","isPro":true,"features":{"invoiceGeneration":true}}}"#
+            default: status = 404; responseBody = #"{"message":"No fixture for this request."}"#
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data(responseBody.utf8))
+            client?.urlProtocolDidFinishLoading(self)
+        } catch { client?.urlProtocol(self, didFailWithError: error) }
+    }
+    @MainActor static func service() -> APIService {
+        let configuration = APIService.defaultSessionConfiguration()
+        configuration.protocolClasses = [AuthUITestFixtures.self]
+        return APIService(baseURL: "https://auth-fixtures.example.test", session: URLSession(configuration: configuration))
+    }
+}
+#endif
