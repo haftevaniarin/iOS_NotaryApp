@@ -1,23 +1,33 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var appState = AppState()
-    @State private var verificationSheet: TokenSheet?
-    @State private var resetSheet: TokenSheet?
+    @StateObject private var appState: AppState
+
+    init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--auth-fixtures") {
+            SessionStorage.clearSession()
+            APIService.shared = AuthUITestFixtures.service()
+        }
+        #endif
+        _appState = StateObject(wrappedValue: AppState())
+    }
 
     var body: some View {
         GeometryReader { geometry in
             Group {
-            switch appState.route {
-            case .auth:
-                NavigationStack {
-                    LoginView()
+                if appState.isRestoringSession {
+                    ProgressView("Restoring your session...")
+                } else {
+                    switch appState.route {
+                    case .auth:
+                        NavigationStack { LoginView() }
+                    case .app:
+                        LedgerAppShell()
+                    case .maintenance(let status):
+                        MaintenanceView(status: status)
+                    }
                 }
-            case .app:
-                LedgerAppShell()
-            case .maintenance(let status):
-                MaintenanceView(status: status)
-            }
             }
             .environment(\.nlViewportWidth, geometry.size.width)
             .font(NLTypography.body)
@@ -26,25 +36,15 @@ struct ContentView: View {
         .environmentObject(appState)
         .task {
             await appState.boot()
-        }
-        .sheet(item: $verificationSheet) { sheet in
-            VerificationView(token: sheet.token)
-                .environmentObject(appState)
-        }
-        .sheet(item: $resetSheet) { sheet in
-            NavigationStack {
-                ResetPasswordView(token: sheet.token)
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--auth-fixtures"),
+               let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--auth-url=") }),
+               let url = URL(string: String(argument.dropFirst("--auth-url=".count))) {
+                appState.openURL(url)
             }
+            #endif
         }
-        .onOpenURL { url in
-            if let token = url.queryItem(named: "verificationToken") ?? url.queryItem(named: "token"),
-               url.absoluteString.contains("verify") {
-                verificationSheet = TokenSheet(token: token)
-            } else if let token = url.queryItem(named: "resetToken") ?? url.queryItem(named: "token"),
-                      url.absoluteString.contains("reset") {
-                resetSheet = TokenSheet(token: token)
-            }
-        }
+        .onOpenURL { appState.openURL($0) }
     }
 }
 
@@ -104,7 +104,7 @@ enum AppSection: String, CaseIterable, Identifiable {
 
 struct LedgerAppShell: View {
     @EnvironmentObject private var appState: AppState
-    @State private var selectedSection: AppSection = .dashboard
+    private var selectedSection: AppSection { appState.selectedSection }
     @State private var isMenuOpen = false
 
     private var primarySections: [AppSection] {
@@ -138,7 +138,7 @@ struct LedgerAppShell: View {
                     }
 
                 LedgerSideMenu(
-                    selectedSection: $selectedSection,
+                    selectedSection: $appState.selectedSection,
                     isMenuOpen: $isMenuOpen,
                     primarySections: primarySections
                 )
@@ -332,6 +332,7 @@ struct AuthShell<Content: View>: View {
                     NLCard(inset: 28) {
                         VStack(alignment: .leading, spacing: NLSpacing.lg) {
                             Text(title)
+                                .id("authHeading")
                                 .font(NLFonts.serif(20))
                                 .foregroundColor(NLColor.ink)
                             content
@@ -342,351 +343,6 @@ struct AuthShell<Content: View>: View {
                 .padding(24)
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }
-            }
-        }
-    }
-}
-
-struct LoginView: View {
-    @EnvironmentObject private var appState: AppState
-    @State private var email = ""
-    @State private var password = ""
-    @State private var errorMessage = ""
-    @State private var successMessage = ""
-    @State private var isSubmitting = false
-    @State private var isResendingVerification = false
-
-    var body: some View {
-        AuthShell(title: "Log In", subtitle: "SIGNING AGENT DESK") {
-            VStack(spacing: NLSpacing.md) {
-                NLTextField(title: "Email", text: $email, keyboardType: .emailAddress)
-                    .textContentType(.username)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                NLSecureField(title: "Password", text: $password)
-                    .textContentType(.password)
-
-                BannerView(kind: .success, message: successMessage)
-                ErrorBanner(message: errorMessage)
-
-                Button {
-                    Task { await login() }
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Text("Log In")
-                    }
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(isSubmitting)
-
-                Button(isResendingVerification ? "Sending..." : "Resend verification email") {
-                    Task { await resendVerification() }
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(isSubmitting || isResendingVerification)
-
-                HStack {
-                    NavigationLink("Create account") {
-                        SignUpView()
-                    }
-                    Spacer()
-                    NavigationLink("Forgot password") {
-                        ForgotPasswordView()
-                    }
-                }
-                .font(NLTypography.bodyStrong)
-                .foregroundColor(NLColor.navy)
-            }
-        }
-    }
-
-    private func login() async {
-#if DEBUG
-        print("[Auth] Login tapped")
-#endif
-        errorMessage = ""
-        successMessage = ""
-        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanEmail.isEmpty else {
-#if DEBUG
-            print("[Auth] Login stopped: email is empty")
-#endif
-            errorMessage = "Enter your email address."
-            return
-        }
-        guard !password.isEmpty else {
-#if DEBUG
-            print("[Auth] Login stopped: password is empty")
-#endif
-            errorMessage = "Enter your password."
-            return
-        }
-
-        isSubmitting = true
-        defer { isSubmitting = false }
-        do {
-            let response = try await APIService.shared.login(email: cleanEmail, password: password)
-#if DEBUG
-            print("[Auth] Login succeeded")
-#endif
-            await appState.didAuthenticate(response)
-        } catch {
-#if DEBUG
-            print("[Auth] Login failed: \(error.localizedDescription)")
-#endif
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func resendVerification() async {
-        errorMessage = ""
-        successMessage = ""
-        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cleanEmail.contains("@") else {
-            errorMessage = "Enter a valid email address."
-            return
-        }
-
-        isResendingVerification = true
-        defer { isResendingVerification = false }
-        do {
-            try await APIService.shared.resendVerification(email: cleanEmail)
-            successMessage = "If this email can be registered, verification instructions have been sent."
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-}
-
-struct SignUpView: View {
-    @EnvironmentObject private var appState: AppState
-    @Environment(\.dismiss) private var dismiss
-    @State private var firstName = ""
-    @State private var lastName = ""
-    @State private var email = ""
-    @State private var password = ""
-    @State private var confirmPassword = ""
-    @State private var errorMessage = ""
-    @State private var successMessage = ""
-    @State private var isSubmitting = false
-
-    var body: some View {
-        AuthShell(title: "Create Account", subtitle: "SIGNING AGENT DESK") {
-            VStack(spacing: NLSpacing.md) {
-                HStack(spacing: NLSpacing.md) {
-                    NLTextField(title: "First name", text: $firstName)
-                    NLTextField(title: "Last name", text: $lastName)
-                }
-                NLTextField(title: "Email", text: $email, keyboardType: .emailAddress)
-                    .textContentType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                NLSecureField(title: "Password", text: $password)
-                    .textContentType(.newPassword)
-                NLSecureField(title: "Confirm password", text: $confirmPassword)
-                    .textContentType(.newPassword)
-
-                BannerView(kind: .success, message: successMessage)
-                ErrorBanner(message: errorMessage)
-
-                Button {
-                    Task { await signup() }
-                } label: {
-                    Text(isSubmitting ? "Creating..." : "Create Account")
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(isSubmitting)
-
-                Button("Back to login") {
-                    dismiss()
-                }
-                .buttonStyle(SecondaryButtonStyle())
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func signup() async {
-        errorMessage = ""
-        successMessage = ""
-        let fullName = [firstName, lastName]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-        guard !fullName.isEmpty else {
-            errorMessage = "Enter your name."
-            return
-        }
-        guard email.contains("@") else {
-            errorMessage = "Enter a valid email address."
-            return
-        }
-        if let passwordMessage = PasswordValidation.message(for: password) {
-            errorMessage = passwordMessage
-            return
-        }
-        guard password == confirmPassword else {
-            errorMessage = "Passwords do not match."
-            return
-        }
-
-        isSubmitting = true
-        defer { isSubmitting = false }
-        do {
-            let result = try await APIService.shared.register(
-                firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
-                lastName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
-                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
-                password: password
-            )
-            switch result {
-            case .authenticated(let response):
-                await appState.didAuthenticate(response)
-            case .verificationRequired(let message):
-                successMessage = message
-                password = ""
-                confirmPassword = ""
-            }
-        } catch let urlError as URLError where urlError.code == .timedOut {
-            errorMessage = "Account creation is taking longer than expected. Check your email for a verification link before trying again."
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-}
-
-struct ForgotPasswordView: View {
-    @State private var email = ""
-    @State private var message = ""
-    @State private var errorMessage = ""
-    @State private var isSubmitting = false
-
-    var body: some View {
-        AuthShell(title: "Forgot Password", subtitle: "SIGNING AGENT DESK") {
-            VStack(spacing: NLSpacing.md) {
-                NLTextField(title: "Email", text: $email, keyboardType: .emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                BannerView(kind: .success, message: message)
-                ErrorBanner(message: errorMessage)
-
-                Button(isSubmitting ? "Sending..." : "Send Reset Link") {
-                    Task { await submit() }
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(isSubmitting)
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func submit() async {
-        errorMessage = ""
-        message = ""
-        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanEmail.isEmpty else {
-            errorMessage = "Enter your email address."
-            return
-        }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        do {
-            try await APIService.shared.forgotPassword(email: cleanEmail)
-            message = "If an account exists, a reset link has been sent."
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-}
-
-struct ResetPasswordView: View {
-    @Environment(\.dismiss) private var dismiss
-    let token: String
-    @State private var password = ""
-    @State private var confirmPassword = ""
-    @State private var message = ""
-    @State private var errorMessage = ""
-    @State private var isSubmitting = false
-
-    var body: some View {
-        AuthShell(title: "Reset Password", subtitle: "SIGNING AGENT DESK") {
-            VStack(spacing: NLSpacing.md) {
-                NLSecureField(title: "Password", text: $password)
-                NLSecureField(title: "Confirm password", text: $confirmPassword)
-
-                BannerView(kind: .success, message: message)
-                ErrorBanner(message: errorMessage)
-
-                Button(isSubmitting ? "Resetting..." : "Reset Password") {
-                    Task { await submit() }
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(isSubmitting)
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func submit() async {
-        errorMessage = ""
-        if let passwordMessage = PasswordValidation.message(for: password) {
-            errorMessage = passwordMessage
-            return
-        }
-        guard password == confirmPassword else {
-            errorMessage = "Passwords do not match."
-            return
-        }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        do {
-            try await APIService.shared.resetPassword(token: token, password: password)
-            message = "Your password has been reset."
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-}
-
-struct VerificationView: View {
-    @Environment(\.dismiss) private var dismiss
-    let token: String
-    @State private var state = "Verifying your email..."
-
-    var body: some View {
-        ZStack {
-            ParchmentBackground()
-            VStack(spacing: NLSpacing.lg) {
-                NLSeal(size: 54)
-                Text("Email Verification")
-                    .font(NLFonts.serif(19))
-                    .foregroundColor(NLColor.navy)
-                Text(state)
-                    .font(NLTypography.body)
-                    .foregroundColor(NLColor.muted)
-                    .multilineTextAlignment(.center)
-                Button("Done") {
-                    dismiss()
-                }
-                .buttonStyle(PrimaryButtonStyle())
-            }
-            .padding()
-            .nlPanel()
-            .padding()
-        }
-        .presentationDetents([.medium])
-        .task {
-            do {
-                try await APIService.shared.verifyEmail(token: token)
-                state = "Email verified."
-            } catch {
-                state = error.localizedDescription
             }
         }
     }
@@ -743,19 +399,5 @@ struct MoreView: View {
         .navigationTitle("More")
         .scrollContentBackground(.hidden)
         .background(ParchmentBackground())
-    }
-}
-
-struct TokenSheet: Identifiable {
-    let id = UUID()
-    let token: String
-}
-
-private extension URL {
-    func queryItem(named name: String) -> String? {
-        URLComponents(url: self, resolvingAgainstBaseURL: false)?
-            .queryItems?
-            .first(where: { $0.name == name })?
-            .value
     }
 }

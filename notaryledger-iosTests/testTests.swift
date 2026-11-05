@@ -8,9 +8,9 @@ import Testing
 @Suite(.serialized)
 struct ValidationAndAPITests {
     @Test func passwordValidationRequiresLengthAndComplexity() {
-        #expect(PasswordValidation.message(for: "Short1!") == "Use at least 12 characters.")
-        #expect(PasswordValidation.message(for: "            ") == "Password cannot be only whitespace.")
-        #expect(PasswordValidation.message(for: "alllowercasepassword") == "Use at least 3 of lowercase, uppercase, number, and symbol.")
+        #expect(PasswordValidation.message(for: "Short1!") == AuthCopy.passwordRequirements)
+        #expect(PasswordValidation.message(for: "            ") == AuthCopy.passwordRequirements)
+        #expect(PasswordValidation.message(for: "alllowercasepassword") == AuthCopy.passwordRequirements)
         #expect(PasswordValidation.message(for: "StrongPass12!") == nil)
     }
 

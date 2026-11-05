@@ -137,6 +137,7 @@ enum RegistrationResult {
 
 struct RegistrationResponse: Decodable {
     struct Payload: Decodable {
+        let refreshToken: String?
         let token: String?
         let accessToken: String?
         let user: AuthUser?
@@ -146,6 +147,7 @@ struct RegistrationResponse: Decodable {
         let verificationRequired: Bool?
     }
 
+    let refreshToken: String?
     let token: String?
     let accessToken: String?
     let user: AuthUser?
@@ -157,26 +159,20 @@ struct RegistrationResponse: Decodable {
     let data: Payload?
 
     var result: RegistrationResult? {
+        let requiresVerification = data?.emailVerificationRequired == true
+            || data?.requiresEmailVerification == true || data?.verificationRequired == true
+            || emailVerificationRequired == true || requiresEmailVerification == true
+            || verificationRequired == true || code == "EMAIL_VERIFICATION_REQUIRED"
         let resolvedToken = data?.accessToken ?? data?.token ?? accessToken ?? token
         let resolvedUser = data?.user ?? user
-        if let resolvedToken {
-            return .authenticated(AuthResponse(token: resolvedToken, user: resolvedUser))
+        if !requiresVerification, let resolvedToken, !resolvedToken.isEmpty, let resolvedUser {
+            var response = AuthResponse(token: resolvedToken, user: resolvedUser)
+            response.refreshToken = data?.refreshToken ?? refreshToken
+            return .authenticated(response)
         }
-
-        let requiresVerification = data?.emailVerificationRequired == true
-            || data?.requiresEmailVerification == true
-            || data?.verificationRequired == true
-            || emailVerificationRequired == true
-            || requiresEmailVerification == true
-            || verificationRequired == true
-            || code == "EMAIL_VERIFICATION_REQUIRED"
-        if requiresVerification || message != nil || data?.message != nil {
-            return .verificationRequired(
-                data?.message ?? message ?? "Check your email to verify your account, then sign in."
-            )
-        }
-        return nil
+        return .verificationRequired(data?.message ?? message ?? AuthCopy.verifyAccount)
     }
+
 }
 
 enum SigningStatus: String, Codable, CaseIterable, Identifiable {
@@ -718,23 +714,12 @@ nonisolated struct MaintenanceStatus: Decodable, Equatable {
 
 enum PasswordValidation {
     static func message(for password: String) -> String? {
-        if password.count < 12 {
-            return "Use at least 12 characters."
-        }
-        if password.count > 128 {
-            return "Use 128 characters or fewer."
-        }
-        if password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Password cannot be only whitespace."
-        }
-
-        var categories = 0
-        if password.range(of: "[a-z]", options: .regularExpression) != nil { categories += 1 }
-        if password.range(of: "[A-Z]", options: .regularExpression) != nil { categories += 1 }
-        if password.range(of: "[0-9]", options: .regularExpression) != nil { categories += 1 }
-        if password.range(of: "[^A-Za-z0-9]", options: .regularExpression) != nil { categories += 1 }
-
-        return categories >= 3 ? nil : "Use at least 3 of lowercase, uppercase, number, and symbol."
+        let categories = ["[a-z]", "[A-Z]", "[0-9]", "[^A-Za-z0-9\\s]"].filter {
+            password.range(of: $0, options: .regularExpression) != nil
+        }.count
+        return password.utf16.count >= 12 && password.utf16.count <= 128
+            && !password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && categories >= 3
+            ? nil : AuthCopy.passwordRequirements
     }
 }
 
