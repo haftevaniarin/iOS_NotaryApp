@@ -53,7 +53,11 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                 else if payload["token"] == "valid" { responseBody = "{}" }
                 else { status = 400; responseBody = #"{"message":"Verification link expired."}"# }
             case "/api/auth/me": responseBody = user
-            case "/api/orders", "/api/expenses": responseBody = "[]"
+            case "/api/orders":
+                responseBody = ProcessInfo.processInfo.arguments.contains("--customer-invoice-fixtures")
+                    ? #"[{"id":"alder-unpaid","customerName":"Alder Title","signerName":"Other customer signer","date":"2026-11-01","fee":150,"paid":false},{"id":"harbor-unpaid","customerName":"Harbor Title","signerName":"Harbor unpaid signer","date":"2026-11-02","fee":225,"paid":false},{"id":"harbor-paid","customerName":"Harbor Title","signerName":"Harbor paid signer","date":"2026-11-01","fee":99,"paid":true},{"id":"harbor-cancelled","customerName":"Harbor Title","signerName":"Harbor cancelled signer","date":"2026-11-01","fee":350,"paid":false,"status":"Cancelled"},{"id":"zenith-paid","customerName":"Zenith Paid","signerName":"Paid only signer","date":"2026-11-01","fee":75,"paid":true}]"#
+                    : "[]"
+            case "/api/expenses": responseBody = "[]"
             case "/api/credentials": responseBody = #"{"commissionNumber":null}"#
             case "/api/stripe/billing-status":
                 responseBody = ProcessInfo.processInfo.arguments.contains("--billing-free")

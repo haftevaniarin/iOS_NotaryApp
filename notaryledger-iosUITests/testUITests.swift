@@ -1,10 +1,11 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
+        if customerInvoices { app.launchArguments.append("--customer-invoice-fixtures") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app
@@ -49,6 +50,39 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         app.buttons["Back to sign in"].tap()
         XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["If an account exists for that email, a password reset link has been sent."].exists)
+    }
+
+    @MainActor func testCustomersCreateInvoiceExportsSelectedCustomerAndShowsAccessErrors() throws {
+        for free in [false, true] {
+            let app = launch(freePlan: free, customerInvoices: true)
+            XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+            enter("avery@example.test", into: app.textFields["Email"], in: app)
+            enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+            reveal(app.buttons["Log In"], in: app)
+            app.buttons["Log In"].tap()
+            XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 10))
+            app.buttons["Open navigation menu"].tap()
+            app.buttons["Customers"].tap()
+
+            let paidOnly = app.buttons["customer-invoice-zenith paid"]
+            XCTAssertTrue(paidOnly.waitForExistence(timeout: 5))
+            XCTAssertFalse(paidOnly.isEnabled)
+            let create = app.buttons["customer-invoice-harbor title"]
+            reveal(create, in: app)
+            create.tap()
+            if free {
+                XCTAssertTrue(app.staticTexts["Upgrade to Pro to generate invoices."].waitForExistence(timeout: 5))
+                XCTAssertTrue(create.isEnabled)
+            } else {
+                XCTAssertTrue(app.cells["Copy"].waitForExistence(timeout: 10))
+                XCTAssertTrue(app.otherElements["LP.CaptionBar.TopCaption"].label.hasSuffix("harbor-title"))
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Customer invoice share sheet"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+            }
+            app.terminate()
+        }
     }
 
     @MainActor func testLegalPagesHaveFullWebContentAndReturnToSignIn() throws {

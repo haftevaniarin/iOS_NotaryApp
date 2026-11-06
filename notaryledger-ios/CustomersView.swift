@@ -3,6 +3,10 @@ import SwiftUI
 struct CustomersView: View {
     @EnvironmentObject private var appState: AppState
     @State private var searchText = ""
+    @State private var exportItem: ShareURL?
+    @State private var generatingCustomerID: String?
+    @State private var errorCustomerID: String?
+    @State private var errorMessage = ""
 
     private var summaries: [CustomerSummary] {
         CustomerSummaries.build(from: appState.orders).filter { summary in
@@ -24,18 +28,53 @@ struct CustomersView: View {
                     } else {
                         SectionHeader(title: "Customers")
                         ForEach(summaries) { summary in
-                            CustomerSummaryCard(summary: summary)
+                            CustomerSummaryCard(
+                                summary: summary,
+                                isGenerating: generatingCustomerID == summary.id,
+                                invoiceActionsDisabled: generatingCustomerID != nil,
+                                errorMessage: errorCustomerID == summary.id ? errorMessage : ""
+                            ) {
+                                Task { await generateInvoice(for: summary) }
+                            }
                         }
                     }
                 }
                 .nlScreenPadding()
             }
         }
+        .sheet(item: $exportItem) { ShareSheet(activityItems: [$0.url]) }
+    }
+
+    private func generateInvoice(for customer: CustomerSummary) async {
+        guard generatingCustomerID == nil, !customer.invoiceCandidates.isEmpty else { return }
+        generatingCustomerID = customer.id
+        errorCustomerID = nil
+        errorMessage = ""
+        defer { generatingCustomerID = nil }
+
+        do {
+            let billing = try await APIService.shared.fetchBillingStatus()
+            guard billing.features?["invoiceGeneration"] == true else {
+                throw APIError.serverError("Upgrade to Pro to generate invoices.")
+            }
+            exportItem = ShareURL(url: try LedgerPDF.invoice(
+                user: appState.currentUser,
+                customer: customer.displayName,
+                orders: customer.invoiceCandidates
+            ))
+        } catch {
+            errorCustomerID = customer.id
+            errorMessage = error.localizedDescription
+        }
     }
 }
 
 struct CustomerSummaryCard: View {
     let summary: CustomerSummary
+    var isGenerating = false
+    var invoiceActionsDisabled = false
+    var errorMessage = ""
+    let onCreateInvoice: () -> Void
 
     var body: some View {
         NLCard {
@@ -53,6 +92,7 @@ struct CustomerSummaryCard: View {
                 DetailRow(label: "Signing count", value: "\(summary.signingCount)")
                 DetailRow(label: "Unpaid work", value: "\(summary.unpaidCount)")
                 DetailRow(label: "Revenue", value: summary.revenue.currencyString)
+                ErrorBanner(message: errorMessage)
                 if summary.invoiceCandidates.isEmpty {
                     Button {
                     } label: {
@@ -60,12 +100,14 @@ struct CustomerSummaryCard: View {
                     }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(true)
+                    .accessibilityIdentifier("customer-invoice-\(summary.id)")
                 } else {
-                    Button {
-                    } label: {
-                        Label("Create Invoice", systemImage: "doc.richtext")
+                    Button(action: onCreateInvoice) {
+                        Label(isGenerating ? "Generating..." : "Create Invoice", systemImage: "doc.richtext")
                     }
                     .buttonStyle(PrimaryButtonStyle())
+                    .disabled(invoiceActionsDisabled)
+                    .accessibilityIdentifier("customer-invoice-\(summary.id)")
                 }
             }
         }
