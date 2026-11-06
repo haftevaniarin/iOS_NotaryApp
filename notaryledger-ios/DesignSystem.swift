@@ -567,15 +567,19 @@ struct NLTextArea: View {
     @Environment(\.nlBusinessCardFields) private var businessCard
     let title: String
     @Binding var text: String
+    var showsLabel = true
+    var minimumHeight: CGFloat = 84
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            FieldLabel(text: title)
+            if showsLabel { FieldLabel(text: title) }
             TextEditor(text: $text)
                 .font(businessCard ? NLFonts.sans(15) : NLTypography.input)
+                .foregroundColor(NLColor.ink)
+                .tint(NLColor.navy)
                 .scrollContentBackground(.hidden)
                 .padding(8)
-                .frame(minHeight: 84)
+                .frame(minHeight: minimumHeight)
                 .background(Color(red: 0.992, green: 0.988, blue: 0.973))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(NLColor.line, lineWidth: 1))

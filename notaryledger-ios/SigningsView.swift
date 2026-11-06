@@ -332,8 +332,7 @@ struct SigningOrderFormView: View {
                     NLTextField(title: "Parking and tolls", text: $travelFee, keyboardType: .decimalPad)
                 }
                 NLFormSection("Notes") {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 90)
+                    NLTextArea(title: "Notes", text: $notes, showsLabel: false, minimumHeight: 90)
                 }
                 if !errorMessage.isEmpty {
                     NLFormSection {
