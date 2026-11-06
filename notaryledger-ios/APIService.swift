@@ -283,6 +283,14 @@ final class APIService {
         return report.summary(year: taxYear)
     }
 
+    func fetchTaxPDFReport(taxYear: Int) async throws -> TaxPDFReport {
+        let request = try await authenticatedRequest(
+            path: "/api/reports/tax-summary", method: "GET",
+            queryItems: [URLQueryItem(name: "taxYear", value: String(taxYear)),
+                         URLQueryItem(name: "_", value: String(Int64(Date().timeIntervalSince1970 * 1000)))])
+        return try await performAuthenticated(request, decodeTo: TaxPDFReport.self)
+    }
+
     func updateProfile(firstName: String, lastName: String, defaultStartAddress: String = "") async throws -> AuthUser {
         let body = try encodedMutableBody(["firstName": firstName, "lastName": lastName, "defaultStartAddress": defaultStartAddress])
         let request = try await authenticatedRequest(path: "/api/auth/me", method: "PATCH", body: body)
@@ -328,8 +336,11 @@ final class APIService {
     }
 
     func contactSupport(_ payload: SupportContactRequest) async throws {
-        let request = try await authenticatedRequest(path: "/api/support/contact", method: "POST", body: encodedMutableBody(payload))
-        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+        // Legal pages are also available before sign-in. This endpoint accepts
+        // anonymous requests, with optional authentication for account context.
+        let request = try makeRequest(path: "/api/support/contact", method: "POST",
+                                      token: SessionStorage.getAccessToken(), body: encodedMutableBody(payload))
+        _ = try await perform(request, decodeTo: EmptyResponse.self)
     }
 
     func logout() async {
@@ -477,7 +488,9 @@ final class APIService {
         body: Data? = nil,
         queryItems: [URLQueryItem] = []
     ) async throws -> URLRequest {
+        try Task.checkCancellation()
         try await ensureMaintenanceAllowsRequests()
+        try Task.checkCancellation()
         guard let token = SessionStorage.getAccessToken() else {
             onAuthenticationRequired?()
             throw APIError.unauthorized
@@ -565,6 +578,7 @@ final class APIService {
         decodeTo type: T.Type,
         allowNotFoundAsEmptyMaintenance: Bool = false
     ) async throws -> T {
+        try Task.checkCancellation()
         let startedAt = Date()
 #if DEBUG
         let method = request.httpMethod ?? "REQUEST"
@@ -577,12 +591,20 @@ final class APIService {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            if Task.isCancelled || RequestCancellation.isCancellation(error) {
+#if DEBUG
+                let elapsed = Date().timeIntervalSince(startedAt)
+                print("[API] -- \(method) \(requestURL) cancelled after \(String(format: "%.2f", elapsed))s")
+#endif
+                throw CancellationError()
+            }
 #if DEBUG
             let elapsed = Date().timeIntervalSince(startedAt)
             print("[API] !! \(method) \(requestURL) failed after \(String(format: "%.2f", elapsed))s: \(error.localizedDescription)")
 #endif
             throw error
         }
+        try Task.checkCancellation()
 
         guard let httpResponse = response as? HTTPURLResponse else {
 #if DEBUG
@@ -601,6 +623,25 @@ final class APIService {
         if allowNotFoundAsEmptyMaintenance, httpResponse.statusCode == 404, let disabled = MaintenanceStatus.disabled as? T {
             return disabled
         }
+        if request.url?.path == "/api/support/contact" {
+            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+            if !(200...299).contains(httpResponse.statusCode) || object["success"] as? Bool == false {
+                var fields: [String: String] = [:]
+                if let errors = object["fieldErrors"] as? [String: Any] {
+                    for (field, value) in errors {
+                        fields[field] = (value as? String) ?? (value as? [String])?.first
+                    }
+                }
+                if let error = object["error"] as? [String: Any], let details = error["details"] as? [[String: Any]] {
+                    for detail in details {
+                        if let field = detail["field"] as? String, fields[field] == nil {
+                            fields[field] = detail["message"] as? String
+                        }
+                    }
+                }
+                throw SupportContactFailure(message: Self.normalizedErrorMessage(from: data), fieldErrors: fields)
+            }
+        }
         let publicAuth = ["/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email", "/api/auth/resend-verification"].contains(request.url?.path ?? "")
         if publicAuth {
             let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
@@ -612,6 +653,12 @@ final class APIService {
             }
         } else if httpResponse.statusCode == 401 {
             throw APIError.unauthorized
+        }
+        let orderWrite = (request.httpMethod == "POST" && request.url?.path == "/api/orders")
+            || (request.httpMethod == "PUT" && request.url?.path.hasPrefix("/api/orders/") == true)
+        if orderWrite, !(200...299).contains(httpResponse.statusCode),
+           let failure = OrderValidationFailure.fromResponse(data) {
+            throw failure
         }
         if !(200...299).contains(httpResponse.statusCode) {
             throw APIError.httpError(httpResponse.statusCode, Self.normalizedErrorMessage(from: data))

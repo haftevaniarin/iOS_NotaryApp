@@ -1,0 +1,21 @@
+{
+  "taxYear": 2026,
+  "totals": {
+    "totalIncomeReceived": 0,
+    "unpaidIncome": 0,
+    "businessExpenses": 0,
+    "orderExpenses": 0,
+    "totalTravelExpenses": 0,
+    "totalBusinessMiles": 0,
+    "parkingTotal": 0,
+    "totalNotarialActExemptFees": 0,
+    "netSelfEmploymentIncome": 0,
+    "seTaxableIncome": 0,
+    "estimatedSelfEmploymentTax": 0,
+    "estimatedTaxPayments": 0,
+    "rawExpenseTotal": 0,
+    "deductibleExpenseTotal": 0,
+    "totalDeductibleExpenses": 0,
+    "selfEmploymentTaxRate": 0
+  }
+}

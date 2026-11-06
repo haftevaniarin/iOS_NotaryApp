@@ -38,7 +38,11 @@ struct DashboardView: View {
             ParchmentBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                    ScreenTitleBlock(title: "Dashboard", subtitle: todaySubtitle)
+                    HStack(alignment: .top, spacing: NLSpacing.md) {
+                        ScreenTitleBlock(title: "Dashboard", subtitle: todaySubtitle)
+                        PlanBadge(billing: appState.billingStatus, unavailable: appState.billingLoadFailed)
+                            .accessibilityIdentifier("Dashboard plan")
+                    }
 
                     if appState.isLoading {
                         ProgressView("Loading ledger...")
@@ -47,6 +51,7 @@ struct DashboardView: View {
                     }
 
                     ErrorBanner(message: appState.errorMessage)
+                        .accessibilityIdentifier("Dashboard refresh error")
                     CredentialRiskBanners()
 
                     Button {
@@ -84,6 +89,7 @@ struct DashboardView: View {
                 }
             }
         }
+        .task { if appState.billingStatus == nil { await appState.refreshBillingStatus() } }
     }
 
 }
@@ -112,8 +118,14 @@ struct CredentialRiskBanners: View {
                 BannerView(kind: risks[i].1 == "Expired" ? .error : .warning, message: "\(risks[i].0): \(risks[i].1). Update your credentials in Profile.")
             }
         }.task {
-            do { credentials = try await APIService.shared.fetchCredentials() }
-            catch { self.error = "Could not load credential reminders: " + error.localizedDescription }
+            do {
+                let result = try await APIService.shared.fetchCredentials()
+                try Task.checkCancellation()
+                credentials = result
+            } catch {
+                guard !Task.isCancelled, !RequestCancellation.isCancellation(error) else { return }
+                self.error = "Could not load credential reminders: " + error.localizedDescription
+            }
         }
     }
 }

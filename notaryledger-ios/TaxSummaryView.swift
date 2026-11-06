@@ -6,6 +6,7 @@ struct TaxSummaryView: View {
     @State private var summary: TaxSummary?
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var isExporting = false
     @State private var exportItem: ShareURL?
 
     private var years: [Int] {
@@ -71,11 +72,12 @@ struct TaxSummaryView: View {
                         ])
 
                         Button {
-                            exportPDF()
+                            Task { await exportPDF() }
                         } label: {
-                            Label("Export Tax PDF", systemImage: "square.and.arrow.up")
+                            Label(isExporting ? "Generating PDF..." : "Export Tax PDF", systemImage: "square.and.arrow.up")
                         }
                         .buttonStyle(PrimaryButtonStyle())
+                        .disabled(isExporting)
                     }
                 }
                 .nlScreenPadding()
@@ -107,26 +109,18 @@ struct TaxSummaryView: View {
         }
     }
 
-    private func exportPDF() {
-        guard let summary else { return }
-        let data = LedgerPDF.document(title: "Tax Summary \(selectedYear)", lines: [
-            appState.currentUser?.fullName ?? "Notary Ledger",
-            appState.currentUser?.email ?? "",
-            "Income received: \(summary.incomeReceived.currencyString)",
-            "Unpaid income: \(summary.unpaidIncome.currencyString)",
-            "Notarial act fees exempt from SE tax: \(summary.notarialActFeeExemptPortion.currencyString)",
-            "Business expenses: \(summary.businessExpenses.currencyString)",
-            "Travel expenses: \(summary.travelExpenses.currencyString)",
-            String(format: "Business miles: %.2f", summary.totalBusinessMiles),
-            "Net self-employment income: \(summary.netSelfEmploymentIncome.currencyString)",
-            "SE taxable income: \(summary.selfEmploymentTaxableIncome.currencyString)",
-            "Estimated SE tax: \(summary.estimatedSelfEmploymentTax.currencyString)",
-            "Estimated tax payments: \(summary.estimatedTaxPayments.currencyString)"
-        ])
-        let filename = "notary-ledger-tax-summary-\(selectedYear).pdf"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+    private func exportPDF() async {
+        guard !isExporting else { return }
+        isExporting = true
+        errorMessage = ""
+        let year = selectedYear
+        defer { isExporting = false }
         do {
-            try data.write(to: url)
+            let report = try await APIService.shared.fetchTaxPDFReport(taxYear: year)
+            guard selectedYear == year else { return }
+            summary = report.summary
+            let data = TaxPDFGenerator.document(user: appState.currentUser, report: report)
+            let url = try LedgerPDF.save(data: data, filename: TaxPDFGenerator.filename(user: appState.currentUser, report: report))
             exportItem = ShareURL(url: url)
         } catch {
             errorMessage = error.localizedDescription

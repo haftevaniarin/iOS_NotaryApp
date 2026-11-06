@@ -291,91 +291,146 @@ struct SigningOrderFormView: View {
     @State private var travelFee = ""
     @State private var status: SigningStatus = .scheduled
     @State private var errorMessage = ""
+    @State private var fieldErrors: [String: String] = [:]
+    @State private var validationAttempt = UUID()
     @State private var isSaving = false
 
     var body: some View {
-        ZStack {
-            ParchmentBackground()
-            NLForm {
-                NLFormSection("Parties") {
-                    NLTextField(title: "Customer name", text: $customerName)
-                    NLTextField(title: "Payer name", text: $payerName)
-                    NLTextField(title: "Signer name", text: $signerName)
-                    NLSelectField(title: "Signing type", selection: $signingType, value: signingType.isEmpty ? "Select type" : signingType) {
-                        Text("Select type").tag("")
-                        ForEach(["Loan Signing", "Refinance", "HELOC", "Seller Package", "General Notary", "Other"], id: \.self) { Text($0).tag($0) }
+        ScrollViewReader { proxy in
+            ZStack {
+                ParchmentBackground()
+                NLForm {
+                    if !errorMessage.isEmpty {
+                        NLFormSection { ErrorBanner(message: errorMessage) }
+                            .id("orderSaveError")
                     }
-                }
-                NLFormSection("Schedule") {
-                    NLDateField(title: "Date", selection: $date)
-                    NLTimeField(title: "Time", time: $time)
-                    NLSelectField(title: "Status", selection: $status, value: status.rawValue) {
-                        ForEach(SigningStatus.allCases) { status in
-                            Text(status.rawValue).tag(status)
+                    NLFormSection("Parties") {
+                        field("customerName") { NLTextField(title: "Customer name", text: validated($customerName, field: "customerName")) }
+                        field("payerName") { NLTextField(title: "Payer name", text: validated($payerName, field: "payerName")) }
+                        field("signerName") { NLTextField(title: "Signer name", text: validated($signerName, field: "signerName")) }
+                        field("signingType") {
+                            NLSelectField(title: "Signing type", selection: validated($signingType, field: "signingType"), value: signingType.isEmpty ? "Select type" : signingType) {
+                                Text("Select type").tag("")
+                                ForEach(["Loan Signing", "Refinance", "HELOC", "Seller Package", "General Notary", "Other"], id: \.self) { Text($0).tag($0) }
+                            }
+                        }
+                    }
+                    NLFormSection("Schedule") {
+                        field("date") { NLDateField(title: "Date", selection: validated($date, field: "date")) }
+                        field("time") { NLTimeField(title: "Time", time: validated($time, field: "time")) }
+                        field("status") {
+                            NLSelectField(title: "Status", selection: validated($status, field: "status"), value: status.rawValue) {
+                                ForEach(SigningStatus.allCases) { status in
+                                    Text(status.rawValue).tag(status)
+                                }
+                            }
+                        }
+                    }
+                    NLFormSection("Payment") {
+                        field("fee") { NLTextField(title: "Fee", text: validated($fee, field: "fee"), keyboardType: .decimalPad) }
+                        field("notarialActFee") { NLTextField(title: "Notarial act fee", text: validated($notarialActFee, field: "notarialActFee"), keyboardType: .decimalPad) }
+                        field("paid") {
+                            Toggle("Paid", isOn: validated($paid, field: "paid"))
+                                .disabled(status == .cancelled)
+                        }
+                        field("paidDate") {
+                            Toggle("Has paid date", isOn: validated($hasPaidDate, field: "paidDate"))
+                                .disabled(status == .cancelled || !paid)
+                            if hasPaidDate && paid && status != .cancelled {
+                                NLDateField(title: "Paid date", selection: validated($paidDate, field: "paidDate"))
+                            }
+                        }
+                        field("invoiceNumber") { NLTextField(title: "Invoice number", text: validated($invoiceNumber, field: "invoiceNumber")) }
+                    }
+                    NLFormSection("Travel") {
+                        field("mileage") { NLTextField(title: "Mileage", text: validated($mileage, field: "mileage"), keyboardType: .decimalPad) }
+                        field("travelFee") { NLTextField(title: "Parking and tolls", text: validated($travelFee, field: "travelFee"), keyboardType: .decimalPad) }
+                    }
+                    NLFormSection("Notes") {
+                        field("notes") {
+                            NLTextArea(title: "Notes", text: validated($notes, field: "notes"), showsLabel: false, minimumHeight: 90)
                         }
                     }
                 }
-                NLFormSection("Payment") {
-                    NLTextField(title: "Fee", text: $fee, keyboardType: .decimalPad)
-                    NLTextField(title: "Notarial act fee", text: $notarialActFee, keyboardType: .decimalPad)
-                    Toggle("Paid", isOn: $paid)
-                        .disabled(status == .cancelled)
-                    Toggle("Has paid date", isOn: $hasPaidDate)
-                        .disabled(status == .cancelled || !paid)
-                    if hasPaidDate && paid && status != .cancelled {
-                        NLDateField(title: "Paid date", selection: $paidDate)
-                    }
-                    NLTextField(title: "Invoice number", text: $invoiceNumber)
-                }
-                NLFormSection("Travel") {
-                    NLTextField(title: "Mileage", text: $mileage, keyboardType: .decimalPad)
-                    NLTextField(title: "Parking and tolls", text: $travelFee, keyboardType: .decimalPad)
-                }
-                NLFormSection("Notes") {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 90)
-                }
-                if !errorMessage.isEmpty {
-                    NLFormSection {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                    }
-                }
-            }
-            .scrollContentBackground(.hidden)
-        }
-        .navigationTitle(order == nil ? "New Signing" : "Edit Signing")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel") {
-                    dismiss()
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(isSaving ? "Saving..." : "Save") {
-                    Task { await save() }
-                }
                 .disabled(isSaving)
+                .scrollContentBackground(.hidden)
+            }
+            .navigationTitle(order == nil ? "New Signing" : "Edit Signing")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(isSaving ? "Saving..." : "Save") {
+                        Task { await save() }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+            .onAppear(perform: populate)
+            .onChange(of: paid) { _, value in
+                fieldErrors["paid"] = nil
+                if value && status != .cancelled { status = .paid }
+                else if !value && status == .paid { status = .pending; hasPaidDate = false }
+            }
+            .onChange(of: status) { _, newValue in
+                fieldErrors["status"] = nil
+                fieldErrors["paid"] = nil
+                fieldErrors["paidDate"] = nil
+                if newValue == .cancelled {
+                    paid = false
+                    hasPaidDate = false
+                } else if newValue == .paid {
+                    paid = true
+                    hasPaidDate = true
+                } else {
+                    paid = false
+                    hasPaidDate = false
+                }
+            }
+            .onChange(of: validationAttempt) { _, _ in
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                let target = OrderFormValidation.fieldOrder.first { fieldErrors[$0] != nil } ?? "orderSaveError"
+                withAnimation { proxy.scrollTo(target, anchor: .top) }
             }
         }
-        .onAppear(perform: populate)
-        .onChange(of: paid) { _, value in
-            if value && status != .cancelled { status = .paid }
-            else if !value && status == .paid { status = .pending; hasPaidDate = false }
+    }
+
+    private var notarialFeeError: String? {
+        if let total = OrderFormValidation.nonnegativeNumber(fee),
+           let notarial = OrderFormValidation.nonnegativeNumber(notarialActFee), notarial > total {
+            return "Notarial act fee cannot exceed the total fee."
         }
-        .onChange(of: status) { _, newValue in
-            if newValue == .cancelled {
-                paid = false
-                hasPaidDate = false
-            } else if newValue == .paid {
-                paid = true
-                hasPaidDate = true
-            } else {
-                paid = false
-                hasPaidDate = false
+        return fieldErrors["notarialActFee"]
+    }
+
+    private func field<Content: View>(_ key: String, @ViewBuilder content: () -> Content) -> some View {
+        let error = key == "notarialActFee" ? notarialFeeError : fieldErrors[key]
+        return VStack(alignment: .leading, spacing: 6) {
+            content().accessibilityHint(error ?? "")
+            if let error {
+                Text(error)
+                    .font(NLTypography.caption)
+                    .foregroundStyle(NLColor.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("order-error-\(key)")
             }
         }
+        .id(key)
+    }
+
+    private func validated<Value>(_ binding: Binding<Value>, field: String) -> Binding<Value> {
+        Binding(get: { binding.wrappedValue }, set: { value in
+            binding.wrappedValue = value
+            fieldErrors[field] = nil
+            if field == "fee", ["Notarial act fee cannot exceed the total fee.", "notarialActFee must not exceed fee."].contains(fieldErrors["notarialActFee"] ?? "") {
+                fieldErrors["notarialActFee"] = nil
+            }
+            errorMessage = ""
+        })
     }
 
     private func populate() {
@@ -415,33 +470,16 @@ struct SigningOrderFormView: View {
     }
 
     private func save() async {
+        guard !isSaving else { return }
         errorMessage = ""
-        guard !customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            errorMessage = "Enter the customer name."
-            return
-        }
-        guard !signerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            errorMessage = "Enter the signer name."
-            return
-        }
-        guard let feeValue = Double(fee), feeValue.isFinite, feeValue >= 0 else {
-            errorMessage = "Enter a valid fee."
-            return
-        }
-        guard let notarialValue = Double(notarialActFee.isEmpty ? "0" : notarialActFee), notarialValue.isFinite, notarialValue >= 0 else {
-            errorMessage = "Enter a valid notarial act fee."
-            return
-        }
-        guard notarialValue <= feeValue else { errorMessage = "Notarial act fee cannot exceed the total fee."; return }
-        guard notes.count <= 255 else { errorMessage = "Notes must be 255 characters or fewer."; return }
-        guard time.isEmpty || time.range(of: #"^([01][0-9]|2[0-3]):[0-5][0-9]$"#, options: .regularExpression) != nil else { errorMessage = "Enter time as HH:mm (24-hour)."; return }
+        fieldErrors = OrderFormValidation.errors(customerName: customerName, signerName: signerName, fee: fee,
+                                                notarialActFee: notarialActFee, invoiceNumber: invoiceNumber,
+                                                notes: notes, time: time, mileage: mileage, travelFee: travelFee)
+        guard fieldErrors.isEmpty else { validationAttempt = UUID(); return }
+        guard let feeValue = OrderFormValidation.nonnegativeNumber(fee),
+              let notarialValue = OrderFormValidation.nonnegativeNumber(notarialActFee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "0" : notarialActFee) else { return }
         let mileageValue = optionalDouble(mileage)
         let travelValue = optionalDouble(travelFee)
-        guard mileageValue != nil || mileage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              travelValue != nil || travelFee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            errorMessage = "Enter valid travel values."
-            return
-        }
 
         var payload = SigningOrderPayload(
             customerName: customerName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -467,8 +505,13 @@ struct SigningOrderFormView: View {
         do {
             try await onSave(payload)
             dismiss()
+        } catch let error as OrderValidationFailure {
+            fieldErrors = error.fieldErrors
+            errorMessage = error.message
+            validationAttempt = UUID()
         } catch {
             errorMessage = error.localizedDescription
+            validationAttempt = UUID()
         }
     }
 

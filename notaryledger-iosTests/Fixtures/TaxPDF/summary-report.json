@@ -1,0 +1,21 @@
+{
+  "taxYear": 2025,
+  "totals": {
+    "totalIncomeReceived": 3400.5,
+    "unpaidIncome": 200,
+    "businessExpenses": 400,
+    "orderExpenses": 20,
+    "totalTravelExpenses": 15,
+    "totalBusinessMiles": 120,
+    "parkingTotal": 15,
+    "totalNotarialActExemptFees": 50,
+    "netSelfEmploymentIncome": 2965.5,
+    "seTaxableIncome": 2915.5,
+    "estimatedSelfEmploymentTax": 446.07,
+    "estimatedTaxPayments": 500,
+    "rawExpenseTotal": 420,
+    "deductibleExpenseTotal": 420,
+    "totalDeductibleExpenses": 435,
+    "selfEmploymentTaxRate": 0
+  }
+}

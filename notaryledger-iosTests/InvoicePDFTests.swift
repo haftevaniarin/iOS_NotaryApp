@@ -112,4 +112,23 @@ final class InvoicePDFTests: XCTestCase {
         XCTAssertTrue(pdf.string?.contains("Balance Due") == true)
         XCTAssertTrue(url.lastPathComponent.hasSuffix("-summit-title-co.pdf"))
     }
+
+    func testCustomerInvoiceContainsOnlyThatCustomersUnpaidActiveSignings() throws {
+        let customerOrders = [
+            SigningOrder(id: "other", customerName: "Alder Title", signerName: "Other customer signer", date: "2026-11-01", fee: 150, paid: false),
+            SigningOrder(id: "unpaid", customerName: "Harbor Title", signerName: "Harbor unpaid signer", date: "2026-11-02", fee: 225, paid: false),
+            SigningOrder(id: "paid", customerName: "Harbor Title", signerName: "Harbor paid signer", date: "2026-11-01", fee: 99, paid: true),
+            SigningOrder(id: "cancelled", customerName: "Harbor Title", signerName: "Harbor cancelled signer", date: "2026-11-01", fee: 350, paid: false, status: .cancelled)
+        ]
+        let customer = try XCTUnwrap(CustomerSummaries.build(from: customerOrders).first { $0.id == "harbor title" })
+        let url = try LedgerPDF.invoice(user: user, customer: customer.displayName, orders: customer.invoiceCandidates)
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let text = try XCTUnwrap(PDFDocument(url: url)?.string)
+        XCTAssertTrue(text.contains("Harbor Title"))
+        XCTAssertTrue(text.contains("Harbor unpaid signer"))
+        XCTAssertTrue(text.contains("$225.00"))
+        for excluded in ["Alder Title", "Other customer signer", "Harbor paid signer", "Harbor cancelled signer"] {
+            XCTAssertFalse(text.contains(excluded), "Unexpected invoice content: \(excluded)")
+        }
+    }
 }

@@ -82,9 +82,13 @@ struct AuthFlowView: View {
                         }
                     }
                     HStack {
-                        NavigationLink("Terms & Conditions") { LegalDocumentView(kind: .terms) }
+                        NavigationLink("Terms & Conditions") {
+                            LegalDocumentView(kind: .terms, onSignIn: { model.navigate(.login) })
+                        }
                         Spacer(minLength: NLSpacing.sm)
-                        NavigationLink("Privacy Policy") { LegalDocumentView(kind: .privacy) }
+                        NavigationLink("Privacy Policy") {
+                            LegalDocumentView(kind: .privacy, onSignIn: { model.navigate(.login) })
+                        }
                     }.font(NLTypography.caption).foregroundColor(NLColor.muted)
                 }
                 .disabled(model.isSubmitting && model.screen != .verification)

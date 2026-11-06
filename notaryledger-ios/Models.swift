@@ -592,6 +592,12 @@ struct BillingStatusPayload: Codable, Equatable {
     var remainingFreeOrders: Int?
     var features: [String: Bool]?
     var scheduledChange: ScheduledBillingChange?
+    var active: Bool?
+
+    // The current web billing response uses active as the access authority.
+    // Retain compatibility with responses that only supply isPro or plan.
+    var hasProAccess: Bool { active ?? isPro ?? (plan?.uppercased() == "PRO") }
+    var planLabel: String { hasProAccess ? "PRO" : "FREE" }
 }
 struct ScheduledBillingChange: Codable, Equatable {
     var billingInterval: String?

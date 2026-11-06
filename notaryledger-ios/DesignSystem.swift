@@ -140,6 +140,30 @@ struct NLSeal: View {
     }
 }
 
+struct PlanBadge: View {
+    let billing: BillingStatusPayload?
+    var unavailable = false
+
+    private var foreground: Color {
+        guard let billing else { return NLColor.muted }
+        return billing.hasProAccess ? Color(red: 63/255, green: 107/255, blue: 75/255) : Color(red: 138/255, green: 106/255, blue: 60/255)
+    }
+    private var background: Color {
+        guard let billing else { return NLColor.parchment }
+        return billing.hasProAccess ? Color(red: 228/255, green: 239/255, blue: 231/255) : Color(red: 244/255, green: 235/255, blue: 219/255)
+    }
+    var body: some View {
+        Text(billing?.planLabel ?? (unavailable ? "Plan unavailable" : "Loading plan..."))
+            .font(NLFonts.sans(10.5, weight: .bold)).tracking(0.42)
+            .foregroundColor(foreground)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(background, in: Capsule())
+            .overlay(Capsule().stroke(foreground.opacity(0.2), lineWidth: 1))
+            .fixedSize()
+            .accessibilityLabel(billing.map { "Current plan: \($0.hasProAccess ? "Pro" : "Free")" } ?? (unavailable ? "Plan unavailable" : "Loading plan"))
+    }
+}
+
 struct BrandLockup: View {
     var compact = false
 
@@ -543,15 +567,19 @@ struct NLTextArea: View {
     @Environment(\.nlBusinessCardFields) private var businessCard
     let title: String
     @Binding var text: String
+    var showsLabel = true
+    var minimumHeight: CGFloat = 84
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            FieldLabel(text: title)
+            if showsLabel { FieldLabel(text: title) }
             TextEditor(text: $text)
                 .font(businessCard ? NLFonts.sans(15) : NLTypography.input)
+                .foregroundColor(NLColor.ink)
+                .tint(NLColor.navy)
                 .scrollContentBackground(.hidden)
                 .padding(8)
-                .frame(minHeight: 84)
+                .frame(minHeight: minimumHeight)
                 .background(Color(red: 0.992, green: 0.988, blue: 0.973))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(NLColor.line, lineWidth: 1))
