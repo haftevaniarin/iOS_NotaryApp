@@ -43,6 +43,7 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                     status = 401; responseBody = #"{"error":{"code":"INVALID_CREDENTIALS","message":"Invalid email or password."}}"#
                 } else { responseBody = #"{"accessToken":"fixture-access","refreshToken":"fixture-refresh","user":\#(user)}"# }
             case "/api/auth/forgot-password", "/api/auth/logout": responseBody = "{}"
+            case "/api/support/contact": responseBody = #"{"success":true,"message":"Support request sent."}"#
             case "/api/auth/reset-password":
                 if payload["token"] == "expired" { status = 400; responseBody = #"{"message":"Invalid or expired reset link."}"# }
                 else { responseBody = "{}" }

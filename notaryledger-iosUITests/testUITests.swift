@@ -51,6 +51,63 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["If an account exists for that email, a password reset link has been sent."].exists)
     }
 
+    @MainActor func testLegalPagesHaveFullWebContentAndReturnToSignIn() throws {
+        for (title, lastSection) in [("Terms & Conditions", "9. Limitation of Liability"), ("Privacy Policy", "9. Changes to This Policy")] {
+            let app = launch("https://notaryledger.org/signup")
+            XCTAssertTrue(app.staticTexts["Set up your desk"].waitForExistence(timeout: 10))
+            let link = app.buttons[title]
+            reveal(link, in: app)
+            link.tap()
+            XCTAssertTrue(app.buttons["Sign in"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Last updated July 19, 2026.")).firstMatch.exists)
+            let top = XCTAttachment(screenshot: app.screenshot())
+            top.name = title + " top"
+            top.lifetime = .keepAlways
+            add(top)
+            let contact = app.buttons["Contact support"]
+            for _ in 0..<24 {
+                if contact.isHittable { break }
+                app.swipeUp(velocity: .fast)
+            }
+            XCTAssertTrue(app.staticTexts[lastSection].exists)
+            XCTAssertTrue(contact.isHittable)
+            contact.tap()
+            XCTAssertTrue(app.buttons["Send support request"].exists)
+            let bottom = XCTAttachment(screenshot: app.screenshot())
+            bottom.name = title + " contact form"
+            bottom.lifetime = .keepAlways
+            add(bottom)
+            for _ in 0..<24 {
+                if app.buttons["Sign in"].isHittable { break }
+                app.swipeDown(velocity: .fast)
+            }
+            app.buttons["Sign in"].tap()
+            XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.staticTexts["Set up your desk"].exists)
+            app.terminate()
+        }
+    }
+
+    @MainActor func testLegalPageFromSidebarReturnsToDashboard() throws {
+        let app = launch()
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app)
+        app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 10))
+        for title in ["Terms & Conditions", "Privacy Policy"] {
+            app.buttons["Open navigation menu"].tap()
+            let item = app.buttons[title]
+            reveal(item, in: app)
+            item.tap()
+            let back = app.buttons["Back to dashboard"]
+            XCTAssertTrue(back.waitForExistence(timeout: 5))
+            back.tap()
+            XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 5))
+        }
+    }
+
     @MainActor func testFreeAndProPlansAppearOnDashboardAndSidebar() throws {
         for free in [false, true] {
             let app = launch(freePlan: free)

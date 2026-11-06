@@ -336,8 +336,11 @@ final class APIService {
     }
 
     func contactSupport(_ payload: SupportContactRequest) async throws {
-        let request = try await authenticatedRequest(path: "/api/support/contact", method: "POST", body: encodedMutableBody(payload))
-        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+        // Legal pages are also available before sign-in. This endpoint accepts
+        // anonymous requests, with optional authentication for account context.
+        let request = try makeRequest(path: "/api/support/contact", method: "POST",
+                                      token: SessionStorage.getAccessToken(), body: encodedMutableBody(payload))
+        _ = try await perform(request, decodeTo: EmptyResponse.self)
     }
 
     func logout() async {
@@ -608,6 +611,25 @@ final class APIService {
 
         if allowNotFoundAsEmptyMaintenance, httpResponse.statusCode == 404, let disabled = MaintenanceStatus.disabled as? T {
             return disabled
+        }
+        if request.url?.path == "/api/support/contact" {
+            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+            if !(200...299).contains(httpResponse.statusCode) || object["success"] as? Bool == false {
+                var fields: [String: String] = [:]
+                if let errors = object["fieldErrors"] as? [String: Any] {
+                    for (field, value) in errors {
+                        fields[field] = (value as? String) ?? (value as? [String])?.first
+                    }
+                }
+                if let error = object["error"] as? [String: Any], let details = error["details"] as? [[String: Any]] {
+                    for detail in details {
+                        if let field = detail["field"] as? String, fields[field] == nil {
+                            fields[field] = detail["message"] as? String
+                        }
+                    }
+                }
+                throw SupportContactFailure(message: Self.normalizedErrorMessage(from: data), fieldErrors: fields)
+            }
         }
         let publicAuth = ["/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email", "/api/auth/resend-verification"].contains(request.url?.path ?? "")
         if publicAuth {
