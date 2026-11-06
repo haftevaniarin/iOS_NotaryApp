@@ -104,6 +104,7 @@ enum AppSection: String, CaseIterable, Identifiable {
 
 struct LedgerAppShell: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.scenePhase) private var scenePhase
     private var selectedSection: AppSection { appState.selectedSection }
     @State private var isMenuOpen = false
 
@@ -144,6 +145,9 @@ struct LedgerAppShell: View {
                 )
                 .transition(.move(edge: .leading))
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await appState.refreshBillingStatus() } }
         }
     }
 
@@ -246,10 +250,14 @@ struct LedgerSideMenu: View {
             VStack(alignment: .leading, spacing: NLSpacing.md) {
                 if let user = appState.currentUser {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(user.fullName.isEmpty ? "Notary Ledger user" : user.fullName)
-                            .font(NLTypography.bodyStrong)
-                            .foregroundColor(.white)
-                            .lineLimit(1)
+                        HStack(spacing: NLSpacing.sm) {
+                            Text(user.fullName.isEmpty ? "Notary Ledger user" : user.fullName)
+                                .font(NLTypography.bodyStrong)
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            PlanBadge(billing: appState.billingStatus, unavailable: appState.billingLoadFailed)
+                                .accessibilityIdentifier("Sidebar plan")
+                        }
                         Text(user.email)
                             .font(NLTypography.caption)
                             .foregroundColor(.white.opacity(0.70))

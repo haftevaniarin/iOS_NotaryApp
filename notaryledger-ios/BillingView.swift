@@ -4,7 +4,7 @@ struct BillingView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
-    @State private var billing: BillingStatusPayload?
+    private var billing: BillingStatusPayload? { appState.billingStatus }
     @State private var interval = "monthly"
     @State private var busy = false
     @State private var error = ""
@@ -20,11 +20,11 @@ struct BillingView: View {
                 if let billing {
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
-                            Text(billing.isPro == true ? "Notary Ledger Pro" : "Notary Ledger Free").font(NLFonts.serif(17)).foregroundColor(NLColor.navy)
+                            Text(billing.hasProAccess ? "Notary Ledger Pro" : "Notary Ledger Free").font(NLFonts.serif(17)).foregroundColor(NLColor.navy)
                             DetailRow(label: "Status", value: billing.subscriptionStatus ?? "Unknown")
                             if let current = billing.billingInterval { DetailRow(label: "Billing interval", value: current.capitalized) }
                             if let end = billing.currentPeriodEnd { DetailRow(label: billing.cancelAtPeriodEnd == true ? "Access until" : "Current period ends", value: end) }
-                            if let remaining = billing.remainingFreeOrders, billing.isPro != true { DetailRow(label: "Free orders remaining", value: String(remaining)) }
+                            if let remaining = billing.remainingFreeOrders, !billing.hasProAccess { DetailRow(label: "Free orders remaining", value: String(remaining)) }
                             if billing.cancelAtPeriodEnd == true { BannerView(kind: .warning, message: "Your subscription will not renew. Access follows the current billing period.") }
                             if let change = billing.scheduledChange {
                                 DetailRow(label: "Scheduled interval", value: change.billingInterval ?? "Pending")
@@ -39,7 +39,7 @@ struct BillingView: View {
                                 Text("Monthly").tag("monthly")
                                 Text("Annual").tag("annual")
                             }.pickerStyle(.segmented)
-                            if billing.isPro == true {
+                            if billing.hasProAccess {
                                 Button("Schedule Billing Interval Change") { Task { await changeInterval(interval) } }.buttonStyle(SecondaryButtonStyle()).disabled(busy || interval == billing.billingInterval)
                             } else {
                                 Button("Upgrade to Pro") { Task { await checkout() } }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
@@ -55,16 +55,21 @@ struct BillingView: View {
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await load() } } }
     }
     private func load() async {
-        guard !busy else { return }
+        guard !busy, let owner = appState.currentUser?.id else { return }
         busy = true; error = ""
         defer { busy = false }
         do {
             if pendingOwner != appState.currentUser?.id { pendingCheckout = ""; pendingOwner = "" }
             if !pendingCheckout.isEmpty {
-                do { billing = try await APIService.shared.syncCheckoutSession(sessionId: pendingCheckout); pendingCheckout = "" }
+                do {
+                    let result = try await APIService.shared.syncCheckoutSession(sessionId: pendingCheckout)
+                    appState.updateBillingStatus(result, for: owner)
+                    pendingCheckout = ""
+                }
                 catch { self.error = error.localizedDescription }
             }
-            billing = try await APIService.shared.fetchBillingStatus()
+            let result = try await APIService.shared.fetchBillingStatus()
+            appState.updateBillingStatus(result, for: owner)
         } catch { self.error = error.localizedDescription }
     }
     private func checkout() async {
@@ -88,9 +93,13 @@ struct BillingView: View {
         } catch { self.error = error.localizedDescription }
     }
     private func changeInterval(_ value: String?) async {
+        guard let owner = appState.currentUser?.id else { return }
         busy = true; error = ""
         defer { busy = false }
-        do { billing = try await APIService.shared.changeBillingInterval(value) }
+        do {
+            let result = try await APIService.shared.changeBillingInterval(value)
+            appState.updateBillingStatus(result, for: owner)
+        }
         catch { self.error = error.localizedDescription }
     }
 }

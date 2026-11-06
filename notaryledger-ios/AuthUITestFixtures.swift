@@ -54,7 +54,10 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
             case "/api/auth/me": responseBody = user
             case "/api/orders", "/api/expenses": responseBody = "[]"
             case "/api/credentials": responseBody = #"{"commissionNumber":null}"#
-            case "/api/stripe/billing-status": responseBody = #"{"billing":{"plan":"PRO","isPro":true,"features":{"invoiceGeneration":true}}}"#
+            case "/api/stripe/billing-status":
+                responseBody = ProcessInfo.processInfo.arguments.contains("--billing-free")
+                    ? #"{"billing":{"plan":"FREE","active":false,"isPro":false}}"#
+                    : #"{"billing":{"plan":"PRO","active":true,"isPro":true,"features":{"invoiceGeneration":true}}}"#
             default: status = 404; responseBody = #"{"message":"No fixture for this request."}"#
             }
             let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!

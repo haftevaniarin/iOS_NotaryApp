@@ -10,11 +10,17 @@ final class AppState: ObservableObject {
     }
 
     @Published var route: Route = SessionStorage.getAccessToken() == nil ? .auth : .app
-    @Published var currentUser: AuthUser? = SessionStorage.getCurrentUser()
+    @Published var currentUser: AuthUser? = SessionStorage.getCurrentUser() {
+        didSet { if oldValue?.id != currentUser?.id { clearBillingStatus() } }
+    }
     @Published var orders: [SigningOrder] = []
     @Published var expenses: [Expense] = []
     @Published var isLoading = false
     @Published var errorMessage = ""
+    @Published private(set) var billingStatus: BillingStatusPayload?
+    @Published private(set) var billingLoadFailed = false
+    private var billingRequestID: UUID?
+    private var billingRequestOwner: String?
 
     let auth: AuthFlowModel
     @Published var selectedSection: AppSection = .dashboard
@@ -149,6 +155,40 @@ final class AppState: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+        await refreshBillingStatus()
+    }
+
+    func refreshBillingStatus() async {
+        guard let owner = currentUser?.id, billingRequestOwner != owner else { return }
+        let requestID = UUID()
+        billingRequestID = requestID
+        billingRequestOwner = owner
+        defer {
+            if billingRequestID == requestID { billingRequestID = nil; billingRequestOwner = nil }
+        }
+        do {
+            let status = try await api.fetchBillingStatus()
+            guard currentUser?.id == owner, billingRequestID == requestID else { return }
+            updateBillingStatus(status, for: owner)
+        } catch {
+            guard currentUser?.id == owner, billingRequestID == requestID else { return }
+            billingLoadFailed = billingStatus == nil
+        }
+    }
+
+    func updateBillingStatus(_ status: BillingStatusPayload, for owner: String) {
+        guard currentUser?.id == owner else { return }
+        billingStatus = status
+        billingLoadFailed = false
+        billingRequestID = nil
+        billingRequestOwner = nil
+    }
+
+    private func clearBillingStatus() {
+        billingStatus = nil
+        billingLoadFailed = false
+        billingRequestID = nil
+        billingRequestOwner = nil
     }
 
     func upsertOrder(_ order: SigningOrder) {

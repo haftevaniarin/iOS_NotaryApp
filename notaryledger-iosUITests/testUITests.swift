@@ -1,9 +1,10 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
-    @MainActor private func launch(_ link: String? = nil) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
+        if freePlan { app.launchArguments.append("--billing-free") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app
@@ -48,6 +49,35 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         app.buttons["Back to sign in"].tap()
         XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["If an account exists for that email, a password reset link has been sent."].exists)
+    }
+
+    @MainActor func testFreeAndProPlansAppearOnDashboardAndSidebar() throws {
+        for free in [false, true] {
+            let app = launch(freePlan: free)
+            XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+            enter("avery@example.test", into: app.textFields["Email"], in: app)
+            enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+            reveal(app.buttons["Log In"], in: app)
+            app.buttons["Log In"].tap()
+            let plan = app.staticTexts["Dashboard plan"]
+            XCTAssertTrue(plan.waitForExistence(timeout: 10))
+            let expected = "Current plan: " + (free ? "Free" : "Pro")
+            let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", expected), object: plan)
+            XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
+            let dashboard = XCTAttachment(screenshot: app.screenshot())
+            dashboard.name = free ? "Dashboard Free plan" : "Dashboard Pro plan"
+            dashboard.lifetime = .keepAlways
+            add(dashboard)
+            app.buttons["Open navigation menu"].tap()
+            let sidebar = app.staticTexts["Sidebar plan"]
+            XCTAssertTrue(sidebar.waitForExistence(timeout: 5))
+            XCTAssertEqual(sidebar.label, expected)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = free ? "Sidebar Free plan" : "Sidebar Pro plan"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            app.terminate()
+        }
     }
 
     @MainActor func testSignupVerificationReturnsToLoginWithEmailAndMessage() throws {

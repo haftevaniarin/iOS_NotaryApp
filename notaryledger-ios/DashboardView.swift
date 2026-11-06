@@ -38,7 +38,11 @@ struct DashboardView: View {
             ParchmentBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                    ScreenTitleBlock(title: "Dashboard", subtitle: todaySubtitle)
+                    HStack(alignment: .top, spacing: NLSpacing.md) {
+                        ScreenTitleBlock(title: "Dashboard", subtitle: todaySubtitle)
+                        PlanBadge(billing: appState.billingStatus, unavailable: appState.billingLoadFailed)
+                            .accessibilityIdentifier("Dashboard plan")
+                    }
 
                     if appState.isLoading {
                         ProgressView("Loading ledger...")
@@ -84,6 +88,7 @@ struct DashboardView: View {
                 }
             }
         }
+        .task { if appState.billingStatus == nil { await appState.refreshBillingStatus() } }
     }
 
 }
