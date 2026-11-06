@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     @Published var expenses: [Expense] = []
     @Published var isLoading = false
     @Published var errorMessage = ""
+    private var refreshRequestID: UUID?
     @Published private(set) var billingStatus: BillingStatusPayload?
     @Published private(set) var billingLoadFailed = false
     private var billingRequestID: UUID?
@@ -141,25 +142,43 @@ final class AppState: ObservableObject {
     }
 
     func refreshAll() async {
+        guard !Task.isCancelled else { return }
+        let requestID = UUID()
+        let owner = currentUser?.id
+        refreshRequestID = requestID
         isLoading = true
         errorMessage = ""
-        defer { isLoading = false }
+        defer {
+            if refreshRequestID == requestID {
+                isLoading = false
+                refreshRequestID = nil
+            }
+        }
 
         do {
-            orders = try await api.fetchOrders()
-            expenses = try await api.fetchExpenses()
-        } catch APIError.maintenance(let status) {
-            route = .maintenance(status)
-        } catch APIError.unauthorized {
-            requireAuthentication()
+            let refreshedOrders = try await api.fetchOrders()
+            try Task.checkCancellation()
+            guard refreshRequestID == requestID, currentUser?.id == owner else { return }
+            let refreshedExpenses = try await api.fetchExpenses()
+            try Task.checkCancellation()
+            guard refreshRequestID == requestID, currentUser?.id == owner else { return }
+            orders = refreshedOrders
+            expenses = refreshedExpenses
         } catch {
-            errorMessage = error.localizedDescription
+            guard !Task.isCancelled, !RequestCancellation.isCancellation(error),
+                  refreshRequestID == requestID, currentUser?.id == owner else { return }
+            switch error {
+            case APIError.maintenance(let status): route = .maintenance(status)
+            case APIError.unauthorized: requireAuthentication()
+            default: errorMessage = error.localizedDescription
+            }
         }
+        guard !Task.isCancelled, refreshRequestID == requestID, currentUser?.id == owner else { return }
         await refreshBillingStatus()
     }
 
     func refreshBillingStatus() async {
-        guard let owner = currentUser?.id, billingRequestOwner != owner else { return }
+        guard !Task.isCancelled, let owner = currentUser?.id, billingRequestOwner != owner else { return }
         let requestID = UUID()
         billingRequestID = requestID
         billingRequestOwner = owner
@@ -168,10 +187,12 @@ final class AppState: ObservableObject {
         }
         do {
             let status = try await api.fetchBillingStatus()
+            try Task.checkCancellation()
             guard currentUser?.id == owner, billingRequestID == requestID else { return }
             updateBillingStatus(status, for: owner)
         } catch {
-            guard currentUser?.id == owner, billingRequestID == requestID else { return }
+            guard !Task.isCancelled, !RequestCancellation.isCancellation(error),
+                  currentUser?.id == owner, billingRequestID == requestID else { return }
             billingLoadFailed = billingStatus == nil
         }
     }

@@ -4,6 +4,16 @@ import Foundation
 // Activated only by UI-test launch arguments. Every request is intercepted so
 // signup, recovery, and session tests never reach a live account or service.
 final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
+    private nonisolated static let refreshLock = NSLock()
+    private nonisolated(unsafe) static var orderReadCount = 0
+
+    private nonisolated static func shouldCancelDashboardRefresh() -> Bool {
+        refreshLock.withLock {
+            orderReadCount += 1
+            return orderReadCount == 2
+        }
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
@@ -65,6 +75,9 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                         responseBody = String(decoding: try JSONSerialization.data(withJSONObject: saved), as: UTF8.self)
                     }
                 } else {
+                    if ProcessInfo.processInfo.arguments.contains("--cancel-dashboard-refresh"), Self.shouldCancelDashboardRefresh() {
+                        throw URLError(.cancelled)
+                    }
                     responseBody = ProcessInfo.processInfo.arguments.contains("--customer-invoice-fixtures")
                         ? #"[{"id":"alder-unpaid","customerName":"Alder Title","signerName":"Other customer signer","date":"2026-11-01","fee":150,"paid":false},{"id":"harbor-unpaid","customerName":"Harbor Title","signerName":"Harbor unpaid signer","date":"2026-11-02","fee":225,"paid":false},{"id":"harbor-paid","customerName":"Harbor Title","signerName":"Harbor paid signer","date":"2026-11-01","fee":99,"paid":true},{"id":"harbor-cancelled","customerName":"Harbor Title","signerName":"Harbor cancelled signer","date":"2026-11-01","fee":350,"paid":false,"status":"Cancelled"},{"id":"zenith-paid","customerName":"Zenith Paid","signerName":"Paid only signer","date":"2026-11-01","fee":75,"paid":true}]"#
                         : "[]"

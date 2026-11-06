@@ -488,7 +488,9 @@ final class APIService {
         body: Data? = nil,
         queryItems: [URLQueryItem] = []
     ) async throws -> URLRequest {
+        try Task.checkCancellation()
         try await ensureMaintenanceAllowsRequests()
+        try Task.checkCancellation()
         guard let token = SessionStorage.getAccessToken() else {
             onAuthenticationRequired?()
             throw APIError.unauthorized
@@ -576,6 +578,7 @@ final class APIService {
         decodeTo type: T.Type,
         allowNotFoundAsEmptyMaintenance: Bool = false
     ) async throws -> T {
+        try Task.checkCancellation()
         let startedAt = Date()
 #if DEBUG
         let method = request.httpMethod ?? "REQUEST"
@@ -588,12 +591,20 @@ final class APIService {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            if Task.isCancelled || RequestCancellation.isCancellation(error) {
+#if DEBUG
+                let elapsed = Date().timeIntervalSince(startedAt)
+                print("[API] -- \(method) \(requestURL) cancelled after \(String(format: "%.2f", elapsed))s")
+#endif
+                throw CancellationError()
+            }
 #if DEBUG
             let elapsed = Date().timeIntervalSince(startedAt)
             print("[API] !! \(method) \(requestURL) failed after \(String(format: "%.2f", elapsed))s: \(error.localizedDescription)")
 #endif
             throw error
         }
+        try Task.checkCancellation()
 
         guard let httpResponse = response as? HTTPURLResponse else {
 #if DEBUG

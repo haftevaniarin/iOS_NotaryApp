@@ -1,11 +1,12 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
         if customerInvoices { app.launchArguments.append("--customer-invoice-fixtures") }
+        if cancelRefresh { app.launchArguments.append("--cancel-dashboard-refresh") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app
@@ -15,6 +16,30 @@ final class NotaryLedgerSmokeTests: XCTestCase {
             if element.isHittable { return }
             app.swipeUp()
         }
+    }
+
+    @MainActor func testCancelledDashboardRefreshKeepsDataAndPlanWithoutAnErrorBanner() throws {
+        let app = launch(customerInvoices: true, cancelRefresh: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app)
+        app.buttons["Log In"].tap()
+        let plan = app.staticTexts["Dashboard plan"]
+        XCTAssertTrue(plan.waitForExistence(timeout: 10))
+        let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Current plan: Pro"), object: plan)
+        XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
+        for _ in 0..<2 {
+            // The fixture cancels the first pull; the next pull succeeds.
+            app.scrollViews.firstMatch.swipeDown()
+            XCTAssertFalse(app.staticTexts["Dashboard refresh error"].waitForExistence(timeout: 2))
+            XCTAssertEqual(plan.label, "Current plan: Pro")
+            XCTAssertTrue(app.staticTexts["Harbor Title"].firstMatch.exists)
+        }
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Dashboard after cancelled refresh and retry"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
     @MainActor private func enter(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
         reveal(field, in: app)
