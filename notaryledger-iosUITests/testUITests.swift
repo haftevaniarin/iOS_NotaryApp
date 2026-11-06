@@ -35,6 +35,98 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         app.buttons["Create Account"].tap()
     }
 
+    @MainActor private func openNewOrder(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app)
+        app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 10))
+        app.buttons["Open navigation menu"].tap()
+        app.buttons["Signings"].tap()
+        app.buttons["New Signing"].tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor private func enterOrderField(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
+        // Keep the control between the modal navigation bar and keyboard.
+        // isHittable alone can include a field obscured by the navigation bar.
+        for _ in 0..<12 {
+            let top = app.navigationBars.firstMatch.frame.maxY + 24
+            let keyboard = app.keyboards.firstMatch
+            let bottom = keyboard.exists ? keyboard.frame.minY - 24 : app.frame.maxY - 70
+            if field.isHittable && field.frame.midY > top && field.frame.midY < bottom { break }
+            let center = app.coordinate(withNormalizedOffset: .zero)
+            let upper = center.withOffset(CGVector(dx: app.frame.midX, dy: top + 20))
+            let lower = center.withOffset(CGVector(dx: app.frame.midX, dy: bottom - 20))
+            if field.frame.midY <= top { upper.press(forDuration: 0.05, thenDragTo: lower) }
+            else { lower.press(forDuration: 0.05, thenDragTo: upper) }
+        }
+        field.tap()
+        field.typeText(value)
+    }
+
+    @MainActor func testNewOrderShowsInlineValidationAndSavesAfterCorrections() throws {
+        let app = launch()
+        openNewOrder(app)
+        app.buttons["Save"].tap()
+        for (field, message) in [("customerName", "Please enter customer name."), ("signerName", "Please enter signer name."),
+                                 ("fee", "Please enter a valid fee."), ("invoiceNumber", "Please enter invoice number.")] {
+            let error = app.staticTexts["order-error-\(field)"]
+            XCTAssertTrue(error.waitForExistence(timeout: 5))
+            XCTAssertEqual(error.label, message)
+        }
+        XCTAssertTrue(app.staticTexts["order-error-customerName"].isHittable)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "New order inline required fields"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        enterOrderField("Acme Title", into: app.textFields["Customer name"], in: app)
+        XCTAssertFalse(app.staticTexts["order-error-customerName"].exists)
+        XCTAssertTrue(app.staticTexts["order-error-signerName"].exists)
+        enterOrderField("Jamie Smith", into: app.textFields["Signer name"], in: app)
+        enterOrderField("150", into: app.textFields["Fee"], in: app)
+        enterOrderField("200", into: app.textFields["Notarial act fee"], in: app)
+        XCTAssertEqual(app.staticTexts["order-error-notarialActFee"].label, "Notarial act fee cannot exceed the total fee.")
+        let notarial = app.textFields["Notarial act fee"]
+        notarial.tap()
+        notarial.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 3) + "10")
+        XCTAssertFalse(app.staticTexts["order-error-notarialActFee"].exists)
+        enterOrderField("INV-1", into: app.textFields["Invoice number"], in: app)
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["New Signing"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Signer: Jamie Smith"].exists)
+    }
+
+    @MainActor func testNewOrderKeepsServerErrorsInlineAndCanRetry() throws {
+        let app = launch()
+        openNewOrder(app)
+        enterOrderField("Acme Title", into: app.textFields["Customer name"], in: app)
+        enterOrderField("Jamie Smith", into: app.textFields["Signer name"], in: app)
+        enterOrderField("150", into: app.textFields["Fee"], in: app)
+        enterOrderField("SERVER-ERROR", into: app.textFields["Invoice number"], in: app)
+        app.buttons["Save"].tap()
+        let invoiceError = app.staticTexts["order-error-invoiceNumber"]
+        XCTAssertTrue(invoiceError.waitForExistence(timeout: 5))
+        XCTAssertEqual(invoiceError.label, "Invoice number is already in use.")
+        XCTAssertTrue(invoiceError.isHittable)
+        XCTAssertEqual(app.staticTexts["order-error-travelFee"].label, "Parking fee must be zero or greater.")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "New order server field errors"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let invoice = app.textFields["Invoice number"]
+        invoice.tap()
+        invoice.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "SERVER-ERROR".count) + "INV-2")
+        XCTAssertFalse(invoiceError.exists)
+        XCTAssertTrue(app.staticTexts["order-error-travelFee"].exists)
+        enterOrderField("0", into: app.textFields["Parking and tolls"], in: app)
+        XCTAssertFalse(app.staticTexts["order-error-travelFee"].exists)
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["New Signing"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Signer: Jamie Smith"].exists)
+    }
+
     @MainActor func testLoginValidationAndRecoveryNavigation() throws {
         let app = launch()
         let login = app.buttons["Log In"]

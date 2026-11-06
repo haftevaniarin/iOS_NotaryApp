@@ -22,7 +22,8 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                 }
                 body = data
             }
-            let payload = (body.flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: String] ?? [:]
+            let object = (body.flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: Any] ?? [:]
+            let payload = object.compactMapValues { $0 as? String }
             let path = request.url?.path ?? ""
             var status = 200
             let responseBody: String
@@ -54,9 +55,20 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                 else { status = 400; responseBody = #"{"message":"Verification link expired."}"# }
             case "/api/auth/me": responseBody = user
             case "/api/orders":
-                responseBody = ProcessInfo.processInfo.arguments.contains("--customer-invoice-fixtures")
-                    ? #"[{"id":"alder-unpaid","customerName":"Alder Title","signerName":"Other customer signer","date":"2026-11-01","fee":150,"paid":false},{"id":"harbor-unpaid","customerName":"Harbor Title","signerName":"Harbor unpaid signer","date":"2026-11-02","fee":225,"paid":false},{"id":"harbor-paid","customerName":"Harbor Title","signerName":"Harbor paid signer","date":"2026-11-01","fee":99,"paid":true},{"id":"harbor-cancelled","customerName":"Harbor Title","signerName":"Harbor cancelled signer","date":"2026-11-01","fee":350,"paid":false,"status":"Cancelled"},{"id":"zenith-paid","customerName":"Zenith Paid","signerName":"Paid only signer","date":"2026-11-01","fee":75,"paid":true}]"#
-                    : "[]"
+                if request.httpMethod == "POST" {
+                    if payload["invoiceNumber"] == "SERVER-ERROR" {
+                        status = 400
+                        responseBody = #"{"error":{"message":"Please review signing details.","details":[{"field":"invoiceNumber","message":"Invoice number is already in use."},{"field":"mileage.parkingFee","message":"Parking fee must be zero or greater."}]}}"#
+                    } else {
+                        var saved = object
+                        saved["id"] = "new-signing-fixture"
+                        responseBody = String(decoding: try JSONSerialization.data(withJSONObject: saved), as: UTF8.self)
+                    }
+                } else {
+                    responseBody = ProcessInfo.processInfo.arguments.contains("--customer-invoice-fixtures")
+                        ? #"[{"id":"alder-unpaid","customerName":"Alder Title","signerName":"Other customer signer","date":"2026-11-01","fee":150,"paid":false},{"id":"harbor-unpaid","customerName":"Harbor Title","signerName":"Harbor unpaid signer","date":"2026-11-02","fee":225,"paid":false},{"id":"harbor-paid","customerName":"Harbor Title","signerName":"Harbor paid signer","date":"2026-11-01","fee":99,"paid":true},{"id":"harbor-cancelled","customerName":"Harbor Title","signerName":"Harbor cancelled signer","date":"2026-11-01","fee":350,"paid":false,"status":"Cancelled"},{"id":"zenith-paid","customerName":"Zenith Paid","signerName":"Paid only signer","date":"2026-11-01","fee":75,"paid":true}]"#
+                        : "[]"
+                }
             case "/api/expenses": responseBody = "[]"
             case "/api/credentials": responseBody = #"{"commissionNumber":null}"#
             case "/api/stripe/billing-status":

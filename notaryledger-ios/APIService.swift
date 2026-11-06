@@ -643,6 +643,12 @@ final class APIService {
         } else if httpResponse.statusCode == 401 {
             throw APIError.unauthorized
         }
+        let orderWrite = (request.httpMethod == "POST" && request.url?.path == "/api/orders")
+            || (request.httpMethod == "PUT" && request.url?.path.hasPrefix("/api/orders/") == true)
+        if orderWrite, !(200...299).contains(httpResponse.statusCode),
+           let failure = OrderValidationFailure.fromResponse(data) {
+            throw failure
+        }
         if !(200...299).contains(httpResponse.statusCode) {
             throw APIError.httpError(httpResponse.statusCode, Self.normalizedErrorMessage(from: data))
         }
