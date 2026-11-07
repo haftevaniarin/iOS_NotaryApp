@@ -94,6 +94,13 @@ final class NotaryLedgerSmokeTests: XCTestCase {
     @MainActor func testNewOrderShowsInlineValidationAndSavesAfterCorrections() throws {
         let app = launch()
         openNewOrder(app)
+        let extract = app.buttons["new-signing-extract-screenshot"]
+        XCTAssertTrue(extract.waitForExistence(timeout: 5))
+        extract.tap()
+        XCTAssertTrue(app.buttons["Choose Screenshot"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Choose Image from Files"].exists)
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         app.buttons["Save"].tap()
         for (field, message) in [("customerName", "Please enter customer name."), ("signerName", "Please enter signer name."),
                                  ("fee", "Please enter a valid fee."), ("invoiceNumber", "Please enter invoice number.")] {

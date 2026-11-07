@@ -12,7 +12,7 @@ struct SpreadsheetImportReviewView: View {
             ZStack {
                 ParchmentBackground()
                 VStack(alignment: .leading, spacing: NLSpacing.md) {
-                    ScreenTitleBlock(title: "Review Spreadsheet", subtitle: draft.filename)
+                    ScreenTitleBlock(title: "Review Bulk Import", subtitle: draft.filename)
                     Text("Review or edit the spreadsheet text before saving. Keep the header row and separators. Required columns: Customer, Signer, Date, and Fee.").font(NLTypography.body).foregroundColor(NLColor.muted)
                     ErrorBanner(message: error)
                     TextEditor(text: $text).font(NLFonts.mono(13.5))
@@ -22,7 +22,7 @@ struct SpreadsheetImportReviewView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.disabled(busy) }
-                ToolbarItem(placement: .topBarTrailing) { Button(busy ? "Importing..." : "Save Signings") { Task { await save() } }.disabled(busy || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+                ToolbarItem(placement: .topBarTrailing) { Button(busy ? "Importing..." : "Import Signings") { Task { await save() } }.disabled(busy || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
             }
         }.onAppear { text = draft.text }.interactiveDismissDisabled(busy)
     }
