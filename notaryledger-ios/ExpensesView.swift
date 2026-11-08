@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import ImageIO
 import UniformTypeIdentifiers
 
 struct ExpensesView: View {
@@ -281,26 +283,47 @@ struct ReceiptExtractionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
     @State private var showImporter = false
-    @State private var busy = false
-    @State private var error = ""
-    @State private var draft: ExtractedExpense?
+    @State private var photoItem: PhotosPickerItem?
+    @StateObject private var extraction = ReceiptExtractionModel()
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                ScreenTitleBlock(title: "Receipt Extraction", subtitle: "Choose a JPEG, PNG, or WebP receipt, then review and save the extracted details.")
-                ErrorBanner(message: error)
-                Button(busy ? "Extracting..." : "Choose Receipt Image") { showImporter = true }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
-                if busy { ProgressView() }
-                Spacer()
-            }.padding().background(ParchmentBackground())
-                .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Close") { dismiss() }.disabled(busy) } }
-                .fileImporter(isPresented: $showImporter, allowedContentTypes: [.jpeg, .png, .webP]) { result in
-                    switch result {
-                    case .success(let url): Task { await extract(url) }
-                    case .failure(let failure): error = failure.localizedDescription
+            ScrollView {
+                VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                    ScreenTitleBlock(title: "Receipt Extraction", subtitle: "Choose a receipt from your photo library or Files, then review and save the extracted details.")
+                    ErrorBanner(message: extraction.errorMessage)
+                    PhotosPicker(selection: $photoItem, matching: .images, preferredItemEncoding: .compatible) {
+                        Label("Choose Receipt Image", systemImage: "photo")
+                    }
+                    .buttonStyle(PrimaryButtonStyle()).disabled(extraction.isExtracting)
+                    .accessibilityHint("Opens your photo library to select a receipt image.")
+                    Button("Choose from Files") { showImporter = true }
+                        .buttonStyle(SecondaryButtonStyle()).disabled(extraction.isExtracting)
+                    Text("Receipt images are uploaded for extraction. Review the details before saving an expense.")
+                        .font(NLTypography.caption).foregroundStyle(NLColor.muted)
+                    if extraction.isExtracting { ProgressView("Extracting receipt…") }
+                }.nlScreenPadding()
+            }.background(ParchmentBackground())
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close") {
+                            extraction.cancel()
+                            dismiss()
+                        }
+                        .accessibilityHint("Cancels any receipt extraction and closes this screen.")
                     }
                 }
-                .sheet(item: $draft) { extracted in
+                .onChange(of: photoItem) { _, item in
+                    guard let item else { return }
+                    photoItem = nil
+                    extraction.start { try await extractPhoto(item) }
+                }
+                .fileImporter(isPresented: $showImporter, allowedContentTypes: [.jpeg, .png, .webP]) { result in
+                    switch result {
+                    case .success(let url): extraction.start { try await extract(url) }
+                    case .failure(let failure): extraction.errorMessage = failure.localizedDescription
+                    }
+                }
+                .sheet(item: $extraction.draft) { extracted in
                     NavigationStack {
                         ExpenseFormView(expense: nil, onSave: { payload in
                             let expense = try await APIService.shared.createExpense(payload)
@@ -308,18 +331,44 @@ struct ReceiptExtractionSheet: View {
                         }, extracted: extracted)
                     }
                 }
-        }
+        }.onDisappear { extraction.cancel() }
     }
-    private func extract(_ url: URL) async {
-        error = ""; busy = true
-        defer { busy = false }
+
+    private func extractPhoto(_ item: PhotosPickerItem) async throws -> ExtractedExpense {
+        guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
+            throw APIError.serverError("The receipt photo could not be loaded. Choose another image or try again.")
+        }
+        try Task.checkCancellation()
+        guard data.count <= 10 * 1024 * 1024 else { throw APIError.serverError("Choose a receipt image of 10 MB or smaller.") }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let identifier = CGImageSourceGetType(source) else {
+            throw APIError.serverError("This receipt photo could not be read. Choose another image.")
+        }
+        let type = UTType(identifier as String)
+        let mime = type?.preferredMIMEType ?? ""
+        let file: MultipartFile
+        if ["image/jpeg", "image/png", "image/webp"].contains(mime) {
+            file = MultipartFile(fieldName: "file", fileName: "receipt.\(type?.preferredFilenameExtension ?? "jpg")", mimeType: mime, data: data)
+        } else {
+            // iPhone camera photos may be HEIC. Convert to a format accepted by receipt extraction.
+            guard let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.9) else {
+                throw APIError.serverError("This receipt photo could not be converted. Choose another image.")
+            }
+            file = MultipartFile(fieldName: "file", fileName: "receipt.jpg", mimeType: "image/jpeg", data: jpeg)
+        }
+        try Task.checkCancellation()
+        return try await APIService.shared.extractExpense(file)
+    }
+
+    private func extract(_ url: URL) async throws -> ExtractedExpense {
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
-        do {
-            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-            guard size <= 10 * 1024 * 1024 else { throw APIError.serverError("Choose a file of 10 MB or smaller.") }
-            let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? ""
-            draft = try await APIService.shared.extractExpense(MultipartFile(fieldName: "file", fileName: url.lastPathComponent, mimeType: mime, data: Data(contentsOf: url)))
-        } catch { self.error = error.localizedDescription }
+        try Task.checkCancellation()
+        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        guard size <= 10 * 1024 * 1024 else { throw APIError.serverError("Choose a file of 10 MB or smaller.") }
+        let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? ""
+        let file = MultipartFile(fieldName: "file", fileName: url.lastPathComponent, mimeType: mime, data: try Data(contentsOf: url))
+        try Task.checkCancellation()
+        return try await APIService.shared.extractExpense(file)
     }
 }
