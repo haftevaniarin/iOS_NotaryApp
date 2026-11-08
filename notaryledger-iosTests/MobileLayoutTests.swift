@@ -148,11 +148,12 @@ final class MobileLayoutTests: XCTestCase {
             ("Change Password", AnyView(ChangePasswordView())),
             ("Contact Support", AnyView(SupportContactView(sourcePage: "Profile"))),
             ("Signing Detail", AnyView(SigningOrderDetailView(order: order))),
-            ("Import Signings", AnyView(ImportSigningsSheet())),
+            ("Bulk Import Signings", AnyView(ImportSigningsSheet())),
+            ("Extract Order from Screenshot", AnyView(ScreenshotImportView(onExtract: { _ in }))),
             ("Receipt Extraction", AnyView(ReceiptExtractionSheet())),
             ("Mileage Travel", AnyView(MileageTravelSheet(order: order, onSave: { _ in }))),
             ("Generate Invoice", AnyView(GenerateInvoiceSheet(order: order))),
-            ("Review Spreadsheet", AnyView(SpreadsheetImportReviewView(draft: SpreadsheetDraft(filename: "signings.csv", mimeType: "text/csv", text: "Customer,Signer,Date,Fee\nAcme,Avery,2026-11-15,150"), onImport: { _ in }))),
+            ("Review Bulk Import", AnyView(SpreadsheetImportReviewView(draft: SpreadsheetDraft(filename: "signings.csv", mimeType: "text/csv", text: "Customer,Signer,Date,Fee\nAcme,Avery,2026-11-15,150"), onImport: { _ in }))),
             ("Navigation Menu", AnyView(LedgerSideMenu(selectedSection: .constant(.dashboard), isMenuOpen: .constant(true), primarySections: [.dashboard, .signings, .rescission, .invoices, .expenses, .customers, .taxSummary, .billing, .businessCard, .profile])))
         ]
         for width: CGFloat in [375, 402, 440] {

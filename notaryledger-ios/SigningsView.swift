@@ -6,7 +6,7 @@ struct SigningsView: View {
     @State private var searchText = ""
     @State private var selectedStatus: SigningStatus?
     @State private var showForm = false
-    @State private var showImport = false
+    @State private var showBulkImport = false
     @State private var editingOrder: SigningOrder?
     @State private var deletingOrder: SigningOrder?
     @State private var mileageOrder: SigningOrder?
@@ -52,12 +52,18 @@ struct SigningsView: View {
                         } label: {
                             ActionPill(title: "New Signing", systemImage: "plus")
                         }
-                        Button {
-                            showImport = true
-                        } label: {
-                            ActionPill(title: "Import", systemImage: "square.and.arrow.down")
-                        }
                     }
+
+                    VStack(alignment: .leading, spacing: NLSpacing.sm) {
+                        Button { showBulkImport = true } label: {
+                            Label("Bulk Import Signings", systemImage: "tablecells")
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityHint("Import multiple signing orders from a spreadsheet export.")
+                        Text("Add multiple signing orders from a CSV, TSV, or TXT spreadsheet export.")
+                            .font(NLTypography.caption).foregroundStyle(NLColor.muted)
+                    }
+                    .nlPanel()
 
                     if appState.isLoading {
                         ProgressView("Loading signings...")
@@ -96,7 +102,7 @@ struct SigningsView: View {
                 }
             }
         }
-        .sheet(isPresented: $showImport) {
+        .sheet(isPresented: $showBulkImport) {
             ImportSigningsSheet()
         }
         .sheet(item: $editingOrder) { order in
@@ -273,6 +279,19 @@ struct SigningOrderFormView: View {
     let order: SigningOrder?
     let onSave: (SigningOrderPayload) async throws -> Void
     var extracted: ExtractedSigning? = nil
+    @State var screenshot: ScreenshotReviewSource? = nil
+
+    @State private var populated = false
+    @State private var showScreenshotExtraction = false
+    @State private var hasEditedDate = false
+    @State private var importedDate = ""
+    @State private var confirmedDate = false
+    @State private var confirmedTime = false
+    @State private var confirmedFee = false
+    @State private var confirmedReview = false
+    @State private var duplicateOrders: [SigningOrder] = []
+    @State private var duplicatePayload: SigningOrderPayload?
+    @State private var showDuplicateConfirmation = false
 
     @State private var customerName = ""
     @State private var payerName = ""
@@ -300,6 +319,38 @@ struct SigningOrderFormView: View {
             ZStack {
                 ParchmentBackground()
                 NLForm {
+                    if order == nil && extracted == nil && screenshot == nil {
+                        NLFormSection {
+                            Button { showScreenshotExtraction = true } label: {
+                                Label("Extract Order from Screenshot", systemImage: "text.viewfinder")
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityHint("Read a screenshot on your device and fill empty fields in this signing form.")
+                            .accessibilityIdentifier("new-signing-extract-screenshot")
+                            Text("Use a confirmation or assignment to fill this form. Details you’ve already entered are kept. Review everything before saving.")
+                                .font(NLTypography.caption).foregroundStyle(NLColor.muted)
+                        }
+                    }
+                    if let screenshot {
+                        NLFormSection("Review Screenshot") {
+                            if let image = UIImage(data: screenshot.imageData) {
+                                Image(uiImage: image).resizable().scaledToFit()
+                                    .accessibilityLabel("Selected order screenshot. Compare the prefilled fields with this image.")
+                            }
+                            Text("Review all fields against the screenshot. Missing values stay blank. Contact details, location, document type, instructions, and the order reference are editable in Notes. The invoice number must be entered separately.")
+                                .font(NLTypography.caption)
+                            ForEach(ScreenshotOrderField.allCases) { field in
+                                if let warning = screenshot.draft.warnings[field] {
+                                    Label("\(field.title): \(warning)", systemImage: "exclamationmark.triangle")
+                                        .foregroundStyle(NLColor.danger)
+                                    Text("Recognized: \(screenshot.draft.evidence[field] ?? "")").font(NLTypography.caption)
+                                } else if screenshot.draft[field].isEmpty {
+                                    Label("\(field.title): not found", systemImage: "questionmark.circle")
+                                        .font(NLTypography.caption).foregroundStyle(NLColor.muted)
+                                }
+                            }
+                        }
+                    }
                     if !errorMessage.isEmpty {
                         NLFormSection { ErrorBanner(message: errorMessage) }
                             .id("orderSaveError")
@@ -311,13 +362,31 @@ struct SigningOrderFormView: View {
                         field("signingType") {
                             NLSelectField(title: "Signing type", selection: validated($signingType, field: "signingType"), value: signingType.isEmpty ? "Select type" : signingType) {
                                 Text("Select type").tag("")
-                                ForEach(["Loan Signing", "Refinance", "HELOC", "Seller Package", "General Notary", "Other"], id: \.self) { Text($0).tag($0) }
+                                ForEach(SigningTypeOptions.values, id: \.self) { Text($0).tag($0) }
+                            }
+                            if let sourceType = screenshot?.draft.evidence[.appointmentType] {
+                                Text("Screenshot type: \(sourceType)").font(NLTypography.caption)
                             }
                         }
                     }
                     NLFormSection("Schedule") {
-                        field("date") { NLDateField(title: "Date", selection: validated($date, field: "date")) }
+                        field("date") {
+                            if screenshot != nil {
+                                NLTextField(title: "Date (YYYY-MM-DD)", text: validated($importedDate, field: "date"))
+                                Toggle("I confirm the signing date", isOn: $confirmedDate)
+                            } else { NLDateField(title: "Date", selection: validated($date, field: "date")) }
+                        }
+                        if let explanation = screenshot?.draft.scheduleExplanation {
+                            Text(explanation).font(NLTypography.caption)
+                        }
                         field("time") { NLTimeField(title: "Time", time: validated($time, field: "time")) }
+                        if screenshot != nil && (!time.isEmpty || screenshot?.draft.evidence[.time] != nil) {
+                            Toggle(time.isEmpty ? "I confirm leaving the signing time blank" : "I confirm the signing time and local time zone", isOn: $confirmedTime)
+                            if screenshot?.draft.scheduleExplanation == nil {
+                                Text("If the screenshot uses another time zone, convert the appointment to your device’s local time before confirming.")
+                                    .font(NLTypography.caption)
+                            }
+                        }
                         field("status") {
                             NLSelectField(title: "Status", selection: validated($status, field: "status"), value: status.rawValue) {
                                 ForEach(SigningStatus.allCases) { status in
@@ -328,6 +397,7 @@ struct SigningOrderFormView: View {
                     }
                     NLFormSection("Payment") {
                         field("fee") { NLTextField(title: "Fee", text: validated($fee, field: "fee"), keyboardType: .decimalPad) }
+                        if screenshot != nil { Toggle("I confirm the notary fee in USD", isOn: $confirmedFee) }
                         field("notarialActFee") { NLTextField(title: "Notarial act fee", text: validated($notarialActFee, field: "notarialActFee"), keyboardType: .decimalPad) }
                         field("paid") {
                             Toggle("Paid", isOn: validated($paid, field: "paid"))
@@ -350,27 +420,57 @@ struct SigningOrderFormView: View {
                         field("notes") {
                             NLTextArea(title: "Notes", text: validated($notes, field: "notes"), showsLabel: false, minimumHeight: 90)
                         }
+                        if screenshot != nil {
+                            Text("\(notes.utf16.count)/255 characters. Review and shorten notes if needed; details are never truncated automatically.")
+                                .font(NLTypography.caption)
+                        }
+                    }
+                    if screenshot != nil {
+                        NLFormSection("Confirm Order") {
+                            field("review") {
+                                Toggle("I reviewed all fields and agree to send this order to my account", isOn: $confirmedReview)
+                            }
+                            Text("Saving sends the reviewed form fields to your account. The screenshot and raw recognized text stay on this device.")
+                                .font(NLTypography.caption)
+                        }
                     }
                 }
                 .disabled(isSaving)
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle(order == nil ? "New Signing" : "Edit Signing")
+            .navigationTitle(screenshot != nil ? "Review Screenshot" : order == nil ? "New Signing" : "Edit Signing")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .disabled(isSaving)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(isSaving ? "Saving..." : "Save") {
+                    Button(isSaving ? "Saving..." : screenshot != nil ? "Confirm & Save" : "Save") {
                         Task { await save() }
                     }
                     .disabled(isSaving)
                 }
             }
             .onAppear(perform: populate)
+            .sheet(isPresented: $showScreenshotExtraction) {
+                ScreenshotImportView(onExtract: applyScreenshot)
+            }
+            .interactiveDismissDisabled(isSaving)
+            .onChange(of: importedDate) { _, _ in confirmedDate = false; confirmedReview = false }
+            .onChange(of: time) { _, _ in confirmedTime = false; confirmedReview = false }
+            .onChange(of: fee) { _, _ in confirmedFee = false; confirmedReview = false }
+            .alert("Possible duplicate signing", isPresented: $showDuplicateConfirmation) {
+                Button("Go Back", role: .cancel) { duplicatePayload = nil }
+                Button("Save Another Order") {
+                    guard let payload = duplicatePayload else { return }
+                    Task { await persist(payload) }
+                }
+            } message: {
+                Text("\(duplicateOrders.count) existing order(s) match the order reference or signer, date, and location. Review your signings before creating another order.")
+            }
             .onChange(of: paid) { _, value in
                 fieldErrors["paid"] = nil
                 if value && status != .cancelled { status = .paid }
@@ -393,7 +493,7 @@ struct SigningOrderFormView: View {
             }
             .onChange(of: validationAttempt) { _, _ in
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                let target = OrderFormValidation.fieldOrder.first { fieldErrors[$0] != nil } ?? "orderSaveError"
+                let target = (OrderFormValidation.fieldOrder + ["review"]).first { fieldErrors[$0] != nil } ?? "orderSaveError"
                 withAnimation { proxy.scrollTo(target, anchor: .top) }
             }
         }
@@ -425,6 +525,8 @@ struct SigningOrderFormView: View {
     private func validated<Value>(_ binding: Binding<Value>, field: String) -> Binding<Value> {
         Binding(get: { binding.wrappedValue }, set: { value in
             binding.wrappedValue = value
+            if field == "date" { hasEditedDate = true }
+            if screenshot != nil { confirmedReview = false }
             fieldErrors[field] = nil
             if field == "fee", ["Notarial act fee cannot exceed the total fee.", "notarialActFee must not exceed fee."].contains(fieldErrors["notarialActFee"] ?? "") {
                 fieldErrors["notarialActFee"] = nil
@@ -434,6 +536,12 @@ struct SigningOrderFormView: View {
     }
 
     private func populate() {
+        guard !populated else { return }
+        populated = true
+        if let screenshot {
+            applyScreenshot(screenshot)
+            return
+        }
         if let extracted {
             customerName = extracted.customerName ?? ""
             payerName = extracted.payerName ?? extracted.customerName ?? ""
@@ -469,12 +577,37 @@ struct SigningOrderFormView: View {
         status = order.normalizedStatus
     }
 
+    private func applyScreenshot(_ source: ScreenshotReviewSource) {
+        let fields = source.draft.formFields
+        if customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { customerName = fields.customerName }
+        if signerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { signerName = fields.signerName }
+        if signingType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { signingType = fields.signingType }
+        if time.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { time = fields.time }
+        if fee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { fee = fields.fee }
+        importedDate = hasEditedDate ? DateParser.apiDateString(from: date) : fields.date
+        notes = [notes, fields.notes].filter { !$0.isEmpty }.joined(separator: "\n")
+        screenshot = source
+        confirmedDate = false
+        confirmedTime = false
+        confirmedFee = false
+        confirmedReview = false
+        fieldErrors = [:]
+        errorMessage = ""
+    }
+
     private func save() async {
         guard !isSaving else { return }
         errorMessage = ""
         fieldErrors = OrderFormValidation.errors(customerName: customerName, signerName: signerName, fee: fee,
                                                 notarialActFee: notarialActFee, invoiceNumber: invoiceNumber,
                                                 notes: notes, time: time, mileage: mileage, travelFee: travelFee)
+        if screenshot != nil {
+            let reviewErrors = ScreenshotImportValidation.errors(date: importedDate, time: time, confirmedDate: confirmedDate,
+                                                                 confirmedTime: confirmedTime, confirmedFee: confirmedFee, confirmedReview: confirmedReview,
+                                                                 requiresTimeConfirmation: screenshot?.draft.evidence[.time] != nil,
+                                                                 signingType: signingType, requiresSigningType: screenshot?.draft.evidence[.appointmentType] != nil)
+            fieldErrors.merge(reviewErrors) { _, new in new }
+        }
         guard fieldErrors.isEmpty else { validationAttempt = UUID(); return }
         guard let feeValue = OrderFormValidation.nonnegativeNumber(fee),
               let notarialValue = OrderFormValidation.nonnegativeNumber(notarialActFee.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "0" : notarialActFee) else { return }
@@ -486,7 +619,7 @@ struct SigningOrderFormView: View {
             payerName: nilIfBlank(payerName),
             signerName: signerName.trimmingCharacters(in: .whitespacesAndNewlines),
             signingType: nilIfBlank(signingType),
-            date: DateParser.apiDateString(from: date),
+            date: screenshot != nil ? importedDate : DateParser.apiDateString(from: date),
             time: nilIfBlank(time),
             fee: feeValue,
             notarialActFee: notarialValue,
@@ -500,6 +633,30 @@ struct SigningOrderFormView: View {
         )
 
         if let order { payload.preserveMileage = mileageValue == order.mileage && travelValue == order.travelFee }
+        if screenshot != nil {
+            isSaving = true
+            do {
+                // Refresh before checking so another device's recent imports are included.
+                let orders = try await APIService.shared.fetchOrders()
+                duplicateOrders = ScreenshotDuplicateDetection.matches(notes: notes, signer: signerName, date: importedDate, orders: orders)
+                isSaving = false
+                if !duplicateOrders.isEmpty {
+                    duplicatePayload = payload
+                    showDuplicateConfirmation = true
+                    return
+                }
+            } catch {
+                isSaving = false
+                errorMessage = "Could not check for duplicate orders. Try saving again."
+                validationAttempt = UUID()
+                return
+            }
+        }
+        await persist(payload)
+    }
+
+    private func persist(_ payload: SigningOrderPayload) async {
+        guard !isSaving else { return }
         isSaving = true
         defer { isSaving = false }
         do {
@@ -536,27 +693,27 @@ struct ImportSigningsSheet: View {
     @State private var showImporter = false
     @State private var spreadsheet: SpreadsheetDraft?
     @State private var message = ""
-    @State private var draft: ExtractedSigning?
     @State private var error = ""
     @State private var busy = false
     var body: some View {
         NavigationStack {
             ZStack {
                 ParchmentBackground()
-                VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                    ScreenTitleBlock(title: "Import Signings", subtitle: "Upload a screenshot, PDF, or spreadsheet export, then review and edit before saving.")
-                    ErrorBanner(message: error)
-                    BannerView(kind: .success, message: message)
-                    BannerView(kind: .info, message: "Images and PDFs up to 10 MB; CSV, TSV, and TXT exports up to 5 MB. Export Apple Numbers files as CSV. Your account’s plan limits apply.")
-                    Button(busy ? "Extracting..." : "Choose Signing File") { showImporter = true }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
-                    if busy { ProgressView() }
-                    Spacer()
-                }.nlScreenPadding()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: NLSpacing.lg) {
+                        ScreenTitleBlock(title: "Bulk Import Signings", subtitle: "Create multiple signing orders from a spreadsheet export. Review the rows before importing.")
+                        ErrorBanner(message: error)
+                        BannerView(kind: .success, message: message)
+                        BannerView(kind: .info, message: "CSV, TSV, and UTF-8 TXT spreadsheet exports up to 5 MB. Export Apple Numbers files as CSV. For one order from an image, open New Signing and choose Extract Order from Screenshot.")
+                        Button(busy ? "Reading Spreadsheet..." : "Choose Spreadsheet") { showImporter = true }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
+                        if busy { ProgressView("Reading spreadsheet…") }
+                    }.nlScreenPadding()
+                }
             }
             .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Close") { dismiss() }.disabled(busy) } }
-            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.jpeg, .png, .webP, .pdf, .commaSeparatedText, .tabSeparatedText, .plainText]) { result in
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText]) { result in
                 switch result {
-                case .success(let url): Task { await extract(url) }
+                case .success(let url): Task { await readSpreadsheet(url) }
                 case .failure(let failure): error = failure.localizedDescription
                 }
             }
@@ -566,33 +723,23 @@ struct ImportSigningsSheet: View {
                     message = "Imported \(result.importedCount) signing(s). Skipped \(result.skippedDuplicateCount) duplicate(s)."
                 }
             }
-            .sheet(item: $draft) { extracted in
-                NavigationStack {
-                    SigningOrderFormView(order: nil, onSave: { payload in
-                        let order = try await APIService.shared.createOrder(payload)
-                        appState.upsertOrder(order)
-                        dismiss()
-                    }, extracted: extracted)
-                }
-            }
         }.presentationDetents([.large])
     }
-    private func extract(_ url: URL) async {
+    private func readSpreadsheet(_ url: URL) async {
         error = ""; message = ""; busy = true
         defer { busy = false }
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         do {
+            guard ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) else {
+                throw APIError.serverError("Choose a CSV, TSV, or TXT spreadsheet export for bulk import.")
+            }
             let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-            guard size <= 10 * 1024 * 1024 else { throw APIError.serverError("Choose a file of 10 MB or smaller.") }
+            guard size <= 5 * 1024 * 1024 else { throw APIError.serverError("Choose a spreadsheet of 5 MB or smaller.") }
             let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? ""
             let data = try Data(contentsOf: url)
-            if ["csv", "tsv", "txt"].contains(url.pathExtension.lowercased()) {
-                guard !data.isEmpty, data.count <= 5 * 1024 * 1024, let text = String(data: data, encoding: .utf8) else { throw APIError.serverError("Choose a UTF-8 spreadsheet export of 5 MB or smaller.") }
-                spreadsheet = SpreadsheetDraft(filename: url.lastPathComponent, mimeType: mime.isEmpty ? "text/plain" : mime, text: text)
-                return
-            }
-            draft = try await APIService.shared.extractSigning(MultipartFile(fieldName: "file", fileName: url.lastPathComponent, mimeType: mime, data: data))
+            guard !data.isEmpty, data.count <= 5 * 1024 * 1024, let text = String(data: data, encoding: .utf8) else { throw APIError.serverError("Choose a UTF-8 spreadsheet export of 5 MB or smaller.") }
+            spreadsheet = SpreadsheetDraft(filename: url.lastPathComponent, mimeType: mime.isEmpty ? "text/plain" : mime, text: text)
         } catch { self.error = error.localizedDescription }
     }
 }

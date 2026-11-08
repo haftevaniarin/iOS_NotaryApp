@@ -615,7 +615,8 @@ final class APIService {
 #if DEBUG
         let elapsed = Date().timeIntervalSince(startedAt)
         print("[API] <- \(httpResponse.statusCode) \(method) \(requestURL) in \(String(format: "%.2f", elapsed))s")
-        if !(200...299).contains(httpResponse.statusCode) {
+        // Order validation responses can echo imported names, addresses, and contact details.
+        if !(200...299).contains(httpResponse.statusCode), request.url?.path.hasPrefix("/api/orders") != true {
             print("[API] Error response:\n\(Self.sanitizedDebugResponseBody(from: data))")
         }
 #endif
