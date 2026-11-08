@@ -8,6 +8,7 @@ struct BillingView: View {
     @State private var interval = "monthly"
     @State private var busy = false
     @State private var error = ""
+    @State private var reloadRequested = false
     @AppStorage("notary_pending_checkout_owner") private var pendingOwner = ""
     @AppStorage("notary_pending_checkout") private var pendingCheckout = ""
 
@@ -45,32 +46,46 @@ struct BillingView: View {
                                 Button("Upgrade to Pro") { Task { await checkout() } }.buttonStyle(PrimaryButtonStyle()).disabled(busy)
                             }
                             Button("Manage Billing") { Task { await portal() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
-                            Text("Stripe opens in your browser. Return here to refresh the confirmed billing status.").font(NLTypography.caption).foregroundColor(NLColor.muted)
+                            Text("Stripe opens in your browser. Checkout returns to this app. In the billing portal, choose Return to Notary Ledger when you’re finished. Your subscription status refreshes here.").font(NLTypography.caption).foregroundColor(NLColor.muted)
                         }
                     }
                 }
                 Button("Refresh Billing Status") { Task { await load() } }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
             }.nlScreenPadding()
-        }.background(ParchmentBackground()).task { await load() }
+        }.background(ParchmentBackground()).task(id: appState.billingReturnRevision) { await load() }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await load() } } }
+            .onChange(of: busy) { _, value in
+                if !value && reloadRequested {
+                    reloadRequested = false
+                    Task { await load() }
+                }
+            }
     }
     private func load() async {
-        guard !busy, let owner = appState.currentUser?.id else { return }
+        guard !busy else { reloadRequested = true; return }
+        guard let owner = appState.currentUser?.id else { return }
         busy = true; error = ""
         defer { busy = false }
         do {
             if pendingOwner != appState.currentUser?.id { pendingCheckout = ""; pendingOwner = "" }
             if !pendingCheckout.isEmpty {
+                let sessionID = pendingCheckout
                 do {
-                    let result = try await APIService.shared.syncCheckoutSession(sessionId: pendingCheckout)
+                    let result = try await APIService.shared.syncCheckoutSession(sessionId: sessionID)
+                    guard appState.currentUser?.id == owner else { return }
                     appState.updateBillingStatus(result, for: owner)
-                    pendingCheckout = ""
+                    if pendingOwner == owner && pendingCheckout == sessionID { pendingCheckout = "" }
                 }
-                catch { self.error = error.localizedDescription }
+                catch {
+                    if Task.isCancelled || RequestCancellation.isCancellation(error) { return }
+                    self.error = error.localizedDescription
+                }
             }
             let result = try await APIService.shared.fetchBillingStatus()
             appState.updateBillingStatus(result, for: owner)
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            if !Task.isCancelled && !RequestCancellation.isCancellation(error) { self.error = error.localizedDescription }
+        }
     }
     private func checkout() async {
         busy = true; error = ""

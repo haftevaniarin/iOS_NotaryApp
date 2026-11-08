@@ -421,6 +421,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
+				CODE_SIGN_ENTITLEMENTS = NotaryLedger.entitlements;
+				INFOPLIST_FILE = "NotaryLedger-Info.plist";
 				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios;
 				PRODUCT_MODULE_NAME = notaryledger_ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -467,6 +469,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
+				CODE_SIGN_ENTITLEMENTS = NotaryLedger.entitlements;
+				INFOPLIST_FILE = "NotaryLedger-Info.plist";
 				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.ios;
 				PRODUCT_MODULE_NAME = notaryledger_ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";

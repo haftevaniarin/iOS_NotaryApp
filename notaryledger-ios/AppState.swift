@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
     private var refreshRequestID: UUID?
     @Published private(set) var billingStatus: BillingStatusPayload?
     @Published private(set) var billingLoadFailed = false
+    @Published private(set) var billingReturnRevision = 0
     private var billingRequestID: UUID?
     private var billingRequestOwner: String?
 
@@ -82,6 +83,18 @@ final class AppState: ObservableObject {
     }
 
     func openURL(_ url: URL) {
+        if let billingReturn = BillingReturnLink(url: url) {
+            // Return links only trigger navigation and a server refresh; they never grant access.
+            if billingReturn.outcome == .checkoutCancelled,
+               let owner = currentUser?.id,
+               UserDefaults.standard.string(forKey: "notary_pending_checkout_owner") == owner {
+                UserDefaults.standard.removeObject(forKey: "notary_pending_checkout")
+                UserDefaults.standard.removeObject(forKey: "notary_pending_checkout_owner")
+            }
+            billingReturnRevision += 1
+            openURL(URL(string: "notaryledger://billing")!)
+            return
+        }
         guard let link = AuthLink(url: url) else { return }
         if link.screen == .login || link.screen == .signup { intendedSection = link.destination }
         else if let destination = link.destination { intendedSection = destination }

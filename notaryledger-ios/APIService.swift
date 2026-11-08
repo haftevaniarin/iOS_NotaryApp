@@ -367,12 +367,12 @@ final class APIService {
     }
 
     func createCheckoutSession(billingInterval: String = "monthly") async throws -> BillingSession {
-        let request = try await authenticatedRequest(path: "/api/stripe/checkout-session", method: "POST", body: encodedBody(["billingInterval": billingInterval]))
+        let request = try await authenticatedRequest(path: "/api/stripe/checkout-session", method: "POST", body: encodedBody(["billingInterval": billingInterval, "clientType": "ios"]))
         return try await performAuthenticated(request, decodeTo: BillingSession.self)
     }
 
     func createCustomerPortalSession() async throws -> BillingSession {
-        let request = try await authenticatedRequest(path: "/api/stripe/customer-portal-session", method: "POST")
+        let request = try await authenticatedRequest(path: "/api/stripe/customer-portal-session", method: "POST", body: encodedBody(["clientType": "ios"]))
         return try await performAuthenticated(request, decodeTo: BillingSession.self)
     }
 
