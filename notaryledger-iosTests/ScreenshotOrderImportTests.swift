@@ -61,6 +61,43 @@ struct ScreenshotOrderImportTests {
         #expect(draft[.appointmentType].isEmpty)
     }
 
+    @Test(arguments: [
+        ("Buyer Only 1st Only", "Loan Signing"), ("Purchase Closing", "Loan Signing"),
+        ("Seller Only", "Seller Package"), ("Seller Package", "Seller Package"),
+        ("Cash-Out Refinance", "Refinance"), ("Loan Signing - Refinance", "Refinance"),
+        ("Home Equity Line of Credit", "HELOC"), ("HELOC Signing", "HELOC"),
+        ("GNW", "General Notary"), ("General Notary Work", "General Notary"), ("Other", "Other")
+    ])
+    func extractedSigningTypeSelectsAnExistingOption(source: String, expected: String) throws {
+        let draft = try extract("Signing type: \(source)")
+        #expect(draft[.appointmentType] == expected)
+        #expect(draft.formFields.signingType == expected)
+        #expect(SigningTypeOptions.values.contains(draft.formFields.signingType))
+        #expect(draft.evidence[.appointmentType] == source)
+        if source != expected { #expect(draft.mappedNotes.contains("Screenshot signing type: \(source)")) }
+    }
+
+    @Test func ambiguousOrUnknownTypesRequireASelectionAndMissingTypesStayBlank() throws {
+        for source in ["Refinance / HELOC", "Buyer / Seller", "Inspection", "Signing type pending"] {
+            let draft = try extract("Signing type: \(source)")
+            #expect(draft.formFields.signingType.isEmpty)
+            #expect(draft.warnings[.appointmentType] != nil)
+            #expect(draft.mappedNotes.contains(source))
+            let errors = ScreenshotImportValidation.errors(date: "2026-09-11", time: "12:00", confirmedDate: true,
+                                                           confirmedTime: true, confirmedFee: true, confirmedReview: true,
+                                                           signingType: draft.formFields.signingType, requiresSigningType: true)
+            #expect(errors["signingType"] != nil)
+        }
+        let missing = try extract("Company: Acme Title")
+        #expect(missing.formFields.signingType.isEmpty)
+        #expect(missing.evidence[.appointmentType] == nil)
+        for type in SigningTypeOptions.values {
+            #expect(ScreenshotImportValidation.errors(date: "2026-09-11", time: "", confirmedDate: true,
+                                                     confirmedTime: true, confirmedFee: true, confirmedReview: true,
+                                                     signingType: type, requiresSigningType: true).isEmpty)
+        }
+    }
+
     @Test func ambiguousValuesStayBlankWithOriginalEvidence() throws {
         let draft = try extract("Date: 03/04/2027\nTime: 9:00\nFee: $100 or $150\nCompany: Acme")
         for field in [ScreenshotOrderField.date, .time, .fee] {
@@ -92,6 +129,92 @@ struct ScreenshotOrderImportTests {
         #expect(draft[.date] == "2027-01-15")
         #expect(draft[.company] == "Acme Title")
         #expect(draft[.fee] == "150")
+    }
+
+    @Test(arguments: ["DATE & TIME", "Date and Time", "Date/Time", "Signing Date & Time", "Appointment Date and Time"])
+    func combinedAppointmentLabelExtractsDateTimeAndWrappedTimeZone(label: String) throws {
+        let draft = try ScreenshotOrderExtractor.extract([ScreenshotTextLine(text: """
+        SIGNER
+        Jamie Example
+        SIGNING TYPE
+        Buyer Only
+        \(label)
+        September 11, 2026 at 12:00 PM
+        (PDT)
+        LOCATION
+        123 Example St
+        NOTARY FEE
+        100.00
+        """)], localTimeZone: #require(TimeZone(identifier: "America/Los_Angeles")))
+        #expect(draft[.date] == "2026-09-11")
+        #expect(draft[.time] == "12:00")
+        #expect(draft[.signer] == "Jamie Example")
+        #expect(draft[.location] == "123 Example St")
+        #expect(draft[.fee] == "100.00")
+        #expect(draft.formFields.signingType == "Loan Signing")
+        #expect(draft.warnings[.date] == nil)
+        #expect(draft.warnings[.time] == nil)
+        #expect(draft.evidence[.date]?.contains("(PDT)") == true)
+        #expect(draft.scheduleExplanation?.contains("America/Los_Angeles") == true)
+    }
+
+    @Test func combinedDateTimeSupportsInlineAndSeparateDateAndClockLines() throws {
+        for text in [
+            "Date & Time: September 11, 2026 at 12:00 PM",
+            "Date & Time\nSeptember 11, 2026\n12:00 PM",
+            "Signing date: September 11, 2026 at 12:00 PM"
+        ] {
+            let draft = try extract(text)
+            #expect(draft[.date] == "2026-09-11")
+            #expect(draft[.time] == "12:00")
+        }
+    }
+
+    @Test func explicitTimeZoneConversionUsesAppointmentDateAndHandlesDateRollover() throws {
+        let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
+        let pacific = try #require(TimeZone(identifier: "America/Los_Angeles"))
+        let text = "Date & Time: September 11, 2026 at 11:30 PM (PDT)"
+        let draft = try ScreenshotOrderExtractor.extract([ScreenshotTextLine(text: text)], localTimeZone: tokyo)
+        #expect(draft[.date] == "2026-09-12")
+        #expect(draft[.time] == "15:30")
+        // PST is a printed fixed offset; September in Los Angeles is still daylight time.
+        let standard = try ScreenshotOrderExtractor.extract([ScreenshotTextLine(text: "Date/Time: September 11, 2026 at 12:00 PM (PST)")], localTimeZone: pacific)
+        #expect(standard[.date] == "2026-09-11")
+        #expect(standard[.time] == "13:00")
+        let utc = try ScreenshotOrderExtractor.extract([ScreenshotTextLine(text: "Date & Time: September 11, 2026 at 11:30 PM (UTC-07:00)")], localTimeZone: tokyo)
+        #expect(utc[.date] == draft[.date])
+        #expect(utc[.time] == draft[.time])
+    }
+
+    @Test func combinedAppointmentKeepsAmbiguousValuesBlankAndRequiresConfirmation() throws {
+        for text in [
+            "Date & Time: 03/04/2027 at 12:00 PM (PDT)",
+            "Date & Time: September 11, 2026 at 12:00 PM (CST)",
+            "Date & Time: February 30, 2027 at 12:00 PM (PDT)"
+        ] {
+            let draft = try extract(text)
+            #expect(draft[.date].isEmpty)
+            #expect(draft[.time].isEmpty)
+            #expect(draft.warnings[.date] != nil)
+            #expect(draft.warnings[.time] != nil)
+        }
+        let draft = try extract("Date & Time: September 11, 2026 at 12:00 PM\nFee: 100")
+        let errors = ScreenshotImportValidation.errors(date: draft[.date], time: draft[.time], confirmedDate: false,
+                                                       confirmedTime: false, confirmedFee: true, confirmedReview: true)
+        #expect(errors["date"] != nil)
+        #expect(errors["time"] != nil)
+    }
+
+    @Test func wrappedTimeZoneConfidenceAppliesToBothAppointmentFields() throws {
+        let draft = try ScreenshotOrderExtractor.extract([
+            ScreenshotTextLine(text: "DATE & TIME"),
+            ScreenshotTextLine(text: "September 11, 2026 at 12:00 PM"),
+            ScreenshotTextLine(text: "(PDT)", confidence: 0.5)
+        ])
+        #expect(!draft[.date].isEmpty)
+        #expect(!draft[.time].isEmpty)
+        #expect(draft.warnings[.date] != nil)
+        #expect(draft.warnings[.time] != nil)
     }
 
     @Test func unavailableAndMalformedContactValuesRemainBlank() throws {
@@ -171,5 +294,24 @@ struct ScreenshotOrderImportTests {
         #expect(draft[.signer] == "Jamie Smith")
         #expect(draft[.fee] == "150.00")
         #expect(draft[.date] == "2027-01-15")
+    }
+
+    @Test func visionRecognizesStackedDateAndTimeOnADarkAssignmentCard() async throws {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 1000, height: 1000)).image { context in
+            UIColor(white: 0.12, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 1000, height: 1000))
+            let lines = ["SIGNER", "Jamie Example", "SIGNING TYPE", "Buyer Only", "DATE & TIME", "September 11, 2026 at 12:00 PM", "(PDT)", "NOTARY FEE", "100.00"]
+            for (index, line) in lines.enumerated() {
+                (line as NSString).draw(at: CGPoint(x: 50, y: 50 + index * 100), withAttributes: [.font: UIFont.systemFont(ofSize: 38), .foregroundColor: UIColor.white])
+            }
+        }
+        let draft = try await ScreenshotTextRecognition.recognize(#require(image.pngData()))
+        #expect(!draft[.date].isEmpty)
+        #expect(!draft[.time].isEmpty)
+        #expect(draft.evidence[.date]?.contains("September 11, 2026") == true)
+        #expect(draft.scheduleExplanation?.contains("PDT") == true)
+        let expected = try #require(ScreenshotAppointmentParser.parse("September 11, 2026 at 12:00 PM (PDT)", localTimeZone: .current))
+        #expect(draft[.date] == expected.date)
+        #expect(draft[.time] == expected.time)
     }
 }

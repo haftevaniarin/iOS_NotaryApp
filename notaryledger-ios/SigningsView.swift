@@ -360,13 +360,12 @@ struct SigningOrderFormView: View {
                         field("payerName") { NLTextField(title: "Payer name", text: validated($payerName, field: "payerName")) }
                         field("signerName") { NLTextField(title: "Signer name", text: validated($signerName, field: "signerName")) }
                         field("signingType") {
-                            if screenshot != nil {
-                                NLTextField(title: "Appointment type", text: validated($signingType, field: "signingType"))
-                            } else {
-                                NLSelectField(title: "Signing type", selection: validated($signingType, field: "signingType"), value: signingType.isEmpty ? "Select type" : signingType) {
-                                    Text("Select type").tag("")
-                                    ForEach(["Loan Signing", "Refinance", "HELOC", "Seller Package", "General Notary", "Other"], id: \.self) { Text($0).tag($0) }
-                                }
+                            NLSelectField(title: "Signing type", selection: validated($signingType, field: "signingType"), value: signingType.isEmpty ? "Select type" : signingType) {
+                                Text("Select type").tag("")
+                                ForEach(SigningTypeOptions.values, id: \.self) { Text($0).tag($0) }
+                            }
+                            if let sourceType = screenshot?.draft.evidence[.appointmentType] {
+                                Text("Screenshot type: \(sourceType)").font(NLTypography.caption)
                             }
                         }
                     }
@@ -377,11 +376,16 @@ struct SigningOrderFormView: View {
                                 Toggle("I confirm the signing date", isOn: $confirmedDate)
                             } else { NLDateField(title: "Date", selection: validated($date, field: "date")) }
                         }
+                        if let explanation = screenshot?.draft.scheduleExplanation {
+                            Text(explanation).font(NLTypography.caption)
+                        }
                         field("time") { NLTimeField(title: "Time", time: validated($time, field: "time")) }
                         if screenshot != nil && (!time.isEmpty || screenshot?.draft.evidence[.time] != nil) {
                             Toggle(time.isEmpty ? "I confirm leaving the signing time blank" : "I confirm the signing time and local time zone", isOn: $confirmedTime)
-                            Text("If the screenshot uses another time zone, convert the appointment to your device’s local time before confirming.")
-                                .font(NLTypography.caption)
+                            if screenshot?.draft.scheduleExplanation == nil {
+                                Text("If the screenshot uses another time zone, convert the appointment to your device’s local time before confirming.")
+                                    .font(NLTypography.caption)
+                            }
                         }
                         field("status") {
                             NLSelectField(title: "Status", selection: validated($status, field: "status"), value: status.rawValue) {
@@ -600,7 +604,8 @@ struct SigningOrderFormView: View {
         if screenshot != nil {
             let reviewErrors = ScreenshotImportValidation.errors(date: importedDate, time: time, confirmedDate: confirmedDate,
                                                                  confirmedTime: confirmedTime, confirmedFee: confirmedFee, confirmedReview: confirmedReview,
-                                                                 requiresTimeConfirmation: screenshot?.draft.evidence[.time] != nil)
+                                                                 requiresTimeConfirmation: screenshot?.draft.evidence[.time] != nil,
+                                                                 signingType: signingType, requiresSigningType: screenshot?.draft.evidence[.appointmentType] != nil)
             fieldErrors.merge(reviewErrors) { _, new in new }
         }
         guard fieldErrors.isEmpty else { validationAttempt = UUID(); return }

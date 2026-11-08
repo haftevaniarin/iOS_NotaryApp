@@ -35,7 +35,7 @@ nonisolated enum ScreenshotOrderField: String, CaseIterable, Identifiable, Senda
         case .signer: ["signer names", "signer name", "signers", "signer", "borrower names", "borrower name", "borrowers", "borrower"]
         case .signerPhone: ["signer phone", "borrower phone", "signer telephone"]
         case .signerEmail: ["signer email", "borrower email"]
-        case .date: ["signing date", "appointment date", "closing date", "date"]
+        case .date: ["signing date & time", "appointment date & time", "signing date and time", "appointment date and time", "date & time", "date and time", "date/time", "date / time", "date&time", "date &time", "signing date", "appointment date", "closing date", "date"]
         case .time: ["signing time", "appointment time", "time"]
         case .location: ["signing location", "signing address", "appointment location", "property address", "location", "address"]
         case .appointmentType: ["appointment type", "signing type", "service type"]
@@ -55,6 +55,7 @@ nonisolated struct ScreenshotOrderDraft: Sendable {
     var values: [ScreenshotOrderField: String] = [:]
     var warnings: [ScreenshotOrderField: String] = [:]
     var evidence: [ScreenshotOrderField: String] = [:]
+    var scheduleExplanation: String?
 
     subscript(_ field: ScreenshotOrderField) -> String {
         get { values[field] ?? "" }
@@ -62,17 +63,21 @@ nonisolated struct ScreenshotOrderDraft: Sendable {
     }
 
     var formFields: ScreenshotOrderFormFields {
-        ScreenshotOrderFormFields(customerName: self[.company], signerName: self[.signer], signingType: self[.appointmentType],
+        ScreenshotOrderFormFields(customerName: self[.company], signerName: self[.signer], signingType: SigningTypeOptions.matching(self[.appointmentType]) ?? "",
                                   date: self[.date], time: self[.time], fee: self[.fee], notes: mappedNotes)
     }
 
     // Keep fields without backend equivalents in labeled notes. Never truncate personal details.
     var mappedNotes: String {
         let fields: [ScreenshotOrderField] = [.reference, .contactName, .contactPhone, .contactEmail, .signerPhone, .signerEmail, .location, .documentType, .instructions]
-        return fields.compactMap { field in
+        var lines = fields.compactMap { field in
             let value = self[field].trimmingCharacters(in: .whitespacesAndNewlines)
             return value.isEmpty ? nil : "\(field.title): \(value)"
-        }.joined(separator: "\n")
+        }
+        if let sourceType = evidence[.appointmentType], sourceType != self[.appointmentType] {
+            lines.append("Screenshot signing type: \(sourceType)")
+        }
+        return lines.joined(separator: "\n")
     }
 }
 
@@ -106,6 +111,7 @@ nonisolated enum ScreenshotOrderExtractor {
         let field: ScreenshotOrderField
         let value: String
         let genericContact: Bool
+        let includesTime: Bool
     }
 
     private static func label(in text: String) -> Label? {
@@ -120,13 +126,14 @@ nonisolated enum ScreenshotOrderExtractor {
                let valueRange = Range(match.range(at: 1), in: text) {
                 let value = String(text[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
                 return Label(field: field, value: ["information", "details", "info"].contains(value.lowercased()) ? "" : value,
-                             genericContact: ["phone", "telephone", "email"].contains(alias))
+                             genericContact: ["phone", "telephone", "email"].contains(alias),
+                             includesTime: field == .date && alias.contains("time"))
             }
         }
         return nil
     }
 
-    static func extract(_ input: [ScreenshotTextLine]) throws -> ScreenshotOrderDraft {
+    static func extract(_ input: [ScreenshotTextLine], localTimeZone: TimeZone = .current) throws -> ScreenshotOrderDraft {
         let lines = input.flatMap { line in
             line.text.components(separatedBy: .newlines).flatMap { splitInlineLabels($0) }
                 .map { ScreenshotTextLine(text: $0.trimmingCharacters(in: .whitespacesAndNewlines), confidence: line.confidence) }
@@ -147,7 +154,9 @@ nonisolated enum ScreenshotOrderExtractor {
             var confidence = line.confidence
             // Also support a label on its own line, and multiline addresses/instructions/signers.
             while index + 1 < lines.count, label(in: lines[index + 1].text) == nil,
-                  value.isEmpty || [.location, .instructions, .signer].contains(field) {
+                  value.isEmpty || [.location, .instructions, .signer].contains(field)
+                    || (field == .date && (found.includesTime || ScreenshotAppointmentParser.parse(value, localTimeZone: localTimeZone) != nil)
+                        && (ScreenshotAppointmentParser.isTimeContinuation(lines[index + 1].text) || ScreenshotAppointmentParser.isTimeZoneLine(lines[index + 1].text))) {
                 index += 1
                 value += (value.isEmpty ? "" : "\n") + lines[index].text
                 confidence = min(confidence, lines[index].confidence)
@@ -155,6 +164,9 @@ nonisolated enum ScreenshotOrderExtractor {
             let unavailable = ["n/a", "na", "none", "not provided", "not available", "unknown", "tbd", "-", "—", "pending"]
             if !value.isEmpty && !unavailable.contains(value.lowercased()) {
                 candidates[field, default: []].append(ScreenshotTextLine(text: value, confidence: confidence))
+                if field == .date && (found.includesTime || ScreenshotAppointmentParser.parse(value, localTimeZone: localTimeZone) != nil) {
+                    candidates[.time, default: []].append(ScreenshotTextLine(text: value, confidence: confidence))
+                }
             }
             index += 1
         }
@@ -170,10 +182,12 @@ nonisolated enum ScreenshotOrderExtractor {
             }
             let raw = unique.joined(separator: "\n")
             var value: String? = raw
+            let appointment = [.date, .time].contains(field) ? ScreenshotAppointmentParser.parse(raw, localTimeZone: localTimeZone) : nil
             switch field {
-            case .date: value = normalizedDate(raw)
-            case .time: value = normalizedTime(raw)
+            case .date: value = appointment?.date ?? normalizedDate(raw)
+            case .time: value = appointment?.time ?? normalizedTime(raw)
             case .fee: value = normalizedFee(raw)
+            case .appointmentType: value = SigningTypeOptions.matching(raw)
             case .contactEmail, .signerEmail:
                 if raw.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) == nil { value = nil }
             case .contactPhone, .signerPhone:
@@ -182,7 +196,12 @@ nonisolated enum ScreenshotOrderExtractor {
             default: break
             }
             draft[field] = value ?? ""
-            if value == nil { draft.warnings[field] = "Ambiguous or unsupported value. Enter and confirm the correct value." }
+            if let explanation = appointment?.reviewMessage { draft.scheduleExplanation = explanation }
+            if value == nil {
+                draft.warnings[field] = field == .appointmentType
+                    ? "Choose the matching signing type from the Notary Ledger options."
+                    : appointment?.warning ?? "Ambiguous or unsupported value. Enter and confirm the correct value."
+            }
             else if items.contains(where: { $0.confidence < 0.85 }) { draft.warnings[field] = "Text recognition is uncertain. Check this value against the screenshot." }
         }
         return draft
@@ -296,7 +315,8 @@ enum ScreenshotDuplicateDetection {
 
 nonisolated enum ScreenshotImportValidation {
     static func errors(date: String, time: String, confirmedDate: Bool, confirmedTime: Bool,
-                       confirmedFee: Bool, confirmedReview: Bool, requiresTimeConfirmation: Bool = false) -> [String: String] {
+                       confirmedFee: Bool, confirmedReview: Bool, requiresTimeConfirmation: Bool = false,
+                       signingType: String = "", requiresSigningType: Bool = false) -> [String: String] {
         var errors: [String: String] = [:]
         if date.isEmpty || ScreenshotOrderExtractor.normalizedDate(date) != date {
             errors["date"] = "Enter a valid signing date as YYYY-MM-DD."
@@ -304,6 +324,9 @@ nonisolated enum ScreenshotImportValidation {
         if (!time.isEmpty || requiresTimeConfirmation) && !confirmedTime { errors["time"] = "Confirm the signing time and local time zone, or confirm leaving it blank." }
         if !confirmedFee { errors["fee"] = "Confirm the notary fee in USD." }
         if !confirmedReview { errors["review"] = "Review the form and agree to save these fields to your account." }
+        if (requiresSigningType || !signingType.isEmpty) && !SigningTypeOptions.values.contains(signingType) {
+            errors["signingType"] = "Choose a signing type from the Notary Ledger options."
+        }
         return errors
     }
 }
