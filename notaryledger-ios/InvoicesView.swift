@@ -4,6 +4,11 @@ struct InvoicesView: View {
     @EnvironmentObject private var appState: AppState
     @State private var selectedCustomerID: String?
     @State private var exportItem: ShareURL?
+    @State private var lastInvoice: ShareURL?
+    @State private var exportOrderIDs: [String] = []
+    @State private var exportOwnerID: String?
+    @State private var recordedDeliveryID: UUID?
+    @State private var confirmSent = false
     @State private var errorMessage = ""
     @State private var isGenerating = false
     @State private var customCustomerName = ""
@@ -95,11 +100,21 @@ struct InvoicesView: View {
                     }
 
                     customInvoiceCard
+                    if let item = lastInvoice, recordedDeliveryID != item.id {
+                        Button("Mark Invoice as Sent") { confirmSent = true }.buttonStyle(SecondaryButtonStyle())
+                    }
                 }
                 .nlScreenPadding()
             }
         }
-        .sheet(item: $exportItem) { ShareSheet(activityItems: [$0.url]) }
+        .sheet(item: $exportItem) { item in
+            InvoiceShareSheet(item: item, orderIDs: exportOrderIDs, ownerID: exportOwnerID,
+                onRecorded: { recordedDeliveryID = item.id }, onError: { errorMessage = $0 })
+        }
+        .alert("Mark invoice as sent?", isPresented: $confirmSent) {
+            Button("Mark Sent") { Task { await markSent() } }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("Confirm you sent this invoice to the customer. Generating or saving a PDF alone does not count as sending it.") }
         .onAppear {
             selectedCustomerID = selectedCustomerID ?? customers.first?.id
         }
@@ -121,20 +136,30 @@ struct InvoicesView: View {
     }
 
     private func generateInvoice(for customer: CustomerSummary) async {
+        let owner = appState.currentUser?.id
         errorMessage = ""
         isGenerating = true
         defer { isGenerating = false }
 
         do {
             try await requireInvoiceAccess()
-            exportItem = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: customer.displayName, orders: customer.invoiceCandidates))
+            guard let owner, appState.currentUser?.id == owner else { throw APIError.unauthorized }
+            let item = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: customer.displayName, orders: customer.invoiceCandidates))
+            exportOrderIDs = customer.invoiceCandidates.map(\.id); exportOwnerID = owner
+            exportItem = item; lastInvoice = item
         } catch { errorMessage = error.localizedDescription }
+    }
+    private func markSent() async {
+        guard let item = lastInvoice else { return }
+        do { try await InvoiceSendTracking.record(item: item, orderIDs: exportOrderIDs, ownerID: exportOwnerID); recordedDeliveryID = item.id }
+        catch { errorMessage = "The invoice send could not be recorded. Please try again." }
     }
     private func requireInvoiceAccess() async throws {
         let billing = try await APIService.shared.fetchBillingStatus()
         guard billing.features?["invoiceGeneration"] == true else { throw APIError.serverError("Upgrade to Pro to generate invoices.") }
     }
     private func generateCustom() async {
+        let owner = appState.currentUser?.id
         errorMessage = ""
         guard !customCustomerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !customLineDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -143,8 +168,11 @@ struct InvoicesView: View {
         defer { isGenerating = false }
         do {
             try await requireInvoiceAccess()
+            guard let owner, appState.currentUser?.id == owner else { throw APIError.unauthorized }
             let description = customLineDescription + (customSignerName.isEmpty ? "" : " for " + customSignerName)
-            exportItem = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: customCustomerName, orders: [], customDescription: description, customAmount: amount))
+            let item = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: customCustomerName, orders: [], customDescription: description, customAmount: amount))
+            exportOrderIDs = []; exportOwnerID = owner
+            exportItem = item; lastInvoice = item
         } catch { errorMessage = error.localizedDescription }
     }
 }

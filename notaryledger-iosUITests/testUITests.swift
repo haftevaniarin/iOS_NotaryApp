@@ -1,12 +1,37 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false) -> XCUIApplication {
+    @MainActor func testStripeBillingNavigationHasNoPaymentMethodControls() throws {
+        let app = launch("notaryledger://billing", stripeBillingFixtures: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app)
+        app.buttons["Log In"].tap()
+        let plans = app.buttons["billing-view-plans"]
+        XCTAssertTrue(plans.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["Payment method"].exists)
+        XCTAssertTrue(app.buttons["billing-refresh"].exists)
+        plans.tap()
+        XCTAssertTrue(app.staticTexts["Plans"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["restore-purchases"].exists)
+        XCTAssertTrue(app.buttons["plans-subscribe"].exists)
+        XCTAssertEqual(app.buttons["plans-subscribe"].label, "Subscribe")
+        let monthly = app.buttons["Monthly billing"]
+        monthly.tap()
+        XCTAssertTrue(monthly.isSelected)
+        XCTAssertFalse(app.buttons["Update Payment Details"].exists)
+        app.buttons["plans-back"].tap()
+        XCTAssertTrue(plans.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["billing-compare-plans"].exists)
+    }
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
         if customerInvoices { app.launchArguments.append("--customer-invoice-fixtures") }
         if cancelRefresh { app.launchArguments.append("--cancel-dashboard-refresh") }
+        if stripeBillingFixtures { app.launchArguments.append("--stripe-billing-ui-fixtures") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app

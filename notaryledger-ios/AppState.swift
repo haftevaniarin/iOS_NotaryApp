@@ -11,8 +11,9 @@ final class AppState: ObservableObject {
 
     @Published var route: Route = SessionStorage.getAccessToken() == nil ? .auth : .app
     @Published var currentUser: AuthUser? = SessionStorage.getCurrentUser() {
-        didSet { if oldValue?.id != currentUser?.id { clearBillingStatus() } }
+        didSet { if oldValue?.id != currentUser?.id { clearBillingStatus(); subscriptions.bind(accountID: currentUser?.id) } }
     }
+    let subscriptions: SubscriptionStore
     @Published var orders: [SigningOrder] = []
     @Published var expenses: [Expense] = []
     @Published var isLoading = false
@@ -37,9 +38,15 @@ final class AppState: ObservableObject {
     nonisolated deinit {}
 
     init(api: APIService? = nil) {
+        #if DEBUG
+        subscriptions = ProcessInfo.processInfo.arguments.contains("--stripe-billing-ui-fixtures") ? .preview(tier: .free) : SubscriptionStore()
+        #else
+        subscriptions = SubscriptionStore()
+        #endif
         self.api = api ?? APIService.shared
         self.auth = AuthFlowModel(api: self.api)
         self.api.onAuthenticationRequired = { [weak self] in self?.requireAuthentication() }
+        subscriptions.bind(accountID: currentUser?.id)
     }
 
     func boot() async {
