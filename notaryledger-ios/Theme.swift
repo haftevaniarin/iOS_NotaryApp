@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 enum Theme {
     static let inkNavy = Color(hex: 0x1B2A41)
@@ -19,21 +18,6 @@ enum Theme {
     static let activeGreenFill = Color(hex: 0xE3EBDD)
     static let activeGreenText = Color(hex: 0x3F5B3A)
     static let disabledButton = Color(hex: 0x4F5B73)
-
-    static func heading(_ size: CGFloat = 34) -> Font {
-        // Bundled static Fraunces instances retain the app's NLDisplay names.
-        if UIFont(name: "NLDisplay-SemiBold", size: size) != nil {
-            return .custom("NLDisplay-SemiBold", size: size, relativeTo: size >= 30 ? .largeTitle : .title2)
-        }
-        return .system(size >= 30 ? .largeTitle : size >= 22 ? .title2 : .headline, design: .serif, weight: .semibold)
-    }
-    static func body(_ size: CGFloat = 15, semibold: Bool = false) -> Font {
-        let name = semibold ? "NLBody-SemiBold" : "NLBody-Regular"
-        if UIFont(name: name, size: size) != nil {
-            return .custom(name, size: size, relativeTo: size <= 13 ? .caption : .body)
-        }
-        return .system(size <= 13 ? .caption : .body, weight: semibold ? .semibold : .regular)
-    }
 }
 
 private extension Color {
@@ -50,7 +34,7 @@ struct BillingActionStyle: ButtonStyle {
     var disabledFill: Color?
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(Theme.body(16, semibold: true))
+        configuration.label.font(NLTypography.bodyStrong)
             .foregroundStyle(text).frame(maxWidth: .infinity, minHeight: height)
             .padding(.horizontal, 12)
             .background(enabled ? fill : disabledFill ?? fill, in: RoundedRectangle(cornerRadius: radius))
@@ -77,7 +61,7 @@ struct BillingPill: View {
     let fill: Color
     let textColor: Color
     var body: some View {
-        Text(text).font(Theme.body(11, semibold: true)).tracking(1.1).foregroundStyle(textColor)
+        Text(text).font(NLTypography.label).tracking(1.1).foregroundStyle(textColor)
             .padding(.horizontal, 10).padding(.vertical, 6).background(fill, in: Capsule())
     }
 }
@@ -87,7 +71,7 @@ struct BillingMessage<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     init(text: String) where Content == Text { self.content = Text(text) }
     var body: some View {
-        content.font(Theme.body(14)).foregroundStyle(Theme.brassText).padding(14)
+        content.font(NLTypography.body).foregroundStyle(Theme.brassText).padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.noticeFill, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.noticeBorder, lineWidth: 1))
@@ -97,7 +81,7 @@ struct BillingMessage<Content: View>: View {
 struct BillingOutlineStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(Theme.body(16, semibold: true)).foregroundStyle(Theme.inkNavy)
+        configuration.label.font(NLTypography.bodyStrong).foregroundStyle(Theme.inkNavy)
             .frame(maxWidth: .infinity, minHeight: 48).padding(.horizontal, 12)
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.inkNavy, lineWidth: 1))
             .opacity(enabled ? configuration.isPressed ? 0.8 : 1 : 0.5)
@@ -113,7 +97,7 @@ struct BillingIntervalControl: View {
             ForEach(BillingInterval.allCases) { interval in
                 Button { selection = interval } label: {
                     Text(interval == .annual && savings != nil ? "Annual · save \(savings!)%" : interval.title)
-                        .font(Theme.body(13, semibold: true)).lineLimit(1).minimumScaleFactor(0.85)
+                        .font(NLTypography.label).lineLimit(1).minimumScaleFactor(0.85)
                         .foregroundStyle(selection == interval ? (navy ? Theme.inkNavy : Theme.parchment) : (navy ? Theme.parchment : Theme.inkNavy))
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background {
@@ -135,7 +119,7 @@ struct BillingNotice: View {
     var navy = false
     var body: some View {
         Label(text, systemImage: "info.circle")
-            .font(Theme.body(14)).fixedSize(horizontal: false, vertical: true)
+            .font(NLTypography.body).fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(navy ? Theme.parchment : Theme.inkNavy)
             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             .background(navy ? Theme.navyRaised : Theme.parchmentCard, in: RoundedRectangle(cornerRadius: 12))

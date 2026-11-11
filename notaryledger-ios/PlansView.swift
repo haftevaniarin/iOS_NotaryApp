@@ -8,15 +8,15 @@ struct PlansView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Button { dismiss() } label: {
-                    Label("Billing", systemImage: "chevron.left").font(Theme.body(15, semibold: true))
+                    Label("Billing", systemImage: "chevron.left").font(NLTypography.bodyStrong)
                         .foregroundStyle(Theme.brassText).frame(minHeight: 44)
                 }.buttonStyle(.plain).accessibilityLabel("Back to Billing").accessibilityIdentifier("plans-back")
-                Text("Plans").font(Theme.heading()).accessibilityAddTraits(.isHeader)
+                ScreenTitleBlock(title: "Plans", subtitle: nil).accessibilityAddTraits(.isHeader)
                 BillingIntervalControl(selection: $model.selectedInterval, savings: model.store.savings())
                     .disabled(!model.canSelectInterval)
                 if model.cancellationScheduled {
                     Text("Switching interval is unavailable while cancellation is scheduled.")
-                        .font(Theme.body(13)).foregroundStyle(Theme.mutedText)
+                        .font(NLTypography.caption).foregroundStyle(Theme.mutedText)
                 }
                 if !model.hasSubscription { freeCard }
                 proCard
@@ -30,8 +30,8 @@ struct PlansView: View {
         BillingPanel {
             VStack(alignment: .leading, spacing: 12) {
                 planTitle(.free)
-                Text(model.freePrice).font(Theme.heading(28))
-                Text(PlanTier.free.definition.featureLine).font(Theme.body(14)).foregroundStyle(Theme.mutedText)
+                Text(model.freePrice).font(NLTypography.metric)
+                Text(PlanTier.free.definition.featureLine).font(NLTypography.body).foregroundStyle(Theme.mutedText)
             }
         }.accessibilityElement(children: .combine).accessibilityIdentifier("plans-free")
     }
@@ -39,9 +39,9 @@ struct PlansView: View {
         BillingPanel(border: Theme.brassDeep, borderWidth: 2) {
             VStack(alignment: .leading, spacing: 12) {
                 planTitle(.pro)
-                Text(model.proPrice).font(Theme.heading(28)).fixedSize(horizontal: false, vertical: true)
-                if let detail = model.annualDetail { Text(detail).font(Theme.body(13)).foregroundStyle(Theme.mutedText) }
-                Text(PlanTier.pro.definition.featureLine).font(Theme.body(14)).foregroundStyle(Theme.mutedText)
+                Text(model.proPrice).font(NLTypography.metric).fixedSize(horizontal: false, vertical: true)
+                if let detail = model.annualDetail { Text(detail).font(NLTypography.caption).foregroundStyle(Theme.mutedText) }
+                Text(PlanTier.pro.definition.featureLine).font(NLTypography.body).foregroundStyle(Theme.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
                 Button(model.hasSubscription ? "Subscribed" : model.store.busy ? "Opening Stripe…" : "Subscribe") {
                     Task { await model.subscribe() }
@@ -56,7 +56,7 @@ struct PlansView: View {
             VStack(alignment: .leading, spacing: 10) { title(tier); pill(tier) }
         }
     }
-    private func title(_ tier: PlanTier) -> some View { Text(tier.definition.name).font(Theme.heading(22)).accessibilityAddTraits(.isHeader) }
+    private func title(_ tier: PlanTier) -> some View { Text(tier.definition.name).font(NLTypography.cardTitle).accessibilityAddTraits(.isHeader) }
     private func pill(_ tier: PlanTier) -> some View {
         BillingPill(text: tier == .free ? "FREE" : "PRO", fill: tier == .free ? Theme.noticeFill : Theme.activeGreenFill,
                     textColor: tier == .free ? Theme.brassText : Theme.activeGreenText)

@@ -26,7 +26,7 @@ struct BillingOverviewView: View {
                     Spacer(minLength: 20)
                     VStack(spacing: 12) {
                         Text("Changes appear after Stripe confirms them with the backend.")
-                            .font(Theme.body(12)).foregroundStyle(Theme.mutedText).multilineTextAlignment(.center)
+                            .font(NLTypography.caption).foregroundStyle(Theme.mutedText).multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                         Button { Task { await model.manage() } } label: {
                             HStack(spacing: 8) {
@@ -54,10 +54,8 @@ struct BillingOverviewView: View {
     }
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Billing").font(Theme.heading()).accessibilityAddTraits(.isHeader)
-                Text("Manage your NotaryLedger subscription.").font(Theme.body(14)).foregroundStyle(Theme.mutedText)
-            }
+            ScreenTitleBlock(title: "Billing", subtitle: "Manage your NotaryLedger subscription.")
+                .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             Button { Task { await model.refresh() } } label: {
                 Image(systemName: "arrow.clockwise").font(.system(size: 18, weight: .medium))
@@ -84,7 +82,7 @@ struct BillingOverviewView: View {
             }
         }.accessibilityIdentifier("billing-subscription-card")
     }
-    private var subscriptionTitle: some View { Text("Subscription").font(Theme.heading(22)).accessibilityAddTraits(.isHeader) }
+    private var subscriptionTitle: some View { Text("Subscription").font(NLTypography.cardTitle).accessibilityAddTraits(.isHeader) }
     private var statusPill: some View {
         BillingPill(text: (model.activeStatus ? "● " : "") + model.statusLabel,
                     fill: model.activeStatus ? Theme.activeGreenFill : model.warningStatus ? Theme.noticeFill : Theme.parchmentTrack,
@@ -93,15 +91,15 @@ struct BillingOverviewView: View {
     private var line: some View { Rectangle().fill(Theme.parchmentLine).frame(height: 1).accessibilityHidden(true) }
     private func subscriptionRow(_ label: String, value: String, detail: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(Theme.body(11, semibold: true)).tracking(1.1).foregroundStyle(Theme.mutedText)
-            Text(value).font(Theme.body(17, semibold: true)).fixedSize(horizontal: false, vertical: true)
-            if let detail { Text(detail).font(Theme.body(13)).foregroundStyle(Theme.mutedText) }
+            Text(label).font(NLTypography.label).tracking(1.1).foregroundStyle(Theme.mutedText)
+            Text(value).font(NLTypography.bodyStrong).fixedSize(horizontal: false, vertical: true)
+            if let detail { Text(detail).font(NLTypography.caption).foregroundStyle(Theme.mutedText) }
         }.frame(maxWidth: .infinity, alignment: .leading).accessibilityElement(children: .combine)
     }
     private var loadingCard: some View {
         BillingPanel {
             VStack(alignment: .leading, spacing: 24) {
-                Text("Loading subscription…").font(Theme.heading(22))
+                Text("Loading subscription…").font(NLTypography.cardTitle)
                 ForEach(0..<4) { _ in
                     VStack(alignment: .leading, spacing: 8) {
                         RoundedRectangle(cornerRadius: 4).fill(Theme.parchmentTrack).frame(width: 80, height: 12)
@@ -114,9 +112,9 @@ struct BillingOverviewView: View {
     private func retryNotice(_ text: String) -> some View {
         BillingMessage {
             VStack(alignment: .leading, spacing: 8) {
-                Text(text).font(Theme.body(14))
+                Text(text).font(NLTypography.body)
                 Button("Retry") { Task { await model.refresh() } }
-                    .font(Theme.body(14, semibold: true)).frame(minHeight: 44).disabled(model.isLoading)
+                    .font(NLTypography.bodyStrong).frame(minHeight: 44).disabled(model.isLoading)
                     .accessibilityIdentifier("billing-retry")
             }
         }

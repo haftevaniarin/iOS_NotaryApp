@@ -17,7 +17,7 @@ struct ContentView: View {
         GeometryReader { geometry in
             Group {
                 if appState.isRestoringSession {
-                    ProgressView("Restoring your session...")
+                    SessionRestorationView()
                 } else {
                     switch appState.route {
                     case .auth:
