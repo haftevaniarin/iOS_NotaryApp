@@ -208,6 +208,8 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
     var signingType: String?
     var date: String
     var time: String?
+    // Distinguish explicit midnight from a time inferred from the backend timestamp.
+    var hasExplicitTime: Bool
     var fee: Double
     var notarialActFee: Double
     var paid: Bool
@@ -269,6 +271,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         self.signingType = signingType
         self.date = date
         self.time = time
+        self.hasExplicitTime = time?.isEmpty == false
         self.fee = fee
         self.notarialActFee = notarialActFee
         self.paid = paid
@@ -291,6 +294,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         signingType = try container.decodeIfPresent(String.self, forKey: .signingType)
         date = try container.decodeIfPresent(String.self, forKey: .date) ?? ""
         time = try container.decodeIfPresent(String.self, forKey: .time)
+        hasExplicitTime = time?.isEmpty == false
         if time == nil, date.contains("T"), let scheduled = DateParser.date(from: date) {
             let clock = DateFormatter(); clock.locale = Locale(identifier: "en_US_POSIX"); clock.dateFormat = "HH:mm"
             time = clock.string(from: scheduled)

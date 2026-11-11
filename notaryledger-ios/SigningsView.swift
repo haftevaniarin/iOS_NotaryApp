@@ -276,6 +276,8 @@ struct SigningOrderDetailView: View {
 
 struct SigningOrderFormView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.timeZone) private var timeZone
+    @EnvironmentObject private var appState: AppState
     let order: SigningOrder?
     let onSave: (SigningOrderPayload) async throws -> Void
     var extracted: ExtractedSigning? = nil
@@ -313,6 +315,11 @@ struct SigningOrderFormView: View {
     @State private var fieldErrors: [String: String] = [:]
     @State private var validationAttempt = UUID()
     @State private var isSaving = false
+    @State private var scheduling = OrderSchedulingFeedback()
+    @State private var viewingConflict: SigningOrder?
+
+    private var signingDay: String { screenshot != nil ? importedDate : OrderCalendarDay(date: date, timeZone: timeZone).key }
+    private var scheduleInput: OrderScheduleInput { OrderScheduleInput(date: signingDay, time: time, excludedOrderID: order?.id, timeZoneID: timeZone.identifier) }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -387,12 +394,18 @@ struct SigningOrderFormView: View {
                                     .font(NLTypography.caption)
                             }
                         }
+                        OrderScheduleFeedbackView(model: scheduling) { viewingConflict = $0 }
                         field("status") {
                             NLSelectField(title: "Status", selection: validated($status, field: "status"), value: status.rawValue) {
                                 ForEach(SigningStatus.allCases) { status in
                                     Text(status.rawValue).tag(status)
                                 }
                             }
+                        }
+                    }
+                    if RescissionRules.applies(to: signingType) {
+                        NLFormSection("Rescission") {
+                            OrderRescissionFeedbackView(feedback: OrderRescissionFeedback(signingType: signingType, signingDate: signingDay))
                         }
                     }
                     NLFormSection("Payment") {
@@ -454,7 +467,14 @@ struct SigningOrderFormView: View {
                     .disabled(isSaving)
                 }
             }
-            .onAppear(perform: populate)
+            .onAppear { populate(); prepareScheduling() }
+            .task(id: appState.currentUser?.id) {
+                prepareScheduling()
+                if appState.currentUser != nil { try? await scheduling.refresh() }
+            }
+            .onChange(of: scheduleInput) { _, input in scheduling.update(input); fieldErrors["schedule"] = nil }
+            .onChange(of: appState.orders) { _, orders in scheduling.updateOrders(orders) }
+            .sheet(item: $viewingConflict) { ConflictingOrderDetailView(order: $0) }
             .sheet(isPresented: $showScreenshotExtraction) {
                 ScreenshotImportView(onExtract: applyScreenshot)
             }
@@ -497,6 +517,10 @@ struct SigningOrderFormView: View {
                 withAnimation { proxy.scrollTo(target, anchor: .top) }
             }
         }
+    }
+
+    private func prepareScheduling() {
+        scheduling.prepare(ownerID: appState.currentUser?.id, input: scheduleInput, orders: appState.orders)
     }
 
     private var notarialFeeError: String? {
@@ -619,7 +643,7 @@ struct SigningOrderFormView: View {
             payerName: nilIfBlank(payerName),
             signerName: signerName.trimmingCharacters(in: .whitespacesAndNewlines),
             signingType: nilIfBlank(signingType),
-            date: screenshot != nil ? importedDate : DateParser.apiDateString(from: date),
+            date: signingDay,
             time: nilIfBlank(time),
             fee: feeValue,
             notarialActFee: notarialValue,
@@ -633,41 +657,43 @@ struct SigningOrderFormView: View {
         )
 
         if let order { payload.preserveMileage = mileageValue == order.mileage && travelValue == order.travelFee }
-        if screenshot != nil {
-            isSaving = true
-            do {
-                // Refresh before checking so another device's recent imports are included.
-                let orders = try await APIService.shared.fetchOrders()
+        await persist(payload, checkDuplicates: screenshot != nil)
+    }
+
+    private func persist(_ payload: SigningOrderPayload, checkDuplicates: Bool = false) async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        let owner = appState.currentUser?.id
+        let appointment = scheduleInput
+        scheduling.update(appointment)
+        do {
+            // Recheck fresh account-scoped orders on every submission, including a
+            // confirmed screenshot duplicate. Local schedule warnings never block saves.
+            let orders = try await scheduling.refresh()
+            guard appState.currentUser?.id == owner, scheduleInput == appointment, !Task.isCancelled else { return }
+            if checkDuplicates {
                 duplicateOrders = ScreenshotDuplicateDetection.matches(notes: notes, signer: signerName, date: importedDate, orders: orders)
-                isSaving = false
                 if !duplicateOrders.isEmpty {
                     duplicatePayload = payload
                     showDuplicateConfirmation = true
                     return
                 }
-            } catch {
-                isSaving = false
-                errorMessage = "Could not check for duplicate orders. Try saving again."
-                validationAttempt = UUID()
-                return
             }
-        }
-        await persist(payload)
-    }
-
-    private func persist(_ payload: SigningOrderPayload) async {
-        guard !isSaving else { return }
-        isSaving = true
-        defer { isSaving = false }
-        do {
             try await onSave(payload)
             dismiss()
         } catch let error as OrderValidationFailure {
+            guard appState.currentUser?.id == owner, scheduleInput == appointment else { return }
             fieldErrors = error.fieldErrors
-            errorMessage = error.message
+            if let conflict = error.scheduleConflict {
+                scheduling.report(conflict, for: appointment)
+                errorMessage = ""
+            } else { errorMessage = error.message }
             validationAttempt = UUID()
         } catch {
-            errorMessage = error.localizedDescription
+            guard appState.currentUser?.id == owner, scheduleInput == appointment, !RequestCancellation.isCancellation(error) else { return }
+            if let message = scheduling.refreshError { fieldErrors["schedule"] = message }
+            else { errorMessage = error.localizedDescription }
             validationAttempt = UUID()
         }
     }

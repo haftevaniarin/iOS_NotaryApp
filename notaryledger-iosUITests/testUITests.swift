@@ -25,13 +25,14 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(plans.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["billing-compare-plans"].exists)
     }
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
         if customerInvoices { app.launchArguments.append("--customer-invoice-fixtures") }
         if cancelRefresh { app.launchArguments.append("--cancel-dashboard-refresh") }
         if stripeBillingFixtures { app.launchArguments.append("--stripe-billing-ui-fixtures") }
+        if appointmentFeedback { app.launchArguments.append("--appointment-feedback-fixtures") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app
@@ -99,6 +100,12 @@ final class NotaryLedgerSmokeTests: XCTestCase {
     }
 
     @MainActor private func enterOrderField(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
+        revealOrderControl(field, in: app)
+        field.tap()
+        field.typeText(value)
+    }
+
+    @MainActor private func revealOrderControl(_ field: XCUIElement, in app: XCUIApplication) {
         // Keep the control between the modal navigation bar and keyboard.
         // isHittable alone can include a field obscured by the navigation bar.
         for _ in 0..<12 {
@@ -107,13 +114,65 @@ final class NotaryLedgerSmokeTests: XCTestCase {
             let bottom = keyboard.exists ? keyboard.frame.minY - 24 : app.frame.maxY - 70
             if field.isHittable && field.frame.midY > top && field.frame.midY < bottom { break }
             let center = app.coordinate(withNormalizedOffset: .zero)
-            let upper = center.withOffset(CGVector(dx: app.frame.midX, dy: top + 20))
-            let lower = center.withOffset(CGVector(dx: app.frame.midX, dy: bottom - 20))
-            if field.frame.midY <= top { upper.press(forDuration: 0.05, thenDragTo: lower) }
-            else { lower.press(forDuration: 0.05, thenDragTo: upper) }
+            let distance = min(280, max(80, abs(field.frame.midY - (top + bottom) / 2)))
+            let startY = field.frame.midY <= top ? top + 20 : bottom - 20
+            let endY = field.frame.midY <= top ? min(bottom - 20, startY + distance) : max(top + 20, startY - distance)
+            center.withOffset(CGVector(dx: app.frame.midX, dy: startY))
+                .press(forDuration: 0.05, thenDragTo: center.withOffset(CGVector(dx: app.frame.midX, dy: endY)))
         }
-        field.tap()
-        field.typeText(value)
+    }
+
+    @MainActor func testAppointmentFeedbackPreservesDraftAndClearsResolvedConflict() throws {
+        let app = launch(appointmentFeedback: true)
+        openNewOrder(app)
+        enterOrderField("Draft title", into: app.textFields["Customer name"], in: app)
+        enterOrderField("Draft signer", into: app.textFields["Signer name"], in: app)
+        let type = app.buttons["Signing type"]
+        revealOrderControl(type, in: app); type.tap(); app.buttons["Refinance"].tap()
+        let time = app.buttons["Time"]
+        revealOrderControl(time, in: app); time.tap(); app.buttons["Done"].tap()
+        let warning = app.staticTexts["order-schedule-warning"]
+        XCTAssertTrue(warning.waitForExistence(timeout: 5))
+        let viewOrder = app.buttons["view-conflicting-order"]
+        revealOrderControl(viewOrder, in: app); viewOrder.tap()
+        XCTAssertTrue(app.staticTexts["Existing signer"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        let signer = app.textFields["Signer name"]
+        revealOrderControl(signer, in: app)
+        XCTAssertEqual(signer.value as? String, "Draft signer")
+        XCTAssertEqual(app.textFields["Customer name"].value as? String, "Draft title")
+        revealOrderControl(time, in: app); time.tap(); app.buttons["Clear Time"].tap()
+        XCTAssertFalse(warning.exists)
+        let rescission = app.staticTexts["order-rescission-message"]
+        revealOrderControl(rescission, in: app)
+        XCTAssertTrue(rescission.label.contains("Based on the signing date"))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Inline rescission after resolving schedule conflict"; screenshot.lifetime = .keepAlways; add(screenshot)
+        app.buttons["Cancel"].tap()
+    }
+
+    @MainActor func testServerScheduleConflictAppearsInlineAndAllowsCorrectedRetry() throws {
+        let app = launch(appointmentFeedback: true)
+        openNewOrder(app)
+        enterOrderField("Draft title", into: app.textFields["Customer name"], in: app)
+        enterOrderField("Draft signer", into: app.textFields["Signer name"], in: app)
+        enterOrderField("150", into: app.textFields["Fee"], in: app)
+        enterOrderField("SERVER-SCHEDULE-CONFLICT", into: app.textFields["Invoice number"], in: app)
+        app.buttons["Save"].tap()
+        let error = app.staticTexts["order-error-schedule"]
+        XCTAssertTrue(error.waitForExistence(timeout: 5))
+        XCTAssertTrue(error.label.contains("Choose another time"))
+        let time = app.buttons["Time"]
+        revealOrderControl(time, in: app); time.tap(); app.buttons["Done"].tap()
+        XCTAssertFalse(error.exists)
+        XCTAssertTrue(app.staticTexts["order-schedule-warning"].exists)
+        let invoice = app.textFields["Invoice number"]
+        revealOrderControl(invoice, in: app); invoice.tap()
+        invoice.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "SERVER-SCHEDULE-CONFLICT".count) + "INV-CORRECTED")
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["New Signing"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Signer: Draft signer"].exists)
     }
 
     @MainActor func testNewOrderShowsInlineValidationAndSavesAfterCorrections() throws {
