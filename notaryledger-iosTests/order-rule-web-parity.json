@@ -1,0 +1,3874 @@
+{
+  "provenance": {
+    "webFiles": [
+      "src/App.jsx",
+      "src/utils/notary.js"
+    ],
+    "appSHA256": "ce3d2108d607e337f9e93bd6764d186c315517bbf1cdd2b3f6dfddf234023fae",
+    "utilsSHA256": "b03e4e6887b441b07869e4f06d059f09d24767ae5b41fa0003747929d5433853",
+    "windowMinutes": 120
+  },
+  "rescission": [
+    {
+      "date": "2021-12-29",
+      "deadlineDate": "2022-01-03",
+      "skippedDays": [
+        {
+          "date": "2021-12-31",
+          "reason": "Federal holiday"
+        },
+        {
+          "date": "2022-01-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-01-01",
+      "deadlineDate": "2024-01-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-01-15",
+      "deadlineDate": "2024-01-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-01-25",
+      "deadlineDate": "2024-01-29",
+      "skippedDays": [
+        {
+          "date": "2024-01-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-01-28",
+      "deadlineDate": "2024-01-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-02-01",
+      "deadlineDate": "2024-02-05",
+      "skippedDays": [
+        {
+          "date": "2024-02-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-02-15",
+      "deadlineDate": "2024-02-20",
+      "skippedDays": [
+        {
+          "date": "2024-02-18",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2024-02-19",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2024-02-25",
+      "deadlineDate": "2024-02-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-02-28",
+      "deadlineDate": "2024-03-02",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-03-01",
+      "deadlineDate": "2024-03-05",
+      "skippedDays": [
+        {
+          "date": "2024-03-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-03-15",
+      "deadlineDate": "2024-03-19",
+      "skippedDays": [
+        {
+          "date": "2024-03-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-03-25",
+      "deadlineDate": "2024-03-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-03-28",
+      "deadlineDate": "2024-04-01",
+      "skippedDays": [
+        {
+          "date": "2024-03-31",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-04-01",
+      "deadlineDate": "2024-04-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-04-15",
+      "deadlineDate": "2024-04-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-04-25",
+      "deadlineDate": "2024-04-29",
+      "skippedDays": [
+        {
+          "date": "2024-04-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-04-28",
+      "deadlineDate": "2024-05-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-05-01",
+      "deadlineDate": "2024-05-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-05-15",
+      "deadlineDate": "2024-05-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-05-25",
+      "deadlineDate": "2024-05-30",
+      "skippedDays": [
+        {
+          "date": "2024-05-26",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2024-05-27",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2024-05-28",
+      "deadlineDate": "2024-05-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-06-01",
+      "deadlineDate": "2024-06-05",
+      "skippedDays": [
+        {
+          "date": "2024-06-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-06-15",
+      "deadlineDate": "2024-06-20",
+      "skippedDays": [
+        {
+          "date": "2024-06-16",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2024-06-19",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2024-06-25",
+      "deadlineDate": "2024-06-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-06-28",
+      "deadlineDate": "2024-07-02",
+      "skippedDays": [
+        {
+          "date": "2024-06-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-07-01",
+      "deadlineDate": "2024-07-05",
+      "skippedDays": [
+        {
+          "date": "2024-07-04",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2024-07-15",
+      "deadlineDate": "2024-07-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-07-25",
+      "deadlineDate": "2024-07-29",
+      "skippedDays": [
+        {
+          "date": "2024-07-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-07-28",
+      "deadlineDate": "2024-07-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-08-01",
+      "deadlineDate": "2024-08-05",
+      "skippedDays": [
+        {
+          "date": "2024-08-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-08-15",
+      "deadlineDate": "2024-08-19",
+      "skippedDays": [
+        {
+          "date": "2024-08-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-08-25",
+      "deadlineDate": "2024-08-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-08-28",
+      "deadlineDate": "2024-08-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-09-01",
+      "deadlineDate": "2024-09-05",
+      "skippedDays": [
+        {
+          "date": "2024-09-02",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2024-09-15",
+      "deadlineDate": "2024-09-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-09-25",
+      "deadlineDate": "2024-09-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-09-28",
+      "deadlineDate": "2024-10-02",
+      "skippedDays": [
+        {
+          "date": "2024-09-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-10-01",
+      "deadlineDate": "2024-10-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-10-15",
+      "deadlineDate": "2024-10-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-10-25",
+      "deadlineDate": "2024-10-29",
+      "skippedDays": [
+        {
+          "date": "2024-10-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-10-28",
+      "deadlineDate": "2024-10-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-11-01",
+      "deadlineDate": "2024-11-05",
+      "skippedDays": [
+        {
+          "date": "2024-11-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-11-15",
+      "deadlineDate": "2024-11-19",
+      "skippedDays": [
+        {
+          "date": "2024-11-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-11-25",
+      "deadlineDate": "2024-11-29",
+      "skippedDays": [
+        {
+          "date": "2024-11-28",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2024-11-28",
+      "deadlineDate": "2024-12-02",
+      "skippedDays": [
+        {
+          "date": "2024-12-01",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2024-12-01",
+      "deadlineDate": "2024-12-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-12-15",
+      "deadlineDate": "2024-12-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-12-25",
+      "deadlineDate": "2024-12-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2024-12-28",
+      "deadlineDate": "2025-01-02",
+      "skippedDays": [
+        {
+          "date": "2024-12-29",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2025-01-01",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2025-01-01",
+      "deadlineDate": "2025-01-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-01-15",
+      "deadlineDate": "2025-01-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-01-25",
+      "deadlineDate": "2025-01-29",
+      "skippedDays": [
+        {
+          "date": "2025-01-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-01-28",
+      "deadlineDate": "2025-01-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-02-01",
+      "deadlineDate": "2025-02-05",
+      "skippedDays": [
+        {
+          "date": "2025-02-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-02-15",
+      "deadlineDate": "2025-02-20",
+      "skippedDays": [
+        {
+          "date": "2025-02-16",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2025-02-17",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2025-02-25",
+      "deadlineDate": "2025-02-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-02-28",
+      "deadlineDate": "2025-03-04",
+      "skippedDays": [
+        {
+          "date": "2025-03-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-03-01",
+      "deadlineDate": "2025-03-05",
+      "skippedDays": [
+        {
+          "date": "2025-03-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-03-15",
+      "deadlineDate": "2025-03-19",
+      "skippedDays": [
+        {
+          "date": "2025-03-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-03-25",
+      "deadlineDate": "2025-03-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-03-28",
+      "deadlineDate": "2025-04-01",
+      "skippedDays": [
+        {
+          "date": "2025-03-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-04-01",
+      "deadlineDate": "2025-04-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-04-15",
+      "deadlineDate": "2025-04-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-04-25",
+      "deadlineDate": "2025-04-29",
+      "skippedDays": [
+        {
+          "date": "2025-04-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-04-28",
+      "deadlineDate": "2025-05-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-05-01",
+      "deadlineDate": "2025-05-05",
+      "skippedDays": [
+        {
+          "date": "2025-05-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-05-15",
+      "deadlineDate": "2025-05-19",
+      "skippedDays": [
+        {
+          "date": "2025-05-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-05-25",
+      "deadlineDate": "2025-05-29",
+      "skippedDays": [
+        {
+          "date": "2025-05-26",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2025-05-28",
+      "deadlineDate": "2025-05-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-06-01",
+      "deadlineDate": "2025-06-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-06-15",
+      "deadlineDate": "2025-06-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-06-25",
+      "deadlineDate": "2025-06-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-06-28",
+      "deadlineDate": "2025-07-02",
+      "skippedDays": [
+        {
+          "date": "2025-06-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-07-01",
+      "deadlineDate": "2025-07-05",
+      "skippedDays": [
+        {
+          "date": "2025-07-04",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2025-07-15",
+      "deadlineDate": "2025-07-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-07-25",
+      "deadlineDate": "2025-07-29",
+      "skippedDays": [
+        {
+          "date": "2025-07-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-07-28",
+      "deadlineDate": "2025-07-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-08-01",
+      "deadlineDate": "2025-08-05",
+      "skippedDays": [
+        {
+          "date": "2025-08-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-08-15",
+      "deadlineDate": "2025-08-19",
+      "skippedDays": [
+        {
+          "date": "2025-08-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-08-25",
+      "deadlineDate": "2025-08-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-08-28",
+      "deadlineDate": "2025-09-02",
+      "skippedDays": [
+        {
+          "date": "2025-08-31",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2025-09-01",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2025-09-01",
+      "deadlineDate": "2025-09-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-09-15",
+      "deadlineDate": "2025-09-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-09-25",
+      "deadlineDate": "2025-09-29",
+      "skippedDays": [
+        {
+          "date": "2025-09-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-09-28",
+      "deadlineDate": "2025-10-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-10-01",
+      "deadlineDate": "2025-10-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-10-15",
+      "deadlineDate": "2025-10-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-10-25",
+      "deadlineDate": "2025-10-29",
+      "skippedDays": [
+        {
+          "date": "2025-10-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-10-28",
+      "deadlineDate": "2025-10-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-11-01",
+      "deadlineDate": "2025-11-05",
+      "skippedDays": [
+        {
+          "date": "2025-11-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-11-15",
+      "deadlineDate": "2025-11-19",
+      "skippedDays": [
+        {
+          "date": "2025-11-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-11-25",
+      "deadlineDate": "2025-11-29",
+      "skippedDays": [
+        {
+          "date": "2025-11-27",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2025-11-28",
+      "deadlineDate": "2025-12-02",
+      "skippedDays": [
+        {
+          "date": "2025-11-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-12-01",
+      "deadlineDate": "2025-12-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-12-15",
+      "deadlineDate": "2025-12-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2025-12-25",
+      "deadlineDate": "2025-12-29",
+      "skippedDays": [
+        {
+          "date": "2025-12-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2025-12-28",
+      "deadlineDate": "2025-12-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-01-01",
+      "deadlineDate": "2026-01-05",
+      "skippedDays": [
+        {
+          "date": "2026-01-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-01-15",
+      "deadlineDate": "2026-01-20",
+      "skippedDays": [
+        {
+          "date": "2026-01-18",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2026-01-19",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2026-01-25",
+      "deadlineDate": "2026-01-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-01-28",
+      "deadlineDate": "2026-01-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-02-01",
+      "deadlineDate": "2026-02-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-02-15",
+      "deadlineDate": "2026-02-19",
+      "skippedDays": [
+        {
+          "date": "2026-02-16",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2026-02-25",
+      "deadlineDate": "2026-02-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-02-28",
+      "deadlineDate": "2026-03-04",
+      "skippedDays": [
+        {
+          "date": "2026-03-01",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-03-01",
+      "deadlineDate": "2026-03-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-03-06",
+      "deadlineDate": "2026-03-10",
+      "skippedDays": [
+        {
+          "date": "2026-03-08",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-03-15",
+      "deadlineDate": "2026-03-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-03-25",
+      "deadlineDate": "2026-03-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-03-28",
+      "deadlineDate": "2026-04-01",
+      "skippedDays": [
+        {
+          "date": "2026-03-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-04-01",
+      "deadlineDate": "2026-04-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-04-15",
+      "deadlineDate": "2026-04-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-04-25",
+      "deadlineDate": "2026-04-29",
+      "skippedDays": [
+        {
+          "date": "2026-04-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-04-28",
+      "deadlineDate": "2026-05-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-05-01",
+      "deadlineDate": "2026-05-05",
+      "skippedDays": [
+        {
+          "date": "2026-05-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-05-15",
+      "deadlineDate": "2026-05-19",
+      "skippedDays": [
+        {
+          "date": "2026-05-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-05-25",
+      "deadlineDate": "2026-05-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-05-28",
+      "deadlineDate": "2026-06-01",
+      "skippedDays": [
+        {
+          "date": "2026-05-31",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-06-01",
+      "deadlineDate": "2026-06-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-06-15",
+      "deadlineDate": "2026-06-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-06-25",
+      "deadlineDate": "2026-06-29",
+      "skippedDays": [
+        {
+          "date": "2026-06-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-06-28",
+      "deadlineDate": "2026-07-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-07-01",
+      "deadlineDate": "2026-07-06",
+      "skippedDays": [
+        {
+          "date": "2026-07-03",
+          "reason": "Federal holiday"
+        },
+        {
+          "date": "2026-07-05",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-07-02",
+      "deadlineDate": "2026-07-07",
+      "skippedDays": [
+        {
+          "date": "2026-07-03",
+          "reason": "Federal holiday"
+        },
+        {
+          "date": "2026-07-05",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-07-15",
+      "deadlineDate": "2026-07-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-07-25",
+      "deadlineDate": "2026-07-29",
+      "skippedDays": [
+        {
+          "date": "2026-07-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-07-28",
+      "deadlineDate": "2026-07-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-08-01",
+      "deadlineDate": "2026-08-05",
+      "skippedDays": [
+        {
+          "date": "2026-08-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-08-03",
+      "deadlineDate": "2026-08-06",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-08-07",
+      "deadlineDate": "2026-08-11",
+      "skippedDays": [
+        {
+          "date": "2026-08-09",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-08-15",
+      "deadlineDate": "2026-08-19",
+      "skippedDays": [
+        {
+          "date": "2026-08-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-08-25",
+      "deadlineDate": "2026-08-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-08-28",
+      "deadlineDate": "2026-09-01",
+      "skippedDays": [
+        {
+          "date": "2026-08-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-09-01",
+      "deadlineDate": "2026-09-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-09-15",
+      "deadlineDate": "2026-09-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-09-25",
+      "deadlineDate": "2026-09-29",
+      "skippedDays": [
+        {
+          "date": "2026-09-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-09-28",
+      "deadlineDate": "2026-10-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-10-01",
+      "deadlineDate": "2026-10-05",
+      "skippedDays": [
+        {
+          "date": "2026-10-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-15",
+      "deadlineDate": "2026-10-19",
+      "skippedDays": [
+        {
+          "date": "2026-10-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-25",
+      "deadlineDate": "2026-10-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-10-28",
+      "deadlineDate": "2026-10-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-10-30",
+      "deadlineDate": "2026-11-03",
+      "skippedDays": [
+        {
+          "date": "2026-11-01",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-01",
+      "deadlineDate": "2026-11-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-11-15",
+      "deadlineDate": "2026-11-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-11-25",
+      "deadlineDate": "2026-11-30",
+      "skippedDays": [
+        {
+          "date": "2026-11-26",
+          "reason": "Federal holiday"
+        },
+        {
+          "date": "2026-11-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-28",
+      "deadlineDate": "2026-12-02",
+      "skippedDays": [
+        {
+          "date": "2026-11-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-12-01",
+      "deadlineDate": "2026-12-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-12-15",
+      "deadlineDate": "2026-12-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2026-12-25",
+      "deadlineDate": "2026-12-29",
+      "skippedDays": [
+        {
+          "date": "2026-12-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2026-12-28",
+      "deadlineDate": "2026-12-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-01-01",
+      "deadlineDate": "2027-01-05",
+      "skippedDays": [
+        {
+          "date": "2027-01-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-01-15",
+      "deadlineDate": "2027-01-20",
+      "skippedDays": [
+        {
+          "date": "2027-01-17",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2027-01-18",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2027-01-25",
+      "deadlineDate": "2027-01-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-01-28",
+      "deadlineDate": "2027-02-01",
+      "skippedDays": [
+        {
+          "date": "2027-01-31",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-02-01",
+      "deadlineDate": "2027-02-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-02-15",
+      "deadlineDate": "2027-02-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-02-25",
+      "deadlineDate": "2027-03-01",
+      "skippedDays": [
+        {
+          "date": "2027-02-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-02-28",
+      "deadlineDate": "2027-03-03",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-03-01",
+      "deadlineDate": "2027-03-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-03-15",
+      "deadlineDate": "2027-03-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-03-25",
+      "deadlineDate": "2027-03-29",
+      "skippedDays": [
+        {
+          "date": "2027-03-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-03-28",
+      "deadlineDate": "2027-03-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-04-01",
+      "deadlineDate": "2027-04-05",
+      "skippedDays": [
+        {
+          "date": "2027-04-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-04-15",
+      "deadlineDate": "2027-04-19",
+      "skippedDays": [
+        {
+          "date": "2027-04-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-04-25",
+      "deadlineDate": "2027-04-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-04-28",
+      "deadlineDate": "2027-05-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-05-01",
+      "deadlineDate": "2027-05-05",
+      "skippedDays": [
+        {
+          "date": "2027-05-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-05-15",
+      "deadlineDate": "2027-05-19",
+      "skippedDays": [
+        {
+          "date": "2027-05-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-05-25",
+      "deadlineDate": "2027-05-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-05-28",
+      "deadlineDate": "2027-06-02",
+      "skippedDays": [
+        {
+          "date": "2027-05-30",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2027-05-31",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2027-06-01",
+      "deadlineDate": "2027-06-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-06-15",
+      "deadlineDate": "2027-06-19",
+      "skippedDays": [
+        {
+          "date": "2027-06-18",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2027-06-25",
+      "deadlineDate": "2027-06-29",
+      "skippedDays": [
+        {
+          "date": "2027-06-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-06-28",
+      "deadlineDate": "2027-07-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-07-01",
+      "deadlineDate": "2027-07-06",
+      "skippedDays": [
+        {
+          "date": "2027-07-04",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2027-07-05",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2027-07-15",
+      "deadlineDate": "2027-07-19",
+      "skippedDays": [
+        {
+          "date": "2027-07-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-07-25",
+      "deadlineDate": "2027-07-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-07-28",
+      "deadlineDate": "2027-07-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-08-01",
+      "deadlineDate": "2027-08-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-08-15",
+      "deadlineDate": "2027-08-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-08-25",
+      "deadlineDate": "2027-08-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-08-28",
+      "deadlineDate": "2027-09-01",
+      "skippedDays": [
+        {
+          "date": "2027-08-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-09-01",
+      "deadlineDate": "2027-09-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-09-15",
+      "deadlineDate": "2027-09-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-09-25",
+      "deadlineDate": "2027-09-29",
+      "skippedDays": [
+        {
+          "date": "2027-09-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-09-28",
+      "deadlineDate": "2027-10-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-10-01",
+      "deadlineDate": "2027-10-05",
+      "skippedDays": [
+        {
+          "date": "2027-10-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-10-15",
+      "deadlineDate": "2027-10-19",
+      "skippedDays": [
+        {
+          "date": "2027-10-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-10-25",
+      "deadlineDate": "2027-10-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-10-28",
+      "deadlineDate": "2027-11-01",
+      "skippedDays": [
+        {
+          "date": "2027-10-31",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-11-01",
+      "deadlineDate": "2027-11-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-11-15",
+      "deadlineDate": "2027-11-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-11-25",
+      "deadlineDate": "2027-11-29",
+      "skippedDays": [
+        {
+          "date": "2027-11-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-11-28",
+      "deadlineDate": "2027-12-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-12-01",
+      "deadlineDate": "2027-12-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-12-15",
+      "deadlineDate": "2027-12-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2027-12-25",
+      "deadlineDate": "2027-12-29",
+      "skippedDays": [
+        {
+          "date": "2027-12-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2027-12-28",
+      "deadlineDate": "2028-01-01",
+      "skippedDays": [
+        {
+          "date": "2027-12-31",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2028-01-01",
+      "deadlineDate": "2028-01-05",
+      "skippedDays": [
+        {
+          "date": "2028-01-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-01-15",
+      "deadlineDate": "2028-01-20",
+      "skippedDays": [
+        {
+          "date": "2028-01-16",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2028-01-17",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2028-01-25",
+      "deadlineDate": "2028-01-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-01-28",
+      "deadlineDate": "2028-02-01",
+      "skippedDays": [
+        {
+          "date": "2028-01-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-02-01",
+      "deadlineDate": "2028-02-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-02-15",
+      "deadlineDate": "2028-02-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-02-25",
+      "deadlineDate": "2028-02-29",
+      "skippedDays": [
+        {
+          "date": "2028-02-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-02-28",
+      "deadlineDate": "2028-03-02",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-03-01",
+      "deadlineDate": "2028-03-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-03-15",
+      "deadlineDate": "2028-03-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-03-25",
+      "deadlineDate": "2028-03-29",
+      "skippedDays": [
+        {
+          "date": "2028-03-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-03-28",
+      "deadlineDate": "2028-03-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-04-01",
+      "deadlineDate": "2028-04-05",
+      "skippedDays": [
+        {
+          "date": "2028-04-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-04-15",
+      "deadlineDate": "2028-04-19",
+      "skippedDays": [
+        {
+          "date": "2028-04-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-04-25",
+      "deadlineDate": "2028-04-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-04-28",
+      "deadlineDate": "2028-05-02",
+      "skippedDays": [
+        {
+          "date": "2028-04-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-05-01",
+      "deadlineDate": "2028-05-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-05-15",
+      "deadlineDate": "2028-05-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-05-25",
+      "deadlineDate": "2028-05-30",
+      "skippedDays": [
+        {
+          "date": "2028-05-28",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2028-05-29",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2028-05-28",
+      "deadlineDate": "2028-06-01",
+      "skippedDays": [
+        {
+          "date": "2028-05-29",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2028-06-01",
+      "deadlineDate": "2028-06-05",
+      "skippedDays": [
+        {
+          "date": "2028-06-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-06-15",
+      "deadlineDate": "2028-06-20",
+      "skippedDays": [
+        {
+          "date": "2028-06-18",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2028-06-19",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2028-06-25",
+      "deadlineDate": "2028-06-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-06-28",
+      "deadlineDate": "2028-07-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-07-01",
+      "deadlineDate": "2028-07-06",
+      "skippedDays": [
+        {
+          "date": "2028-07-02",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2028-07-04",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2028-07-15",
+      "deadlineDate": "2028-07-19",
+      "skippedDays": [
+        {
+          "date": "2028-07-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-07-25",
+      "deadlineDate": "2028-07-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-07-28",
+      "deadlineDate": "2028-08-01",
+      "skippedDays": [
+        {
+          "date": "2028-07-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-08-01",
+      "deadlineDate": "2028-08-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-08-15",
+      "deadlineDate": "2028-08-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-08-25",
+      "deadlineDate": "2028-08-29",
+      "skippedDays": [
+        {
+          "date": "2028-08-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-08-28",
+      "deadlineDate": "2028-08-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-09-01",
+      "deadlineDate": "2028-09-06",
+      "skippedDays": [
+        {
+          "date": "2028-09-03",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2028-09-04",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2028-09-15",
+      "deadlineDate": "2028-09-19",
+      "skippedDays": [
+        {
+          "date": "2028-09-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-09-25",
+      "deadlineDate": "2028-09-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-09-28",
+      "deadlineDate": "2028-10-02",
+      "skippedDays": [
+        {
+          "date": "2028-10-01",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-10-01",
+      "deadlineDate": "2028-10-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-10-15",
+      "deadlineDate": "2028-10-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-10-25",
+      "deadlineDate": "2028-10-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-10-28",
+      "deadlineDate": "2028-11-01",
+      "skippedDays": [
+        {
+          "date": "2028-10-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-11-01",
+      "deadlineDate": "2028-11-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-11-15",
+      "deadlineDate": "2028-11-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-11-25",
+      "deadlineDate": "2028-11-29",
+      "skippedDays": [
+        {
+          "date": "2028-11-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-11-28",
+      "deadlineDate": "2028-12-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-12-01",
+      "deadlineDate": "2028-12-05",
+      "skippedDays": [
+        {
+          "date": "2028-12-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-12-15",
+      "deadlineDate": "2028-12-19",
+      "skippedDays": [
+        {
+          "date": "2028-12-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2028-12-25",
+      "deadlineDate": "2028-12-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2028-12-28",
+      "deadlineDate": "2029-01-02",
+      "skippedDays": [
+        {
+          "date": "2028-12-31",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2029-01-01",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2029-01-01",
+      "deadlineDate": "2029-01-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-01-15",
+      "deadlineDate": "2029-01-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-01-25",
+      "deadlineDate": "2029-01-29",
+      "skippedDays": [
+        {
+          "date": "2029-01-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-01-28",
+      "deadlineDate": "2029-01-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-02-01",
+      "deadlineDate": "2029-02-05",
+      "skippedDays": [
+        {
+          "date": "2029-02-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-02-15",
+      "deadlineDate": "2029-02-20",
+      "skippedDays": [
+        {
+          "date": "2029-02-18",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2029-02-19",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2029-02-25",
+      "deadlineDate": "2029-02-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-02-28",
+      "deadlineDate": "2029-03-03",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-03-01",
+      "deadlineDate": "2029-03-05",
+      "skippedDays": [
+        {
+          "date": "2029-03-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-03-15",
+      "deadlineDate": "2029-03-19",
+      "skippedDays": [
+        {
+          "date": "2029-03-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-03-25",
+      "deadlineDate": "2029-03-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-03-28",
+      "deadlineDate": "2029-03-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-04-01",
+      "deadlineDate": "2029-04-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-04-15",
+      "deadlineDate": "2029-04-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-04-25",
+      "deadlineDate": "2029-04-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-04-28",
+      "deadlineDate": "2029-05-02",
+      "skippedDays": [
+        {
+          "date": "2029-04-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-05-01",
+      "deadlineDate": "2029-05-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-05-15",
+      "deadlineDate": "2029-05-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-05-25",
+      "deadlineDate": "2029-05-30",
+      "skippedDays": [
+        {
+          "date": "2029-05-27",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2029-05-28",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2029-05-28",
+      "deadlineDate": "2029-05-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-06-01",
+      "deadlineDate": "2029-06-05",
+      "skippedDays": [
+        {
+          "date": "2029-06-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-06-15",
+      "deadlineDate": "2029-06-20",
+      "skippedDays": [
+        {
+          "date": "2029-06-17",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2029-06-19",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2029-06-25",
+      "deadlineDate": "2029-06-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-06-28",
+      "deadlineDate": "2029-07-02",
+      "skippedDays": [
+        {
+          "date": "2029-07-01",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-07-01",
+      "deadlineDate": "2029-07-05",
+      "skippedDays": [
+        {
+          "date": "2029-07-04",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2029-07-15",
+      "deadlineDate": "2029-07-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-07-25",
+      "deadlineDate": "2029-07-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-07-28",
+      "deadlineDate": "2029-08-01",
+      "skippedDays": [
+        {
+          "date": "2029-07-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-08-01",
+      "deadlineDate": "2029-08-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-08-15",
+      "deadlineDate": "2029-08-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-08-25",
+      "deadlineDate": "2029-08-29",
+      "skippedDays": [
+        {
+          "date": "2029-08-26",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-08-28",
+      "deadlineDate": "2029-08-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-09-01",
+      "deadlineDate": "2029-09-06",
+      "skippedDays": [
+        {
+          "date": "2029-09-02",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2029-09-03",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2029-09-15",
+      "deadlineDate": "2029-09-19",
+      "skippedDays": [
+        {
+          "date": "2029-09-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-09-25",
+      "deadlineDate": "2029-09-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-09-28",
+      "deadlineDate": "2029-10-02",
+      "skippedDays": [
+        {
+          "date": "2029-09-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-10-01",
+      "deadlineDate": "2029-10-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-10-15",
+      "deadlineDate": "2029-10-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-10-25",
+      "deadlineDate": "2029-10-29",
+      "skippedDays": [
+        {
+          "date": "2029-10-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-10-28",
+      "deadlineDate": "2029-10-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-11-01",
+      "deadlineDate": "2029-11-05",
+      "skippedDays": [
+        {
+          "date": "2029-11-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-11-15",
+      "deadlineDate": "2029-11-19",
+      "skippedDays": [
+        {
+          "date": "2029-11-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-11-25",
+      "deadlineDate": "2029-11-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-11-28",
+      "deadlineDate": "2029-12-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-12-01",
+      "deadlineDate": "2029-12-05",
+      "skippedDays": [
+        {
+          "date": "2029-12-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-12-15",
+      "deadlineDate": "2029-12-19",
+      "skippedDays": [
+        {
+          "date": "2029-12-16",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2029-12-25",
+      "deadlineDate": "2029-12-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2029-12-28",
+      "deadlineDate": "2030-01-02",
+      "skippedDays": [
+        {
+          "date": "2029-12-30",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2030-01-01",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2030-01-01",
+      "deadlineDate": "2030-01-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-01-15",
+      "deadlineDate": "2030-01-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-01-25",
+      "deadlineDate": "2030-01-29",
+      "skippedDays": [
+        {
+          "date": "2030-01-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-01-28",
+      "deadlineDate": "2030-01-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-02-01",
+      "deadlineDate": "2030-02-05",
+      "skippedDays": [
+        {
+          "date": "2030-02-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-02-15",
+      "deadlineDate": "2030-02-20",
+      "skippedDays": [
+        {
+          "date": "2030-02-17",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2030-02-18",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2030-02-25",
+      "deadlineDate": "2030-02-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-02-28",
+      "deadlineDate": "2030-03-04",
+      "skippedDays": [
+        {
+          "date": "2030-03-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-03-01",
+      "deadlineDate": "2030-03-05",
+      "skippedDays": [
+        {
+          "date": "2030-03-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-03-15",
+      "deadlineDate": "2030-03-19",
+      "skippedDays": [
+        {
+          "date": "2030-03-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-03-25",
+      "deadlineDate": "2030-03-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-03-28",
+      "deadlineDate": "2030-04-01",
+      "skippedDays": [
+        {
+          "date": "2030-03-31",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-04-01",
+      "deadlineDate": "2030-04-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-04-15",
+      "deadlineDate": "2030-04-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-04-25",
+      "deadlineDate": "2030-04-29",
+      "skippedDays": [
+        {
+          "date": "2030-04-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-04-28",
+      "deadlineDate": "2030-05-01",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-05-01",
+      "deadlineDate": "2030-05-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-05-15",
+      "deadlineDate": "2030-05-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-05-25",
+      "deadlineDate": "2030-05-30",
+      "skippedDays": [
+        {
+          "date": "2030-05-26",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2030-05-27",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2030-05-28",
+      "deadlineDate": "2030-05-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-06-01",
+      "deadlineDate": "2030-06-05",
+      "skippedDays": [
+        {
+          "date": "2030-06-02",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-06-15",
+      "deadlineDate": "2030-06-20",
+      "skippedDays": [
+        {
+          "date": "2030-06-16",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2030-06-19",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2030-06-25",
+      "deadlineDate": "2030-06-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-06-28",
+      "deadlineDate": "2030-07-02",
+      "skippedDays": [
+        {
+          "date": "2030-06-30",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-07-01",
+      "deadlineDate": "2030-07-05",
+      "skippedDays": [
+        {
+          "date": "2030-07-04",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2030-07-15",
+      "deadlineDate": "2030-07-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-07-25",
+      "deadlineDate": "2030-07-29",
+      "skippedDays": [
+        {
+          "date": "2030-07-28",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-07-28",
+      "deadlineDate": "2030-07-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-08-01",
+      "deadlineDate": "2030-08-05",
+      "skippedDays": [
+        {
+          "date": "2030-08-04",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-08-15",
+      "deadlineDate": "2030-08-19",
+      "skippedDays": [
+        {
+          "date": "2030-08-18",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-08-25",
+      "deadlineDate": "2030-08-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-08-28",
+      "deadlineDate": "2030-08-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-09-01",
+      "deadlineDate": "2030-09-05",
+      "skippedDays": [
+        {
+          "date": "2030-09-02",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2030-09-15",
+      "deadlineDate": "2030-09-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-09-25",
+      "deadlineDate": "2030-09-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-09-28",
+      "deadlineDate": "2030-10-02",
+      "skippedDays": [
+        {
+          "date": "2030-09-29",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-10-01",
+      "deadlineDate": "2030-10-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-10-15",
+      "deadlineDate": "2030-10-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-10-25",
+      "deadlineDate": "2030-10-29",
+      "skippedDays": [
+        {
+          "date": "2030-10-27",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-10-28",
+      "deadlineDate": "2030-10-31",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-11-01",
+      "deadlineDate": "2030-11-05",
+      "skippedDays": [
+        {
+          "date": "2030-11-03",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-11-15",
+      "deadlineDate": "2030-11-19",
+      "skippedDays": [
+        {
+          "date": "2030-11-17",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-11-25",
+      "deadlineDate": "2030-11-29",
+      "skippedDays": [
+        {
+          "date": "2030-11-28",
+          "reason": "Federal holiday"
+        }
+      ]
+    },
+    {
+      "date": "2030-11-28",
+      "deadlineDate": "2030-12-02",
+      "skippedDays": [
+        {
+          "date": "2030-12-01",
+          "reason": "Sunday"
+        }
+      ]
+    },
+    {
+      "date": "2030-12-01",
+      "deadlineDate": "2030-12-04",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-12-15",
+      "deadlineDate": "2030-12-18",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-12-25",
+      "deadlineDate": "2030-12-28",
+      "skippedDays": []
+    },
+    {
+      "date": "2030-12-28",
+      "deadlineDate": "2031-01-02",
+      "skippedDays": [
+        {
+          "date": "2030-12-29",
+          "reason": "Sunday"
+        },
+        {
+          "date": "2031-01-01",
+          "reason": "Federal holiday"
+        }
+      ]
+    }
+  ],
+  "scheduling": [
+    {
+      "name": "inclusive-two-hours",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "boundary"
+    },
+    {
+      "name": "resolved-one-minute-outside",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "13:59"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": null
+    },
+    {
+      "name": "nearest-not-first",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "far",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        },
+        {
+          "id": "near",
+          "date": "2026-11-12",
+          "time": "14:15",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "near"
+    },
+    {
+      "name": "no-time",
+      "draft": {
+        "date": "2026-11-12",
+        "time": ""
+      },
+      "orders": [
+        {
+          "id": "timed",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": null
+    },
+    {
+      "name": "ignore-edited-order",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "excludedOrderID": "self",
+      "orders": [
+        {
+          "id": "self",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": null
+    },
+    {
+      "name": "cancelled-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "cancelled",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Cancelled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "cancelled"
+    },
+    {
+      "name": "paid-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "paid",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Paid",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": true
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "paid"
+    },
+    {
+      "name": "across-midnight",
+      "draft": {
+        "date": "2026-11-13",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "late",
+          "date": "2026-11-12",
+          "time": "23:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "late"
+    },
+    {
+      "name": "utc-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "utc",
+          "date": "2026-11-13T07:30:00.000Z",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "utc"
+    },
+    {
+      "name": "offset-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "offset",
+          "date": "2026-11-13T02:30:00-05:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "offset"
+    },
+    {
+      "name": "spring-gap",
+      "draft": {
+        "date": "2026-03-08",
+        "time": "02:30"
+      },
+      "orders": [
+        {
+          "id": "gap",
+          "date": "2026-03-08",
+          "time": "03:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "gap"
+    },
+    {
+      "name": "autumn-repeat",
+      "draft": {
+        "date": "2026-11-01",
+        "time": "01:30"
+      },
+      "orders": [
+        {
+          "id": "repeat",
+          "date": "2026-11-01",
+          "time": "02:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "repeat"
+    },
+    {
+      "name": "untimed-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "day-only",
+          "date": "2026-11-12",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": null
+    },
+    {
+      "name": "explicit-midnight",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "midnight",
+          "date": "2026-11-12",
+          "time": "00:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/Los_Angeles",
+      "expectedOrderID": "midnight"
+    },
+    {
+      "name": "inclusive-two-hours",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "boundary"
+    },
+    {
+      "name": "resolved-one-minute-outside",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "13:59"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": null
+    },
+    {
+      "name": "nearest-not-first",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "far",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        },
+        {
+          "id": "near",
+          "date": "2026-11-12",
+          "time": "14:15",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "near"
+    },
+    {
+      "name": "no-time",
+      "draft": {
+        "date": "2026-11-12",
+        "time": ""
+      },
+      "orders": [
+        {
+          "id": "timed",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": null
+    },
+    {
+      "name": "ignore-edited-order",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "excludedOrderID": "self",
+      "orders": [
+        {
+          "id": "self",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": null
+    },
+    {
+      "name": "cancelled-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "cancelled",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Cancelled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "cancelled"
+    },
+    {
+      "name": "paid-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "paid",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Paid",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": true
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "paid"
+    },
+    {
+      "name": "across-midnight",
+      "draft": {
+        "date": "2026-11-13",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "late",
+          "date": "2026-11-12",
+          "time": "23:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "late"
+    },
+    {
+      "name": "utc-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "utc",
+          "date": "2026-11-13T07:30:00.000Z",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": null
+    },
+    {
+      "name": "offset-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "offset",
+          "date": "2026-11-13T02:30:00-05:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": null
+    },
+    {
+      "name": "spring-gap",
+      "draft": {
+        "date": "2026-03-08",
+        "time": "02:30"
+      },
+      "orders": [
+        {
+          "id": "gap",
+          "date": "2026-03-08",
+          "time": "03:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "gap"
+    },
+    {
+      "name": "autumn-repeat",
+      "draft": {
+        "date": "2026-11-01",
+        "time": "01:30"
+      },
+      "orders": [
+        {
+          "id": "repeat",
+          "date": "2026-11-01",
+          "time": "02:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "repeat"
+    },
+    {
+      "name": "untimed-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "day-only",
+          "date": "2026-11-12",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": null
+    },
+    {
+      "name": "explicit-midnight",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "midnight",
+          "date": "2026-11-12",
+          "time": "00:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "America/New_York",
+      "expectedOrderID": "midnight"
+    },
+    {
+      "name": "inclusive-two-hours",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "boundary"
+    },
+    {
+      "name": "resolved-one-minute-outside",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "13:59"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": null
+    },
+    {
+      "name": "nearest-not-first",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "far",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        },
+        {
+          "id": "near",
+          "date": "2026-11-12",
+          "time": "14:15",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "near"
+    },
+    {
+      "name": "no-time",
+      "draft": {
+        "date": "2026-11-12",
+        "time": ""
+      },
+      "orders": [
+        {
+          "id": "timed",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": null
+    },
+    {
+      "name": "ignore-edited-order",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "excludedOrderID": "self",
+      "orders": [
+        {
+          "id": "self",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": null
+    },
+    {
+      "name": "cancelled-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "cancelled",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Cancelled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "cancelled"
+    },
+    {
+      "name": "paid-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "paid",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Paid",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": true
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "paid"
+    },
+    {
+      "name": "across-midnight",
+      "draft": {
+        "date": "2026-11-13",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "late",
+          "date": "2026-11-12",
+          "time": "23:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "late"
+    },
+    {
+      "name": "utc-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "utc",
+          "date": "2026-11-13T07:30:00.000Z",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": null
+    },
+    {
+      "name": "offset-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "offset",
+          "date": "2026-11-13T02:30:00-05:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": null
+    },
+    {
+      "name": "spring-gap",
+      "draft": {
+        "date": "2026-03-08",
+        "time": "02:30"
+      },
+      "orders": [
+        {
+          "id": "gap",
+          "date": "2026-03-08",
+          "time": "03:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "gap"
+    },
+    {
+      "name": "autumn-repeat",
+      "draft": {
+        "date": "2026-11-01",
+        "time": "01:30"
+      },
+      "orders": [
+        {
+          "id": "repeat",
+          "date": "2026-11-01",
+          "time": "02:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "repeat"
+    },
+    {
+      "name": "untimed-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "day-only",
+          "date": "2026-11-12",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": null
+    },
+    {
+      "name": "explicit-midnight",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "midnight",
+          "date": "2026-11-12",
+          "time": "00:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "UTC",
+      "expectedOrderID": "midnight"
+    },
+    {
+      "name": "inclusive-two-hours",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "boundary"
+    },
+    {
+      "name": "resolved-one-minute-outside",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "13:59"
+      },
+      "orders": [
+        {
+          "id": "boundary",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": null
+    },
+    {
+      "name": "nearest-not-first",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "far",
+          "date": "2026-11-12",
+          "time": "16:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        },
+        {
+          "id": "near",
+          "date": "2026-11-12",
+          "time": "14:15",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "near"
+    },
+    {
+      "name": "no-time",
+      "draft": {
+        "date": "2026-11-12",
+        "time": ""
+      },
+      "orders": [
+        {
+          "id": "timed",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": null
+    },
+    {
+      "name": "ignore-edited-order",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "excludedOrderID": "self",
+      "orders": [
+        {
+          "id": "self",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": null
+    },
+    {
+      "name": "cancelled-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "cancelled",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Cancelled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "cancelled"
+    },
+    {
+      "name": "paid-is-not-excluded",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "14:00"
+      },
+      "orders": [
+        {
+          "id": "paid",
+          "date": "2026-11-12",
+          "time": "14:00",
+          "paymentStatus": "Paid",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": true
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "paid"
+    },
+    {
+      "name": "across-midnight",
+      "draft": {
+        "date": "2026-11-13",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "late",
+          "date": "2026-11-12",
+          "time": "23:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "late"
+    },
+    {
+      "name": "utc-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "utc",
+          "date": "2026-11-13T07:30:00.000Z",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": null
+    },
+    {
+      "name": "offset-local-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "23:30"
+      },
+      "orders": [
+        {
+          "id": "offset",
+          "date": "2026-11-13T02:30:00-05:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": null
+    },
+    {
+      "name": "spring-gap",
+      "draft": {
+        "date": "2026-03-08",
+        "time": "02:30"
+      },
+      "orders": [
+        {
+          "id": "gap",
+          "date": "2026-03-08",
+          "time": "03:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "gap"
+    },
+    {
+      "name": "autumn-repeat",
+      "draft": {
+        "date": "2026-11-01",
+        "time": "01:30"
+      },
+      "orders": [
+        {
+          "id": "repeat",
+          "date": "2026-11-01",
+          "time": "02:30",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "repeat"
+    },
+    {
+      "name": "untimed-day",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "day-only",
+          "date": "2026-11-12",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": null
+    },
+    {
+      "name": "explicit-midnight",
+      "draft": {
+        "date": "2026-11-12",
+        "time": "00:30"
+      },
+      "orders": [
+        {
+          "id": "midnight",
+          "date": "2026-11-12",
+          "time": "00:00",
+          "paymentStatus": "Scheduled",
+          "customerName": "Sample title",
+          "signerName": "Sample signer",
+          "fee": 100,
+          "paid": false
+        }
+      ],
+      "timeZone": "Pacific/Kiritimati",
+      "expectedOrderID": "midnight"
+    }
+  ]
+}

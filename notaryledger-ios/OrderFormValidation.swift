@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum OrderFormValidation {
-    static let fieldOrder = ["customerName", "payerName", "signerName", "signingType", "date", "time", "status", "fee", "notarialActFee", "paid", "paidDate", "invoiceNumber", "mileage", "travelFee", "notes"]
+    static let fieldOrder = ["customerName", "payerName", "signerName", "signingType", "date", "time", "schedule", "status", "fee", "notarialActFee", "paid", "paidDate", "invoiceNumber", "mileage", "travelFee", "notes"]
 
     static func errors(customerName: String, signerName: String, fee: String, notarialActFee: String,
                        invoiceNumber: String, notes: String, time: String, mileage: String, travelFee: String) -> [String: String] {
@@ -37,6 +37,7 @@ nonisolated enum OrderFormValidation {
     static func fieldName(_ apiField: String) -> String {
         let field = apiField.hasPrefix("mileage.") ? String(apiField.dropFirst("mileage.".count)) : apiField
         switch field {
+        case "appointment", "appointmentTime", "scheduledAt", "scheduleConflict": return "schedule"
         case "paymentStatus": return "status"
         case "miles", "businessMiles", "oneWayMiles", "roundTripMiles": return "mileage"
         case "parkingFee": return "travelFee"
@@ -48,6 +49,7 @@ nonisolated enum OrderFormValidation {
 nonisolated struct OrderValidationFailure: LocalizedError {
     let message: String
     let fieldErrors: [String: String]
+    var scheduleConflict: OrderScheduleFailure? = nil
     var errorDescription: String? { message }
 
     static func fromResponse(_ data: Data) -> Self? {
@@ -84,6 +86,14 @@ nonisolated struct OrderValidationFailure: LocalizedError {
                     break
                 }
             }
+        }
+        let code = error["code"] as? String ?? object["code"] as? String ?? ""
+        let scheduleCodes = ["SCHEDULE_CONFLICT", "ORDER_SCHEDULE_CONFLICT", "SCHEDULING_CONFLICT", "APPOINTMENT_CONFLICT"]
+        if scheduleCodes.contains(code) || fields["schedule"] != nil {
+            let orderID = error["conflictingOrderId"] as? String ?? object["conflictingOrderId"] as? String
+            let schedule = OrderScheduleFailure(message: fields["schedule"] ?? message, orderID: orderID)
+            fields["schedule"] = schedule.message
+            return Self(message: message, fieldErrors: fields, scheduleConflict: schedule)
         }
         return fields.isEmpty ? nil : Self(message: message, fieldErrors: fields)
     }

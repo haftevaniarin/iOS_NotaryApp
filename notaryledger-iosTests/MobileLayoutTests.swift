@@ -9,6 +9,45 @@ final class MobileLayoutTests: XCTestCase {
     private var snapshotWindow: UIWindow?
     private var snapshotHost: UIHostingController<AnyView>?
 
+    func testInlineAppointmentFeedbackAtPhoneSizes() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let host = UIHostingController(rootView: AnyView(Color.clear)); host.safeAreaRegions = []
+        let window = UIWindow(windowScene: scene); window.rootViewController = host; window.makeKeyAndVisible()
+        snapshotWindow = window; snapshotHost = host
+        let previous = SessionStorage.getAccessToken(); SessionStorage.saveAccessToken("layout-fixture-token")
+        defer {
+            window.isHidden = true; window.rootViewController = nil; snapshotWindow = nil; snapshotHost = nil
+            if let previous { SessionStorage.saveAccessToken(previous) } else { SessionStorage.clearTokens() }
+        }
+        let state = AppState()
+        let order = SigningOrder(id: "1234", customerName: "Sample Title", signerName: "Sample signer", date: "2026-11-25", time: "14:30", fee: 100, paid: false)
+        for scenario in ["Calculated", "Resolved", "Not Applicable", "Missing Date", "Server Conflict"] {
+            let model = OrderSchedulingFeedback(fetch: { [] })
+            let time = scenario == "Resolved" ? "18:00" : "14:00"
+            let day = scenario == "Missing Date" ? "" : "2026-11-25"
+            let signingType = scenario == "Not Applicable" ? "Seller Package" : "Refinance"
+            let input = OrderScheduleInput(date: day, time: time)
+            model.prepare(ownerID: "fixture", input: input, orders: [order])
+            if scenario == "Server Conflict" { model.report(OrderScheduleFailure(message: "This appointment overlaps another order. Choose another time.", orderID: order.id), for: input) }
+            let screen = AnyView(NLForm {
+                NLFormSection("Schedule") {
+                    NLTextField(title: "Date", text: .constant(day))
+                    NLTimeField(title: "Time", time: .constant(time))
+                    OrderScheduleFeedbackView(model: model, onViewOrder: { _ in })
+                }
+                if RescissionRules.applies(to: signingType) {
+                    NLFormSection("Rescission") {
+                        OrderRescissionFeedbackView(feedback: OrderRescissionFeedback(signingType: signingType, signingDate: day))
+                    }
+                }
+            })
+            for width: CGFloat in [375, 390, 430] {
+                try await captureMobileScreen(screen, title: "Appointment \(scenario)", width: width, state: state, height: 844)
+            }
+            if scenario == "Calculated" { try await captureMobileScreen(screen, title: "Appointment Large Text", width: 375, state: state, height: 844, dynamicTypeSize: .accessibility1) }
+        }
+    }
+
     func testStripeBillingFlowAtPhoneSizes() async throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let host = UIHostingController(rootView: AnyView(Color.clear))
