@@ -366,14 +366,50 @@ final class APIService {
         return try await performAuthenticated(request, decodeTo: BillingStatusPayload.self)
     }
 
+    func fetchBillingUsage(month: DateInterval) async throws -> BillingUsage {
+        let formatter = ISO8601DateFormatter()
+        let request = try await authenticatedRequest(path: "/api/billing/usage", method: "GET", queryItems: [
+            URLQueryItem(name: "start", value: formatter.string(from: month.start)),
+            URLQueryItem(name: "end", value: formatter.string(from: month.end))
+        ])
+        return try await performAuthenticated(request, decodeTo: BillingUsageResponse.self).usage
+    }
+
+    func recordInvoiceSent(id: UUID, orderIDs: [String], channel: String) async throws {
+        struct Delivery: Encodable { let deliveryID: String; let orderIDs: [String]; let channel: String }
+        let request = try await authenticatedRequest(path: "/api/billing/invoices/sent", method: "POST",
+            body: encodedBody(Delivery(deliveryID: id.uuidString, orderIDs: orderIDs, channel: channel)))
+        _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
+    }
+
     func createCheckoutSession(billingInterval: String = "monthly") async throws -> BillingSession {
-        let request = try await authenticatedRequest(path: "/api/stripe/checkout-session", method: "POST", body: encodedBody(["billingInterval": billingInterval]))
+        let request = try await authenticatedRequest(path: "/api/stripe/checkout-session", method: "POST", body: encodedBody(["billingInterval": billingInterval, "clientType": "ios"]))
         return try await performAuthenticated(request, decodeTo: BillingSession.self)
     }
 
-    func createCustomerPortalSession() async throws -> BillingSession {
-        let request = try await authenticatedRequest(path: "/api/stripe/customer-portal-session", method: "POST")
+    func createCustomerPortalSession(action: String = "manage") async throws -> BillingSession {
+        let request = try await authenticatedRequest(path: "/api/stripe/customer-portal-session", method: "POST", body: encodedBody(["clientType": "ios", "action": action]))
         return try await performAuthenticated(request, decodeTo: BillingSession.self)
+    }
+
+    func fetchSubscriptionAccount(subscriptionOnly: Bool = false) async throws -> SubscriptionAccount {
+        let request = try await authenticatedRequest(path: "/api/stripe/subscription-account", method: "GET",
+            queryItems: subscriptionOnly ? [URLQueryItem(name: "view", value: "subscription")] : [])
+        return try await performAuthenticated(request, decodeTo: SubscriptionAccountResponse.self).account
+    }
+    func fetchSubscriptionHistory(cursor: String? = nil) async throws -> SubscriptionHistory {
+        let request = try await authenticatedRequest(path: "/api/stripe/subscription-payments", method: "GET", queryItems: cursor.map { [URLQueryItem(name: "cursor", value: $0)] } ?? [])
+        return try await performAuthenticated(request, decodeTo: SubscriptionHistoryResponse.self).history
+    }
+    func previewSubscriptionInterval(_ interval: String) async throws -> SubscriptionIntervalPreview {
+        let request = try await authenticatedRequest(path: "/api/stripe/change-preview", method: "POST", body: encodedBody(["billingInterval": interval]))
+        return try await performAuthenticated(request, decodeTo: SubscriptionPreviewResponse.self).preview
+    }
+    func confirmSubscriptionInterval(_ preview: SubscriptionIntervalPreview) async throws -> BillingStatusPayload {
+        let body = SubscriptionIntervalRequest(billingInterval: preview.billingInterval, expectedCurrentPeriodEnd: preview.expectedCurrentPeriodEnd,
+                                               expectedAmountMinor: preview.expectedAmountMinor, expectedCurrency: preview.expectedCurrency)
+        let request = try await authenticatedRequest(path: "/api/stripe/change-interval", method: "POST", body: encodedBody(body))
+        return try await performAuthenticated(request, decodeTo: BillingStatusPayload.self)
     }
 
     func syncCheckoutSession(sessionId: String) async throws -> BillingStatusPayload {

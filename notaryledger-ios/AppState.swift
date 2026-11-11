@@ -11,8 +11,9 @@ final class AppState: ObservableObject {
 
     @Published var route: Route = SessionStorage.getAccessToken() == nil ? .auth : .app
     @Published var currentUser: AuthUser? = SessionStorage.getCurrentUser() {
-        didSet { if oldValue?.id != currentUser?.id { clearBillingStatus() } }
+        didSet { if oldValue?.id != currentUser?.id { clearBillingStatus(); subscriptions.bind(accountID: currentUser?.id) } }
     }
+    let subscriptions: SubscriptionStore
     @Published var orders: [SigningOrder] = []
     @Published var expenses: [Expense] = []
     @Published var isLoading = false
@@ -20,6 +21,7 @@ final class AppState: ObservableObject {
     private var refreshRequestID: UUID?
     @Published private(set) var billingStatus: BillingStatusPayload?
     @Published private(set) var billingLoadFailed = false
+    @Published private(set) var billingReturnRevision = 0
     private var billingRequestID: UUID?
     private var billingRequestOwner: String?
 
@@ -36,9 +38,15 @@ final class AppState: ObservableObject {
     nonisolated deinit {}
 
     init(api: APIService? = nil) {
+        #if DEBUG
+        subscriptions = ProcessInfo.processInfo.arguments.contains("--stripe-billing-ui-fixtures") ? .preview(tier: .free) : SubscriptionStore()
+        #else
+        subscriptions = SubscriptionStore()
+        #endif
         self.api = api ?? APIService.shared
         self.auth = AuthFlowModel(api: self.api)
         self.api.onAuthenticationRequired = { [weak self] in self?.requireAuthentication() }
+        subscriptions.bind(accountID: currentUser?.id)
     }
 
     func boot() async {
@@ -82,6 +90,18 @@ final class AppState: ObservableObject {
     }
 
     func openURL(_ url: URL) {
+        if let billingReturn = BillingReturnLink(url: url) {
+            // Return links only trigger navigation and a server refresh; they never grant access.
+            if billingReturn.outcome == .checkoutCancelled,
+               let owner = currentUser?.id,
+               UserDefaults.standard.string(forKey: "notary_pending_checkout_owner") == owner {
+                UserDefaults.standard.removeObject(forKey: "notary_pending_checkout")
+                UserDefaults.standard.removeObject(forKey: "notary_pending_checkout_owner")
+            }
+            billingReturnRevision += 1
+            openURL(URL(string: "notaryledger://billing")!)
+            return
+        }
         guard let link = AuthLink(url: url) else { return }
         if link.screen == .login || link.screen == .signup { intendedSection = link.destination }
         else if let destination = link.destination { intendedSection = destination }

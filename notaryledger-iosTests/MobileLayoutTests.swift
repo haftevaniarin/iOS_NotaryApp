@@ -9,6 +9,47 @@ final class MobileLayoutTests: XCTestCase {
     private var snapshotWindow: UIWindow?
     private var snapshotHost: UIHostingController<AnyView>?
 
+    func testStripeBillingFlowAtPhoneSizes() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let host = UIHostingController(rootView: AnyView(Color.clear))
+        host.safeAreaRegions = []
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = host; window.makeKeyAndVisible()
+        snapshotWindow = window; snapshotHost = host
+        let previousToken = SessionStorage.getAccessToken()
+        SessionStorage.saveAccessToken("layout-fixture-token")
+        defer {
+            window.isHidden = true; window.rootViewController = nil; snapshotWindow = nil; snapshotHost = nil
+            if let previousToken { SessionStorage.saveAccessToken(previousToken) } else { SessionStorage.clearTokens() }
+        }
+        let state = AppState()
+        for width: CGFloat in [375, 390, 430] {
+            for interval in BillingInterval.allCases {
+                let store = SubscriptionStore.preview(interval: interval)
+                let freeModel = BillingViewModel(store: .preview(tier: .free)); freeModel.selectedInterval = interval
+                let proModel = BillingViewModel(store: store); proModel.selectedInterval = interval
+                for (name, screen) in [
+                    ("Billing Overview", AnyView(BillingOverviewView(store: store))),
+                    ("Plans Free", AnyView(PlansView(model: freeModel))),
+                    ("Plans Subscribed", AnyView(PlansView(model: proModel)))
+                ] {
+                    try await captureMobileScreen(screen, title: "\(name) \(interval.title)", width: width, state: state, height: 844)
+                }
+            }
+        }
+        for (name, store) in [
+            ("Cancellation", SubscriptionStore.preview(interval: .annual, cancellationScheduled: true)),
+            ("Free", SubscriptionStore.preview(tier: .free)),
+            ("Loading", SubscriptionStore.preview(loading: true)),
+            ("Error", SubscriptionStore.preview(error: "Subscription information could not be loaded. Please try again."))
+        ] {
+            try await captureMobileScreen(AnyView(BillingOverviewView(store: store)), title: "Billing \(name)", width: 390, state: state, height: 844)
+        }
+        try await captureMobileScreen(AnyView(PlansView(model: BillingViewModel(store: .preview(cancellationScheduled: true)))), title: "Plans Cancellation", width: 390, state: state, height: 844)
+        try await captureMobileScreen(AnyView(PlansView(model: BillingViewModel(store: .preview(tier: .free)))), title: "Plans Large Text", width: 375, state: state, height: 844, dynamicTypeSize: .accessibility1)
+        try await captureMobileScreen(AnyView(BillingOverviewView(store: .preview(cancellationScheduled: true))), title: "Billing Large Text", width: 375, state: state, height: 844, dynamicTypeSize: .accessibility1)
+    }
+
     func testCredentialsSummaryAndExpandedEditorAtPhoneWidths() async throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let host = UIHostingController(rootView: AnyView(Color.clear))
@@ -99,6 +140,8 @@ final class MobileLayoutTests: XCTestCase {
             case "/api/credentials": body = #"{"commissionNumber":"CA123456","commissionState":"CA","commissionExpirationDate":"2027-11-01","eoProvider":"Example Insurance","eoCoverageAmount":"100000"}"#
             case "/api/account/deletion-request": body = #"{"deletionRequest":null}"#
             case "/api/stripe/billing-status": body = #"{"billing":{"plan":"PRO","isPro":true,"subscriptionStatus":"ACTIVE","billingInterval":"monthly","features":{"invoiceGeneration":true}}}"#
+            case "/api/stripe/subscription-account": body = SubscriptionTestFixture.response()
+            case "/api/billing/usage": body = #"{"usage":{"signingsLogged":14,"invoicesSent":3,"signingLimit":20,"remainingFreeOrders":6,"hasExternalSubscription":false}}"#
             case "/api/business-card/me": body = cardBody
             case "/api/admin/audit-logs": body = #"{"items":[{"id":"a1","action":"USER_PROFILE_UPDATED","outcome":"SUCCESS","severity":"INFO","createdAt":"2026-11-02T12:00:00Z"}],"pagination":{"page":1,"pageSize":25,"total":1}}"#
             case "/api/estimated-tax-payments": body = #"[{"id":"p1","date":"2026-10-15","amount":125.50,"quarter":"Q4","taxYear":2026}]"#
@@ -164,8 +207,7 @@ final class MobileLayoutTests: XCTestCase {
         try await captureMobileScreen(AnyView(ProfileView()), title: "Profile Large Text", width: 375, state: state, dynamicTypeSize: .accessibility1)
     }
 
-    private func captureMobileScreen(_ screen: AnyView, title: String, width: CGFloat, state: AppState, dynamicTypeSize: DynamicTypeSize = .large) async throws {
-        let height: CGFloat = 812
+    private func captureMobileScreen(_ screen: AnyView, title: String, width: CGFloat, state: AppState, height: CGFloat = 812, dynamicTypeSize: DynamicTypeSize = .large) async throws {
         let root = VStack(spacing: 0) {
             if !["Log In", "Sign Up", "Forgot Password", "Reset Password"].contains(title) { LedgerTopBar(title: title, onMenu: {}) }
             NavigationStack { screen }

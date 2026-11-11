@@ -16,9 +16,11 @@ struct NotaryLedgerApp: App {
                 Color.clear
             } else {
                 ContentView()
+                    .preferredColorScheme(.light)
             }
             #else
             ContentView()
+                .preferredColorScheme(.light)
             #endif
         }
     }

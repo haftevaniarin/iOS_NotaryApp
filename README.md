@@ -2,10 +2,14 @@
 
 Native SwiftUI client for the Notary Ledger backend and web app.
 
+App pages and sheets use a fixed light appearance. The Billing comparison page uses its explicit navy theme.
+
+See [Billing & Subscription](BILLING_SUBSCRIPTION.md) for the Stripe-only billing flow, usage API, invoice-send tracking, local test configuration, and release requirements.
+
 ## Requirements
 
 - Xcode 26.1 or newer
-- iOS 26.1 SDK, matching the current project deployment target
+- iOS 17 or newer (build with the installed Xcode SDK)
 - Notary Ledger backend reachable from the simulator or device
 
 ## API Environments

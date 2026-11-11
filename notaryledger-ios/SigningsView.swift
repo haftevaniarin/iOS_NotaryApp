@@ -850,6 +850,10 @@ struct GenerateInvoiceSheet: View {
     let order: SigningOrder
     @EnvironmentObject private var appState: AppState
     @State private var exportItem: ShareURL?
+    @State private var lastInvoice: ShareURL?
+    @State private var invoiceOwnerID: String?
+    @State private var recordedDeliveryID: UUID?
+    @State private var confirmSent = false
     @State private var errorMessage = ""
     @State private var isGenerating = false
 
@@ -875,6 +879,10 @@ struct GenerateInvoiceSheet: View {
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(isGenerating)
 
+                    if let item = lastInvoice, recordedDeliveryID != item.id {
+                        Button("Mark Invoice as Sent") { confirmSent = true }.buttonStyle(SecondaryButtonStyle())
+                    }
+
                     Spacer()
                 }
                 .nlScreenPadding()
@@ -887,18 +895,33 @@ struct GenerateInvoiceSheet: View {
                 }
             }
         }
-        .sheet(item: $exportItem) { ShareSheet(activityItems: [$0.url]) }
+        .sheet(item: $exportItem) { item in
+            InvoiceShareSheet(item: item, orderIDs: [order.id], ownerID: invoiceOwnerID,
+                onRecorded: { recordedDeliveryID = item.id }, onError: { errorMessage = $0 })
+        }
+        .alert("Mark invoice as sent?", isPresented: $confirmSent) {
+            Button("Mark Sent") { Task { await markSent() } }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("Confirm you sent this invoice to the customer. Generating or saving a PDF alone does not count as sending it.") }
         .presentationDetents([.medium, .large])
     }
 
     private func generate() async {
+        let owner = appState.currentUser?.id
         errorMessage = ""
         isGenerating = true
         defer { isGenerating = false }
         do {
             let billing = try await APIService.shared.fetchBillingStatus()
             guard billing.features?["invoiceGeneration"] == true else { throw APIError.serverError("Upgrade to Pro to generate invoices.") }
+            guard let owner, appState.currentUser?.id == owner else { throw APIError.unauthorized }
             exportItem = ShareURL(url: try LedgerPDF.invoice(user: appState.currentUser, customer: order.customerName, orders: [order]))
+            lastInvoice = exportItem; invoiceOwnerID = owner
         } catch { errorMessage = error.localizedDescription }
+    }
+    private func markSent() async {
+        guard let item = lastInvoice else { return }
+        do { try await InvoiceSendTracking.record(item: item, orderIDs: [order.id], ownerID: invoiceOwnerID); recordedDeliveryID = item.id }
+        catch { errorMessage = "The invoice send could not be recorded. Please try again." }
     }
 }

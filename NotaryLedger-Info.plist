@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>UIUserInterfaceStyle</key><string>Light</string>
+  <key>UIAppFonts</key><array>
+    <string>IBMPlexMono-Medium.ttf</string>
+    <string>IBMPlexMono-Regular.ttf</string>
+    <string>NLBody-Bold.ttf</string>
+    <string>NLBody-Medium.ttf</string>
+    <string>NLBody-Regular.ttf</string>
+    <string>NLBody-SemiBold.ttf</string>
+    <string>NLDisplay-Bold.ttf</string>
+    <string>NLDisplay-Medium.ttf</string>
+    <string>NLDisplay-Regular.ttf</string>
+    <string>NLDisplay-SemiBold.ttf</string>
+  </array>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>org.notaryledger.ios</string>
+    <key>CFBundleTypeRole</key><string>Editor</string>
+    <key>CFBundleURLSchemes</key><array><string>notaryledger</string></array>
+  </dict></array>
+</dict></plist>
