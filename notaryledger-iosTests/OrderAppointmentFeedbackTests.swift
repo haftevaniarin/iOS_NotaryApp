@@ -3,6 +3,10 @@ import Testing
 @testable import notaryledger_ios
 
 private final class OrderRuleFixtureBundle {}
+@MainActor private final class OrderFeedbackRetryFlag {
+    nonisolated deinit {}
+    var failing = true
+}
 private struct WebOrderRuleFixtures: Decodable {
     struct CalendarCase: Decodable {
         struct Skipped: Decodable { let date: String; let reason: String }
@@ -100,14 +104,14 @@ struct OrderAppointmentFeedbackTests {
         #expect(model.conflict?.order.id == "owned-by-second")
     }
     @Test func refreshFailureCanRetryWithoutLosingTheAppointment() async throws {
-        var failing = true
+        let flag = OrderFeedbackRetryFlag()
         let existing = order()
-        let model = OrderSchedulingFeedback(fetch: { if failing { throw URLError(.notConnectedToInternet) }; return [existing] })
+        let model = OrderSchedulingFeedback(fetch: { if flag.failing { throw URLError(.notConnectedToInternet) }; return [existing] })
         let input = OrderScheduleInput(date: "2026-11-12", time: "14:00")
         model.prepare(ownerID: "owner", input: input, orders: [existing])
         do { try await model.refresh(); Issue.record("Expected offline error") } catch {}
         #expect(model.refreshError != nil && model.input == input)
-        failing = false
+        flag.failing = false
         try await model.refresh()
         #expect(model.refreshError == nil && model.conflict?.order.id == existing.id)
     }

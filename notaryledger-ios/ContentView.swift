@@ -48,8 +48,11 @@ struct ContentView: View {
     }
 }
 
-enum AppSection: String, CaseIterable, Identifiable {
+enum AppSection: String, CaseIterable, Identifiable, Hashable {
     case dashboard
+    case journal
+    case money
+    case more
     case signings
     case rescission
     case invoices
@@ -68,6 +71,9 @@ enum AppSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .dashboard: "Dashboard"
+        case .journal: "Journal"
+        case .money: "Money"
+        case .more: "More"
         case .signings: "Signings"
         case .rescission: "Rescission Calculator"
         case .invoices: "Invoices"
@@ -86,6 +92,9 @@ enum AppSection: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .dashboard: "chart.bar.doc.horizontal"
+        case .journal: "book.closed"
+        case .money: "dollarsign.circle"
+        case .more: "ellipsis"
         case .signings: "doc.text"
         case .rescission: "calendar.badge.clock"
         case .invoices: "doc.richtext"
@@ -98,88 +107,6 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .terms: "doc.plaintext"
         case .privacy: "lock.shield"
         case .adminAudit: "checklist.checked"
-        }
-    }
-}
-
-struct LedgerAppShell: View {
-    @EnvironmentObject private var appState: AppState
-    @Environment(\.scenePhase) private var scenePhase
-    private var selectedSection: AppSection { appState.selectedSection }
-    @State private var isMenuOpen = false
-
-    private var primarySections: [AppSection] {
-        [.dashboard, .signings, .rescission, .invoices, .expenses, .customers, .taxSummary, .billing, .businessCard, .profile]
-    }
-
-    var body: some View {
-        ZStack(alignment: .leading) {
-            ParchmentBackground()
-
-            VStack(spacing: 0) {
-                LedgerTopBar(title: selectedSection.title) {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        isMenuOpen.toggle()
-                    }
-                }
-
-                NavigationStack {
-                    sectionView
-                        .toolbar(.hidden, for: .navigationBar)
-                }
-            }
-
-            if isMenuOpen {
-                Color.black.opacity(0.28)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            isMenuOpen = false
-                        }
-                    }
-
-                LedgerSideMenu(
-                    selectedSection: $appState.selectedSection,
-                    isMenuOpen: $isMenuOpen,
-                    primarySections: primarySections
-                )
-                .transition(.move(edge: .leading))
-            }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await appState.refreshBillingStatus() } }
-        }
-    }
-
-    @ViewBuilder
-    private var sectionView: some View {
-        switch selectedSection {
-        case .dashboard:
-            DashboardView()
-        case .signings:
-            SigningsView()
-        case .rescission:
-            RescissionCalculatorView()
-        case .invoices:
-            InvoicesView()
-        case .expenses:
-            ExpensesView()
-        case .customers:
-            CustomersView()
-        case .taxSummary:
-            TaxSummaryView()
-        case .billing:
-            BillingView()
-        case .businessCard:
-            BusinessCardView()
-        case .profile:
-            ProfileView()
-        case .terms:
-            LegalDocumentView(kind: .terms)
-        case .privacy:
-            LegalDocumentView(kind: .privacy)
-        case .adminAudit:
-            AdminAuditLogsView()
         }
     }
 }

@@ -1,10 +1,16 @@
 //
 import SwiftUI
+import UIKit
 
 @main
 struct NotaryLedgerApp: App {
     init() {
         NLFonts.registerBundledFonts()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--auth-fixtures") {
+            UIView.setAnimationsEnabled(false)
+        }
+        #endif
     }
 
     var body: some Scene {

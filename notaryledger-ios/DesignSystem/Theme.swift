@@ -126,3 +126,57 @@ struct BillingNotice: View {
             .accessibilityElement(children: .combine)
     }
 }
+
+// Dashboard semantic colors. Keep its palette independent of appearance switching.
+extension Color {
+    static let ink = Color(hex: 0x1B2A41)
+    static let parchment = Color(hex: 0xF5EFE3)
+    static let card = Color(hex: 0xFBF8F1)
+    static let cardBorder = Color(hex: 0xE2D9C5)
+    static let divider = Color(hex: 0xE8E0CE)
+    static let brass = Color(hex: 0xD9B567)
+    static let brassText = Color(hex: 0x7A5C1F)
+    static let brassTint = Color(hex: 0xF1E4C4)
+    static let muted = Color(hex: 0x5B6472)
+    static let onInkMuted = Color(hex: 0xC9CFDA)
+    static let inkOutline = Color(hex: 0x5A6985)
+    static let positive = Color(hex: 0x2F6B4F)
+}
+
+enum DashboardTheme {
+    static let horizontalPadding: CGFloat = 20
+    static let sectionGap: CGFloat = 24
+    static let cardRadius: CGFloat = 16
+    static let nextSigningRadius: CGFloat = 20
+    static let buttonRadius: CGFloat = 12
+    static func heading(_ size: CGFloat = 20, medium: Bool = false) -> Font {
+        .custom(medium ? "NLDisplay-Medium" : "NLDisplay-SemiBold", size: size, relativeTo: size >= 30 ? .largeTitle : .title2)
+    }
+    static func body(_ size: CGFloat = 14, weight: Font.Weight = .regular) -> Font {
+        let name = weight == .semibold ? "NLBody-SemiBold" : weight == .medium ? "NLBody-Medium" : "NLBody-Regular"
+        return .custom(name, size: size, relativeTo: size <= 13 ? .caption : .body)
+    }
+}
+
+struct DashboardCard<Content: View>: View {
+    let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    var body: some View {
+        content.background(Color.card, in: RoundedRectangle(cornerRadius: DashboardTheme.cardRadius))
+            .overlay(RoundedRectangle(cornerRadius: DashboardTheme.cardRadius).stroke(Color.cardBorder, lineWidth: 1))
+    }
+}
+
+struct DashboardButtonStyle: ButtonStyle {
+    var primary = true
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(DashboardTheme.body(14, weight: .semibold))
+            .foregroundStyle(primary ? Color.ink : Color.parchment)
+            .padding(.horizontal, 10).padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 46)
+            .background(primary ? Color.brass : .clear, in: RoundedRectangle(cornerRadius: DashboardTheme.buttonRadius))
+            .overlay(RoundedRectangle(cornerRadius: DashboardTheme.buttonRadius).stroke(primary ? .clear : Color.inkOutline, lineWidth: 1))
+            .opacity(!enabled ? 0.5 : configuration.isPressed ? 0.8 : 1)
+    }
+}

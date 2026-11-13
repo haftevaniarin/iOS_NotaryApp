@@ -470,7 +470,7 @@ struct SigningOrderFormView: View {
             .onAppear { populate(); prepareScheduling() }
             .task(id: appState.currentUser?.id) {
                 prepareScheduling()
-                if appState.currentUser != nil { try? await scheduling.refresh() }
+                if appState.currentUser != nil { _ = try? await scheduling.refresh() }
             }
             .onChange(of: scheduleInput) { _, input in scheduling.update(input); fieldErrors["schedule"] = nil }
             .onChange(of: appState.orders) { _, orders in scheduling.updateOrders(orders) }
