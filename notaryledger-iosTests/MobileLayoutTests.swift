@@ -9,6 +9,34 @@ final class MobileLayoutTests: XCTestCase {
     private var snapshotWindow: UIWindow?
     private var snapshotHost: UIHostingController<AnyView>?
 
+    func testDashboardDesignAtPhoneSizesAndAX3() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let host = UIHostingController(rootView: AnyView(Color.clear)); host.safeAreaRegions = []
+        let window = UIWindow(windowScene: scene); window.rootViewController = host; window.makeKeyAndVisible()
+        snapshotWindow = window; snapshotHost = host
+        let previous = SessionStorage.getAccessToken(); SessionStorage.saveAccessToken("layout-fixture-token")
+        defer {
+            window.isHidden = true; window.rootViewController = nil; snapshotWindow = nil; snapshotHost = nil
+            if let previous { SessionStorage.saveAccessToken(previous) } else { SessionStorage.clearTokens() }
+        }
+        let state = AppState()
+        for width: CGFloat in [320, 390, 430] {
+            for (name, model) in [("Loaded", PreviewData.loadedModel), ("Empty", PreviewData.emptyModel), ("Loading", PreviewData.loadingModel), ("Error", PreviewData.errorModel)] {
+                try await captureMobileScreen(AnyView(LedgerAppShell(dashboardModel: model)), title: "Dashboard \(name)", width: width, state: state, height: 844, nativeScreen: true)
+            }
+            try await captureMobileScreen(AnyView(LedgerAppShell(dashboardModel: PreviewData.loadedModel)), title: "Dashboard AX3", width: width, state: state, height: 844, dynamicTypeSize: .accessibility3, nativeScreen: true)
+        }
+        let lower = ScrollView {
+            VStack(spacing: 24) {
+                QuickActionsRow(onSelect: { _ in })
+                MonthStatsGrid(stats: PreviewData.loaded.monthStats, month: "November", previousMonth: "October")
+                AttentionList(items: PreviewData.loaded.attentionItems, onSelect: { _ in })
+                UpcomingList(signings: PreviewData.loadingUpcoming, onSelect: { _ in }, onSeeAll: {})
+            }.padding(20)
+        }.background(Color.parchment)
+        try await captureMobileScreen(AnyView(lower), title: "Dashboard Components AX3", width: 390, state: state, height: 2400, dynamicTypeSize: .accessibility3, nativeScreen: true)
+    }
+
     func testInlineAppointmentFeedbackAtPhoneSizes() async throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let host = UIHostingController(rootView: AnyView(Color.clear)); host.safeAreaRegions = []
@@ -246,10 +274,13 @@ final class MobileLayoutTests: XCTestCase {
         try await captureMobileScreen(AnyView(ProfileView()), title: "Profile Large Text", width: 375, state: state, dynamicTypeSize: .accessibility1)
     }
 
-    private func captureMobileScreen(_ screen: AnyView, title: String, width: CGFloat, state: AppState, height: CGFloat = 812, dynamicTypeSize: DynamicTypeSize = .large) async throws {
+    private func captureMobileScreen(_ screen: AnyView, title: String, width: CGFloat, state: AppState, height: CGFloat = 812, dynamicTypeSize: DynamicTypeSize = .large, nativeScreen: Bool = false) async throws {
         let root = VStack(spacing: 0) {
-            if !["Log In", "Sign Up", "Forgot Password", "Reset Password"].contains(title) { LedgerTopBar(title: title, onMenu: {}) }
-            NavigationStack { screen }
+            if nativeScreen { screen }
+            else {
+                if !["Log In", "Sign Up", "Forgot Password", "Reset Password"].contains(title) { LedgerTopBar(title: title, onMenu: {}) }
+                NavigationStack { screen }
+            }
         }
         .frame(width: width, height: height)
         .environmentObject(state)

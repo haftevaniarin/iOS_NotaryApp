@@ -42,6 +42,7 @@ struct CustomersView: View {
                 .nlScreenPadding()
             }
         }
+        .onDisappear { searchText = "" }
         .sheet(item: $exportItem) { ShareSheet(activityItems: [$0.url]) }
     }
 

@@ -273,6 +273,15 @@ final class APIService {
         _ = try await performAuthenticated(request, decodeTo: EmptyResponse.self)
     }
 
+    func fetchBusinessReport(kind: LedgerReportKind, filters: ReportFilters) async throws -> LedgerReport {
+        let query = try filters.queryItems()
+        var request = try await authenticatedRequest(path: kind.endpoint, method: "GET", queryItems: query)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (data, _) = try await authenticatedData(request)
+        try Task.checkCancellation()
+        return try LedgerReport(data: data)
+    }
+
     func fetchTaxSummary(taxYear: Int) async throws -> TaxSummary {
         let request = try await authenticatedRequest(
             path: "/api/reports/tax-summary",

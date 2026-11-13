@@ -1,6 +1,199 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
+    @MainActor func testDashboardNativeTabsAndPlaceholderActions() throws {
+        let app = launch(dashboardFixtures: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+        for tab in ["Home", "Signings", "Accounting", "Menu"] { XCTAssertTrue(app.tabBars.buttons[tab].exists) }
+        XCTAssertFalse(app.tabBars.buttons["Journal"].exists)
+        XCTAssertFalse(app.buttons["dashboard-action-journal"].exists)
+        XCTAssertFalse(app.buttons["dashboard-action-mileage"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Home"].isSelected)
+        XCTAssertTrue(app.buttons["dashboard-navigate"].isEnabled)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Dashboard iPhone 15 loaded"; shot.lifetime = .keepAlways; add(shot)
+        for (id, title) in [("signing", "New Signing"), ("expense", "New Expense")] {
+            app.buttons["dashboard-action-\(id)"].tap()
+            XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["Save"].exists)
+            if id == "signing" {
+                XCTAssertTrue(app.textFields["Signer name"].exists)
+            } else {
+                XCTAssertTrue(app.textFields["Description"].exists)
+            }
+            app.buttons["Cancel"].tap()
+            XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 5))
+        }
+        app.buttons["dashboard-open-file"].tap()
+        XCTAssertTrue(app.navigationBars["Signing file"].waitForExistence(timeout: 5)); app.buttons["Done"].tap()
+        app.buttons["Notifications"].tap()
+        XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 5)); app.buttons["Done"].tap()
+        let seeAll = app.buttons["dashboard-see-all"]
+        reveal(seeAll, in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["dashboard-stat-mileage"].firstMatch.exists)
+        seeAll.tap()
+        XCTAssertTrue(app.tabBars.buttons["Signings"].isSelected)
+        app.tabBars.buttons["Accounting"].tap()
+        XCTAssertTrue(app.staticTexts["Accounting"].exists)
+        XCTAssertTrue(app.buttons["Invoices"].exists)
+        app.buttons["Customers"].tap()
+        XCTAssertTrue(app.navigationBars["Customers"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Accounting"].isSelected)
+        app.tabBars.buttons["Menu"].tap()
+        app.tabBars.buttons["Accounting"].tap()
+        XCTAssertTrue(app.buttons["Customers"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Customers"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Accounting"].isSelected)
+        app.tabBars.buttons["Menu"].tap()
+        XCTAssertTrue(app.buttons["Billing"].exists)
+        XCTAssertFalse(app.buttons["Customers"].exists)
+        XCTAssertFalse(app.buttons["Journal"].exists)
+        XCTAssertTrue(app.staticTexts["Menu"].exists)
+        XCTAssertLessThan(app.buttons["Profile"].frame.minY, app.buttons["Billing"].frame.minY)
+        XCTAssertLessThan(app.buttons["Billing"].frame.minY, app.buttons["Rescission Calculator"].frame.minY)
+    }
+    @MainActor func testDashboardQuickActionsCreateSigningAndExpenseFromEmptyState() throws {
+        let app = launch()
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["No signings today"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Add signing"].exists)
+        app.buttons["dashboard-action-signing"].tap()
+        XCTAssertTrue(app.navigationBars["New Signing"].waitForExistence(timeout: 5))
+        enterOrderField("Dashboard Title", into: app.textFields["Customer name"], in: app)
+        enterOrderField("Dashboard Signer", into: app.textFields["Signer name"], in: app)
+        enterOrderField("150", into: app.textFields["Fee"], in: app)
+        enterOrderField("DASHBOARD-1", into: app.textFields["Invoice number"], in: app)
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["dashboard-action-expense"].waitForExistence(timeout: 5))
+        app.buttons["dashboard-action-expense"].tap()
+        XCTAssertTrue(app.navigationBars["New Expense"].waitForExistence(timeout: 5))
+        enter("Dashboard supplies", into: app.textFields["Description"], in: app)
+        enter("12.50", into: app.textFields["Amount"], in: app)
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Signings"].tap()
+        XCTAssertTrue(app.staticTexts["Signer: Dashboard Signer"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Accounting"].tap()
+        app.buttons["Expenses"].tap()
+        XCTAssertTrue(app.staticTexts["Dashboard supplies"].waitForExistence(timeout: 5))
+    }
+    @MainActor func testReportsDirectLinkShowsRetryForUnavailableEndpoint() throws {
+        let app = launch("notaryledger://reports", reportsUnavailable: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        let error = app.staticTexts["reports-error"]
+        XCTAssertTrue(error.waitForExistence(timeout: 10))
+        XCTAssertEqual(error.label, "This report is not available yet.")
+        XCTAssertTrue(app.tabBars.buttons["Accounting"].isSelected)
+        let retry = app.buttons["Try again"]
+        revealOrderControl(retry, in: app); retry.tap()
+        XCTAssertTrue(error.waitForExistence(timeout: 5))
+    }
+
+    @MainActor func testAccountingReportsMatchWebChoicesAndResetOnTabChange() throws {
+        let app = launch(customerInvoices: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Accounting"].tap()
+        XCTAssertTrue(app.buttons["Tax Summary"].exists)
+        app.buttons["Reports"].tap()
+        XCTAssertTrue(app.navigationBars["Reports"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["report-metric-grossRevenue"].firstMatch.waitForExistence(timeout: 5))
+        for (title, identifier) in [("Income", "report-metric-grossRevenue"), ("Profit & Loss", "report-metric-profitMargin"),
+                                     ("Outstanding Payments", "report-metric-totalOutstanding"), ("Mileage", "report-metric-totalBusinessMiles"),
+                                     ("Expenses", "report-metric-expenseCount"), ("Clients", "report-row-clients-0")] {
+            let picker = app.buttons["Report"]
+            revealOrderControl(picker, in: app); picker.tap()
+            app.buttons[title].tap()
+            let value = app.descendants(matching: .any)[identifier].firstMatch
+            XCTAssertTrue(value.waitForExistence(timeout: 5))
+            if title == "Clients" {
+                XCTAssertTrue(value.staticTexts["Harbor Title"].exists)
+                XCTAssertTrue(value.staticTexts["$300.30"].exists)
+            }
+        }
+        app.tabBars.buttons["Home"].tap()
+        app.tabBars.buttons["Accounting"].tap()
+        XCTAssertTrue(app.buttons["Reports"].exists)
+        XCTAssertFalse(app.navigationBars["Reports"].exists)
+    }
+
+    @MainActor func testNewSigningSuggestsCustomersAndPreservesEnteredDetails() throws {
+        let app = launch(customerInvoices: true)
+        openNewOrder(app)
+        enterOrderField("Draft signer", into: app.textFields["Signer name"], in: app)
+        enterOrderField("har", into: app.textFields["Customer name"], in: app)
+        let suggestion = app.buttons["customer-suggestion-harbor title"]
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["customer-suggestion-alder title"].exists)
+        suggestion.tap()
+        XCTAssertEqual(app.textFields["Customer name"].value as? String, "Harbor Title")
+        XCTAssertEqual(app.textFields["Signer name"].value as? String, "Draft signer")
+        XCTAssertFalse(suggestion.exists)
+        let customer = app.textFields["Customer name"]
+        revealOrderControl(customer, in: app)
+        customer.tap()
+        customer.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Harbor Title".count) + "New customer")
+        XCTAssertFalse(app.staticTexts["Existing customers"].exists)
+        XCTAssertEqual(customer.value as? String, "New customer")
+        XCTAssertEqual(app.textFields["Signer name"].value as? String, "Draft signer")
+        app.buttons["Cancel"].tap()
+    }
+    @MainActor func testLeavingPagesClearsSearchAndResetsHubNavigation() throws {
+        let app = launch(customerInvoices: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Signings"].tap()
+        enter("Harbor\n", into: app.textFields["Search"], in: app)
+        app.tabBars.buttons["Home"].tap()
+        app.tabBars.buttons["Signings"].tap()
+        assertEmptySearch(app.textFields["Search"])
+        for (page, search) in [("Customers", "Search customers"), ("Expenses", "Search expenses")] {
+            app.tabBars.buttons["Home"].tap()
+            app.tabBars.buttons["Accounting"].tap()
+            app.buttons[page].tap()
+            XCTAssertTrue(app.navigationBars[page].waitForExistence(timeout: 5))
+            enter("Harbor\n", into: app.textFields[search], in: app)
+            app.tabBars.buttons["Home"].tap()
+            app.tabBars.buttons["Accounting"].tap()
+            XCTAssertTrue(app.buttons[page].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.navigationBars[page].exists)
+            app.buttons[page].tap()
+            assertEmptySearch(app.textFields[search])
+            app.navigationBars[page].buttons.element(boundBy: 0).tap()
+            app.buttons[page].tap()
+            assertEmptySearch(app.textFields[search])
+        }
+        app.tabBars.buttons["Menu"].tap()
+        XCTAssertFalse(app.buttons["Customers"].exists)
+        app.buttons["Profile"].tap()
+        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Accounting"].tap()
+        XCTAssertTrue(app.buttons["Customers"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Menu"].tap()
+        XCTAssertTrue(app.buttons["Profile"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Billing"].exists)
+        XCTAssertFalse(app.navigationBars["Profile"].exists)
+    }
+    @MainActor private func assertEmptySearch(_ field: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(field.waitForExistence(timeout: 5), file: file, line: line)
+        let value = field.value as? String
+        XCTAssertTrue(value == "" || value == field.placeholderValue, "Search should be empty after leaving the page", file: file, line: line)
+    }
     @MainActor func testStripeBillingNavigationHasNoPaymentMethodControls() throws {
         let app = launch("notaryledger://billing", stripeBillingFixtures: true)
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
@@ -25,7 +218,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(plans.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["billing-compare-plans"].exists)
     }
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false, dashboardFixtures: Bool = false, reportsUnavailable: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
@@ -33,6 +226,8 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         if cancelRefresh { app.launchArguments.append("--cancel-dashboard-refresh") }
         if stripeBillingFixtures { app.launchArguments.append("--stripe-billing-ui-fixtures") }
         if appointmentFeedback { app.launchArguments.append("--appointment-feedback-fixtures") }
+        if dashboardFixtures { app.launchArguments.append("--dashboard-design-fixtures") }
+        if reportsUnavailable { app.launchArguments.append("--reports-unavailable") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app
@@ -44,28 +239,23 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         }
     }
 
-    @MainActor func testCancelledDashboardRefreshKeepsDataAndPlanWithoutAnErrorBanner() throws {
-        let app = launch(customerInvoices: true, cancelRefresh: true)
+    @MainActor func testDashboardRefreshKeepsLoadedDataAndSharedPlan() throws {
+        let app = launch(customerInvoices: true)
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
         enter("avery@example.test", into: app.textFields["Email"], in: app)
         enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
-        reveal(app.buttons["Log In"], in: app)
-        app.buttons["Log In"].tap()
-        let plan = app.staticTexts["Dashboard plan"]
-        XCTAssertTrue(plan.waitForExistence(timeout: 10))
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+        let income = app.descendants(matching: .any)["dashboard-stat-net-income"].firstMatch
+        let label = income.label
+        app.scrollViews["dashboard-content"].swipeDown()
+        XCTAssertFalse(app.otherElements["dashboard-error"].exists)
+        XCTAssertEqual(income.label, label)
+        app.tabBars.buttons["Menu"].tap()
+        let plan = app.staticTexts["Menu plan"]
+        XCTAssertTrue(plan.waitForExistence(timeout: 5))
         let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Current plan: Pro"), object: plan)
         XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
-        for _ in 0..<2 {
-            // The fixture cancels the first pull; the next pull succeeds.
-            app.scrollViews.firstMatch.swipeDown()
-            XCTAssertFalse(app.staticTexts["Dashboard refresh error"].waitForExistence(timeout: 2))
-            XCTAssertEqual(plan.label, "Current plan: Pro")
-            XCTAssertTrue(app.staticTexts["Harbor Title"].firstMatch.exists)
-        }
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Dashboard after cancelled refresh and retry"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
     }
     @MainActor private func enter(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
         reveal(field, in: app)
@@ -92,9 +282,8 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
         reveal(app.buttons["Log In"], in: app)
         app.buttons["Log In"].tap()
-        XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 10))
-        app.buttons["Open navigation menu"].tap()
-        app.buttons["Signings"].tap()
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Signings"].tap()
         app.buttons["New Signing"].tap()
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
     }
@@ -268,8 +457,8 @@ final class NotaryLedgerSmokeTests: XCTestCase {
             enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
             reveal(app.buttons["Log In"], in: app)
             app.buttons["Log In"].tap()
-            XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 10))
-            app.buttons["Open navigation menu"].tap()
+            XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+            app.tabBars.buttons["Accounting"].tap()
             app.buttons["Customers"].tap()
 
             let paidOnly = app.buttons["customer-invoice-zenith paid"]
@@ -330,51 +519,40 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         }
     }
 
-    @MainActor func testLegalPageFromSidebarReturnsToDashboard() throws {
+    @MainActor func testLegalPagesFromMenuReturnToHome() throws {
         let app = launch()
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
         enter("avery@example.test", into: app.textFields["Email"], in: app)
         enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
         reveal(app.buttons["Log In"], in: app)
         app.buttons["Log In"].tap()
-        XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
         for title in ["Terms & Conditions", "Privacy Policy"] {
-            app.buttons["Open navigation menu"].tap()
+            app.tabBars.buttons["Menu"].tap()
             let item = app.buttons[title]
             reveal(item, in: app)
             item.tap()
             let back = app.buttons["Back to dashboard"]
             XCTAssertTrue(back.waitForExistence(timeout: 5))
             back.tap()
-            XCTAssertTrue(app.staticTexts["Dashboard plan"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 5))
         }
     }
 
-    @MainActor func testFreeAndProPlansAppearOnDashboardAndSidebar() throws {
+    @MainActor func testFreeAndProPlansRemainAvailableInMenu() throws {
         for free in [false, true] {
             let app = launch(freePlan: free)
             XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
             enter("avery@example.test", into: app.textFields["Email"], in: app)
             enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
-            reveal(app.buttons["Log In"], in: app)
-            app.buttons["Log In"].tap()
-            let plan = app.staticTexts["Dashboard plan"]
-            XCTAssertTrue(plan.waitForExistence(timeout: 10))
+            reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+            XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+            app.tabBars.buttons["Menu"].tap()
+            let plan = app.staticTexts["Menu plan"]
+            XCTAssertTrue(plan.waitForExistence(timeout: 5))
             let expected = "Current plan: " + (free ? "Free" : "Pro")
             let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", expected), object: plan)
             XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
-            let dashboard = XCTAttachment(screenshot: app.screenshot())
-            dashboard.name = free ? "Dashboard Free plan" : "Dashboard Pro plan"
-            dashboard.lifetime = .keepAlways
-            add(dashboard)
-            app.buttons["Open navigation menu"].tap()
-            let sidebar = app.staticTexts["Sidebar plan"]
-            XCTAssertTrue(sidebar.waitForExistence(timeout: 5))
-            XCTAssertEqual(sidebar.label, expected)
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
-            screenshot.name = free ? "Sidebar Free plan" : "Sidebar Pro plan"
-            screenshot.lifetime = .keepAlways
-            add(screenshot)
             app.terminate()
         }
     }

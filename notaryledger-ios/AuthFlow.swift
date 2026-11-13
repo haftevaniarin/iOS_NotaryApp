@@ -42,7 +42,7 @@ struct AuthLink: Equatable {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
         let path = url.scheme == "notaryledger" ? "/" + (url.host ?? "") + url.path : url.path
         func query(_ name: String) -> String? { components.queryItems?.first { $0.name == name }?.value?.nilIfEmpty }
-        let destinations: [String: AppSection] = ["dashboard": .dashboard, "orders": .signings, "signings": .signings, "invoices": .invoices, "expenses": .expenses, "customers": .customers, "reports": .taxSummary, "taxSummary": .taxSummary, "tax-summary": .taxSummary, "billing": .billing, "profile": .profile, "businessCard": .businessCard, "business-card": .businessCard, "rescission": .rescission, "rescission-calculator": .rescission, "adminAudit": .adminAudit, "admin-audit-logs": .adminAudit]
+        let destinations: [String: AppSection] = ["dashboard": .dashboard, "orders": .signings, "signings": .signings, "invoices": .invoices, "expenses": .expenses, "customers": .customers, "reports": .reports, "taxSummary": .taxSummary, "tax-summary": .taxSummary, "billing": .billing, "profile": .profile, "businessCard": .businessCard, "business-card": .businessCard, "rescission": .rescission, "rescission-calculator": .rescission, "adminAudit": .adminAudit, "admin-audit-logs": .adminAudit]
         token = query("token") ?? query("resetToken") ?? query("verificationToken") ?? {
             let fragment = components.fragment ?? ""
             let fragmentQuery = fragment.contains("?") ? String(fragment.split(separator: "?", maxSplits: 1).last ?? "") : fragment

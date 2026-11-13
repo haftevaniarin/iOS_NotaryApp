@@ -89,11 +89,16 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                         responseBody = #"[{"id":"appointment-existing","customerName":"Existing Title","signerName":"Existing signer","date":"\#(day)","time":"\#(time)","fee":100,"paid":false,"invoiceNumber":"EXISTING-1"}]"#
                     } else {
                     responseBody = ProcessInfo.processInfo.arguments.contains("--customer-invoice-fixtures")
-                        ? #"[{"id":"alder-unpaid","customerName":"Alder Title","signerName":"Other customer signer","date":"2026-11-01","fee":150,"paid":false},{"id":"harbor-unpaid","customerName":"Harbor Title","signerName":"Harbor unpaid signer","date":"2026-11-02","fee":225,"paid":false},{"id":"harbor-paid","customerName":"Harbor Title","signerName":"Harbor paid signer","date":"2026-11-01","fee":99,"paid":true},{"id":"harbor-cancelled","customerName":"Harbor Title","signerName":"Harbor cancelled signer","date":"2026-11-01","fee":350,"paid":false,"status":"Cancelled"},{"id":"zenith-paid","customerName":"Zenith Paid","signerName":"Paid only signer","date":"2026-11-01","fee":75,"paid":true}]"#
+                        ? #"[{"id":"alder-unpaid","customerId":"client-alder","customerName":"Alder Title","signerName":"Other customer signer","date":"2026-11-01","fee":150,"paid":false},{"id":"harbor-unpaid","customerId":"client-harbor","customerName":"Harbor Title","signerName":"Harbor unpaid signer","date":"2026-11-02","fee":225,"paid":false},{"id":"harbor-paid","customerId":"client-harbor","customerName":"Harbor Title","signerName":"Harbor paid signer","date":"2026-11-01","fee":99,"paid":true},{"id":"harbor-cancelled","customerId":"client-harbor","customerName":"Harbor Title","signerName":"Harbor cancelled signer","date":"2026-11-01","fee":350,"paid":false,"status":"Cancelled"},{"id":"zenith-paid","customerName":"Zenith Paid","signerName":"Paid only signer","date":"2026-11-01","fee":75,"paid":true}]"#
                         : "[]"
                     }
                 }
-            case "/api/expenses": responseBody = "[]"
+            case "/api/expenses":
+                if request.httpMethod == "POST" {
+                    var saved = object
+                    saved["id"] = "new-expense-fixture"
+                    responseBody = String(decoding: try JSONSerialization.data(withJSONObject: saved), as: UTF8.self)
+                } else { responseBody = "[]" }
             case "/api/credentials": responseBody = #"{"commissionNumber":null}"#
             case "/api/stripe/subscription-account":
                 let isFree = ProcessInfo.processInfo.arguments.contains("--billing-free")
@@ -105,7 +110,14 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
             case "/api/billing/usage":
                 responseBody = #"{"usage":{"signingsLogged":14,"invoicesSent":3,"signingLimit":20,"remainingFreeOrders":6,"hasExternalSubscription":false}}"#
             case "/api/billing/invoices/sent": responseBody = "{}"
-            default: status = 404; responseBody = #"{"message":"No fixture for this request."}"#
+            default:
+                if let report = ReportsUITestFixtures.response(for: path) {
+                    if ProcessInfo.processInfo.arguments.contains("--reports-unavailable") {
+                        status = 404; responseBody = #"{"message":"Report not deployed."}"#
+                    } else { responseBody = report }
+                } else {
+                    status = 404; responseBody = #"{"message":"No fixture for this request."}"#
+                }
             }
             let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

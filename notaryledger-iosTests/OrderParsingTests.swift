@@ -81,6 +81,21 @@ struct OrderParsingTests {
         #expect(metrics.averageFeePerSigning == 150)
     }
 
+    @Test func customerSuggestionsMatchNamesAndDeduplicateHistory() {
+        let orders = [
+            SigningOrder(id: "1", customerName: "Harbor Title", signerName: "One", date: "2026-09-05", fee: 100, paid: false),
+            SigningOrder(id: "2", customerName: " harbor title ", signerName: "Two", date: "2026-09-06", fee: 100, paid: false),
+            SigningOrder(id: "3", customerName: "Café Escrow", signerName: "Three", date: "2026-09-06", fee: 100, paid: false),
+            SigningOrder(id: "4", customerName: "  ", signerName: "Four", date: "2026-09-06", fee: 100, paid: false)
+        ]
+        #expect(CustomerSummaries.suggestions(from: orders, matching: "  HARBOR  ").map(\.id) == ["harbor title"])
+        #expect(CustomerSummaries.suggestions(from: orders, matching: "cafe").map(\.displayName) == ["Café Escrow"])
+        #expect(CustomerSummaries.suggestions(from: orders, matching: "").count == 2)
+        #expect(CustomerSummaries.suggestions(from: orders, matching: "", limit: 1).count == 1)
+        #expect(CustomerSummaries.suggestions(from: orders, matching: "New company").isEmpty)
+        #expect(CustomerSummaries.suggestions(from: [], matching: "").isEmpty)
+    }
+
     @Test func customerSummariesExcludeCancelledFromUnpaidAndInvoiceCandidates() {
         let orders = [
             SigningOrder(id: "1", customerName: "Acme", signerName: "One", date: "2026-09-05", fee: 100, paid: false, status: .pending),
