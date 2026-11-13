@@ -3,7 +3,7 @@ import SwiftUI
 struct QuickActionsRow: View {
     let onSelect: (DashboardRoute) -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    private let actions: [DashboardRoute] = [.signing, .journal, .expense, .mileage]
+    private let actions: [DashboardRoute] = [.signing, .expense, .mileage]
     var body: some View {
         ViewThatFits(in: .horizontal) {
             if !dynamicTypeSize.isAccessibilitySize {

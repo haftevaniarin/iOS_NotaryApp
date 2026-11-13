@@ -73,7 +73,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .dashboard: "Dashboard"
         case .journal: "Journal"
         case .money: "Money"
-        case .more: "More"
+        case .more: "Profile"
         case .signings: "Signings"
         case .rescission: "Rescission Calculator"
         case .invoices: "Invoices"
@@ -331,7 +331,7 @@ struct MoreView: View {
                 Label("Profile", systemImage: "person.crop.circle")
             }
         }
-        .navigationTitle("More")
+        .navigationTitle("Profile")
         .scrollContentBackground(.hidden)
         .background(ParchmentBackground())
     }

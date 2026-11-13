@@ -3,7 +3,7 @@ import SwiftUI
 enum LedgerTab: String, CaseIterable, Identifiable {
     case home, signings, money, more
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    var title: String { self == .more ? "Profile" : rawValue.capitalized }
     var systemImage: String {
         switch self {
         case .home: "house"
@@ -53,7 +53,7 @@ struct LedgerAppShell: View {
                 LedgerDestinationsView(money: false)
                     .navigationDestination(for: AppSection.self) { LedgerFeatureView(section: $0) }
             }.tabItem {
-                Label { Text("More") } icon: { Image(uiImage: profileIcon.image(for: profileIdentity)).renderingMode(.original) }
+                Label { Text("Profile") } icon: { Image(uiImage: profileIcon.image(for: profileIdentity)).renderingMode(.original) }
             }.tag(LedgerTab.more)
         }.tint(Color.brassText)
             .task(id: profileIdentity) { await profileIcon.load(profileIdentity) }
@@ -93,18 +93,18 @@ private struct LedgerDestinationsView: View {
     @EnvironmentObject private var appState: AppState
     private var sections: [AppSection] {
         if money { return [.invoices, .expenses, .taxSummary] }
-        let base: [AppSection] = [.journal, .rescission, .customers, .billing, .businessCard, .profile, .terms, .privacy]
+        let base: [AppSection] = [.rescission, .customers, .billing, .businessCard, .profile, .terms, .privacy]
         return appState.currentUser?.canAccessAdminAudit == true ? base + [.adminAudit] : base
     }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                ScreenTitleBlock(title: money ? "Money" : "More", subtitle: money ? "Invoices, expenses, and reports." : "Manage your Notary Ledger account.")
+                ScreenTitleBlock(title: money ? "Money" : "Profile", subtitle: money ? "Invoices, expenses, and reports." : "Manage your Notary Ledger account.")
                 if !money {
                     HStack {
                         Text(appState.currentUser?.fullName ?? "Notary Ledger").font(NLTypography.bodyStrong)
                         Spacer()
-                        PlanBadge(billing: appState.billingStatus, unavailable: appState.billingLoadFailed).accessibilityIdentifier("More plan")
+                        PlanBadge(billing: appState.billingStatus, unavailable: appState.billingLoadFailed).accessibilityIdentifier("Profile plan")
                     }
                 }
                 NLCard {

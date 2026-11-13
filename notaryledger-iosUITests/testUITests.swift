@@ -8,12 +8,13 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
         reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
         XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
-        for tab in ["Home", "Signings", "Money", "More"] { XCTAssertTrue(app.tabBars.buttons[tab].exists) }
+        for tab in ["Home", "Signings", "Money", "Profile"] { XCTAssertTrue(app.tabBars.buttons[tab].exists) }
         XCTAssertFalse(app.tabBars.buttons["Journal"].exists)
+        XCTAssertFalse(app.buttons["dashboard-action-journal"].exists)
         XCTAssertTrue(app.tabBars.buttons["Home"].isSelected)
         XCTAssertTrue(app.buttons["dashboard-navigate"].isEnabled)
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Dashboard iPhone 15 loaded"; shot.lifetime = .keepAlways; add(shot)
-        for (id, title) in [("signing", "Add signing"), ("journal", "Journal"), ("expense", "Add expense"), ("mileage", "Mileage")] {
+        for (id, title) in [("signing", "Add signing"), ("expense", "Add expense"), ("mileage", "Mileage")] {
             app.buttons["dashboard-action-\(id)"].tap()
             XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
             app.buttons["Done"].tap()
@@ -27,10 +28,10 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Signings"].isSelected)
         app.tabBars.buttons["Money"].tap()
         XCTAssertTrue(app.buttons["Invoices"].exists)
-        app.tabBars.buttons["More"].tap()
+        app.tabBars.buttons["Profile"].tap()
         XCTAssertTrue(app.buttons["Billing"].exists)
-        app.buttons["Journal"].tap()
-        XCTAssertTrue(app.staticTexts["Journal entries will be available here."].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Journal"].exists)
+        XCTAssertTrue(app.staticTexts["Profile"].exists)
     }
     @MainActor func testStripeBillingNavigationHasNoPaymentMethodControls() throws {
         let app = launch("notaryledger://billing", stripeBillingFixtures: true)
@@ -88,8 +89,8 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         app.scrollViews["dashboard-content"].swipeDown()
         XCTAssertFalse(app.otherElements["dashboard-error"].exists)
         XCTAssertEqual(income.label, label)
-        app.tabBars.buttons["More"].tap()
-        let plan = app.staticTexts["More plan"]
+        app.tabBars.buttons["Profile"].tap()
+        let plan = app.staticTexts["Profile plan"]
         XCTAssertTrue(plan.waitForExistence(timeout: 5))
         let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Current plan: Pro"), object: plan)
         XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
@@ -295,7 +296,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
             reveal(app.buttons["Log In"], in: app)
             app.buttons["Log In"].tap()
             XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
-            app.tabBars.buttons["More"].tap()
+            app.tabBars.buttons["Profile"].tap()
             app.buttons["Customers"].tap()
 
             let paidOnly = app.buttons["customer-invoice-zenith paid"]
@@ -356,7 +357,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         }
     }
 
-    @MainActor func testLegalPagesFromMoreReturnToHome() throws {
+    @MainActor func testLegalPagesFromProfileReturnToHome() throws {
         let app = launch()
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
         enter("avery@example.test", into: app.textFields["Email"], in: app)
@@ -365,7 +366,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         app.buttons["Log In"].tap()
         XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
         for title in ["Terms & Conditions", "Privacy Policy"] {
-            app.tabBars.buttons["More"].tap()
+            app.tabBars.buttons["Profile"].tap()
             let item = app.buttons[title]
             reveal(item, in: app)
             item.tap()
@@ -376,7 +377,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         }
     }
 
-    @MainActor func testFreeAndProPlansRemainAvailableInMore() throws {
+    @MainActor func testFreeAndProPlansRemainAvailableInProfile() throws {
         for free in [false, true] {
             let app = launch(freePlan: free)
             XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
@@ -384,8 +385,8 @@ final class NotaryLedgerSmokeTests: XCTestCase {
             enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
             reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
             XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
-            app.tabBars.buttons["More"].tap()
-            let plan = app.staticTexts["More plan"]
+            app.tabBars.buttons["Profile"].tap()
+            let plan = app.staticTexts["Profile plan"]
             XCTAssertTrue(plan.waitForExistence(timeout: 5))
             let expected = "Current plan: " + (free ? "Free" : "Pro")
             let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", expected), object: plan)

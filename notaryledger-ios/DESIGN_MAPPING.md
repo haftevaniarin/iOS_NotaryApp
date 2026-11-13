@@ -9,7 +9,7 @@ This implementation treats the current mobile web brief as the source of truth f
 - Forgot Password: `ForgotPasswordView`, using the auth shell, email field, reset CTA, success/error banners.
 - Reset Password: `ResetPasswordView`, using the auth shell, password fields, reset CTA, success/error banners.
 - Email Verification: `VerificationView`, using an iOS sheet with NL seal and verification state.
-- Dashboard: `Features/Dashboard/DashboardView`, using the dated greeting, next-signing hero, four quick actions, monthly stats, attention rows, and upcoming signings. See `DASHBOARD_IMPLEMENTATION.md` for repository and preview details.
+- Dashboard: `Features/Dashboard/DashboardView`, using the dated greeting, next-signing hero, three quick actions, monthly stats, attention rows, and upcoming signings. See `DASHBOARD_IMPLEMENTATION.md` for repository and preview details.
 - Signings: `SigningsView`, using search, status filter, mobile signing cards, New Signing, Import, Edit, Delete, Mileage & Travel, and Generate Invoice PDF sheets.
 - Rescission Calculator: `RescissionCalculatorView`, using compact mobile cards for inputs and calculated deadline.
 - Invoices: `InvoicesView`, using customer selection, customer/signer details, line item cards, balance, custom invoice fields, and PDF result state.
@@ -26,7 +26,7 @@ This implementation treats the current mobile web brief as the source of truth f
 
 - Colors and typography: `NLColor`, `NLFonts`; the Dashboard semantic colors, font weights, spacing, and radii live in `DesignSystem/Theme.swift`.
 - NL seal and wordmark: `NLSeal`, `BrandLockup`.
-- Main navigation: native four-tab `LedgerAppShell` (Home, Signings, Money, More), with a profile-photo/initials icon for More.
+- Main navigation: native four-tab `LedgerAppShell` (Home, Signings, Money, Profile), with a profile-photo/initials icon for Profile.
 - Legacy top-bar/drawer components remain available for older snapshots; the Dashboard uses the real system safe area and native tab bar.
 - Cards and panels: `NLCard`, `PanelModifier`.
 - Buttons: `PrimaryButtonStyle`, `SecondaryButtonStyle`, `ActionPill`.
@@ -40,7 +40,7 @@ This implementation treats the current mobile web brief as the source of truth f
 ## Prototype Flow Coverage
 
 - Authentication: login, sign up, forgot password, reset password, email verification.
-- Navigation: native tabs select Home, Signings, Money, and More; Journal is available from More. Money and More retain the existing invoice, expense, report, account, legal, and permitted admin destinations; protected links still select the appropriate tab and destination.
+- Navigation: native tabs select Home, Signings, Money, and Profile; Journal is hidden from the Dashboard and Profile menu. Money and Profile retain the existing invoice, expense, report, account, legal, and permitted admin destinations; protected links still select the appropriate tab and destination.
 - Dashboard navigation: quick actions, notifications, and Open file use placeholder sheets pending destination work. Navigate opens Apple Maps for known addresses. See all selects the existing Signings tab; its New Signing action retains the live order form.
 - Signings: new/edit/delete/import/mileage/invoice actions are reachable from the card list.
 - Expenses: log/edit/delete/receipt extraction actions are reachable from the card list.
