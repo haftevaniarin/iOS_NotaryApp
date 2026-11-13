@@ -23,7 +23,26 @@ struct LedgerDashboardHost: View {
             if let url = DashboardMaps.url(address: signing.address) { openURL(url) }
         }, onSeeAll: { appState.selectedSection = .signings })
             .task(id: LedgerDashboardRevision(orders: appState.orders, expenses: appState.expenses)) { await model.load() }
-            .sheet(item: $destination) { route in DashboardPlaceholderView(route: route) }
+            .sheet(item: $destination) { route in
+                switch route {
+                case .signing:
+                    NavigationStack {
+                        SigningOrderFormView(order: nil) { payload in
+                            let created = try await APIService.shared.createOrder(payload)
+                            appState.upsertOrder(created)
+                        }
+                    }
+                case .expense:
+                    NavigationStack {
+                        ExpenseFormView(expense: nil) { payload in
+                            let created = try await APIService.shared.createExpense(payload)
+                            appState.upsertExpense(created)
+                        }
+                    }
+                default:
+                    DashboardPlaceholderView(route: route)
+                }
+            }
     }
 }
 

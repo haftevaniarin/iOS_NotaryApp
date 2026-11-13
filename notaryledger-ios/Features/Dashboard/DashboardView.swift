@@ -52,7 +52,7 @@ struct DashboardView: View {
     }
     private func dashboardContents(signing: Signing?, stats: MonthStats, attention: [AttentionItem], upcoming: [Signing]) -> some View {
         Group {
-            NextSigningCard(signing: signing, onNavigate: onNavigate, onOpen: { onRoute(.signingFile($0.id)) }, onAdd: { onRoute(.signing) })
+            NextSigningCard(signing: signing, onNavigate: onNavigate, onOpen: { onRoute(.signingFile($0.id)) })
             QuickActionsRow(onSelect: onRoute)
             MonthStatsGrid(stats: stats, month: model.monthLabel, previousMonth: model.previousMonthLabel)
             AttentionList(items: attention, onSelect: onRoute)

@@ -81,6 +81,7 @@ import Testing
         #expect(LedgerTab(section: .signings) == .signings)
         #expect(LedgerTab(section: .billing) == .more)
         #expect(LedgerTab(section: .expenses) == .money)
+        #expect(LedgerTab(section: .customers) == .money)
         #expect(LedgerTab(section: .terms) == .more)
     }
 }

@@ -203,6 +203,7 @@ enum SigningStatus: String, Codable, CaseIterable, Identifiable {
 struct SigningOrder: Decodable, Identifiable, Equatable {
     let id: String
     var customerName: String
+    var customerId: String? = nil
     var payerName: String?
     var signerName: String
     var signingType: String?
@@ -226,6 +227,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         case id
         case mongoId = "_id"
         case customerName
+        case customerId, clientId, customer_id, client_id
         case payerName
         case signerName
         case signingType
@@ -289,6 +291,10 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         id = try container.decodeIfPresent(String.self, forKey: .id)
             ?? container.decode(String.self, forKey: .mongoId)
         customerName = try container.decodeIfPresent(String.self, forKey: .customerName) ?? ""
+        customerId = try container.decodeIfPresent(String.self, forKey: .customerId)
+            ?? container.decodeIfPresent(String.self, forKey: .clientId)
+            ?? container.decodeIfPresent(String.self, forKey: .customer_id)
+            ?? container.decodeIfPresent(String.self, forKey: .client_id)
         payerName = try container.decodeIfPresent(String.self, forKey: .payerName)
         signerName = try container.decodeIfPresent(String.self, forKey: .signerName) ?? ""
         signingType = try container.decodeIfPresent(String.self, forKey: .signingType)
@@ -625,6 +631,14 @@ struct CustomerSummary: Identifiable, Equatable {
 }
 
 enum CustomerSummaries {
+    static func suggestions(from orders: [SigningOrder], matching query: String, limit: Int = 5) -> [CustomerSummary] {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Array(build(from: orders).filter { customer in
+            let name = customer.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !name.isEmpty && (query.isEmpty || name.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil)
+        }.prefix(max(0, limit)))
+    }
+
     static func build(from orders: [SigningOrder]) -> [CustomerSummary] {
         let groups = Dictionary(grouping: orders) { order in
             order.customerName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

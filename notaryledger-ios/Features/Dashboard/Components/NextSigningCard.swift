@@ -4,7 +4,6 @@ struct NextSigningCard: View {
     let signing: Signing?
     let onNavigate: (Signing) -> Void
     let onOpen: (Signing) -> Void
-    let onAdd: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private var detail: String {
         guard let signing else { return "" }
@@ -30,7 +29,6 @@ struct NextSigningCard: View {
             } else {
                 Text("No signings today").font(DashboardTheme.heading(26)).foregroundStyle(Color.parchment)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Add signing", action: onAdd).buttonStyle(DashboardButtonStyle())
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.ink, in: RoundedRectangle(cornerRadius: DashboardTheme.nextSigningRadius))

@@ -92,6 +92,7 @@ struct SigningsView: View {
                 await appState.refreshAll()
             }
         }
+        .onDisappear { searchText = "" }
         .sheet(isPresented: $showForm) {
             NavigationStack {
                 SigningOrderFormView(order: nil) { payload in
@@ -296,6 +297,7 @@ struct SigningOrderFormView: View {
     @State private var showDuplicateConfirmation = false
 
     @State private var customerName = ""
+    @FocusState private var customerNameFocused: Bool
     @State private var payerName = ""
     @State private var signerName = ""
     @State private var signingType = ""
@@ -363,7 +365,13 @@ struct SigningOrderFormView: View {
                             .id("orderSaveError")
                     }
                     NLFormSection("Parties") {
-                        field("customerName") { NLTextField(title: "Customer name", text: validated($customerName, field: "customerName")) }
+                        field("customerName") {
+                            NLTextField(title: "Customer name", text: validated($customerName, field: "customerName"))
+                                .focused($customerNameFocused)
+                            if order == nil && customerNameFocused {
+                                customerSuggestions
+                            }
+                        }
                         field("payerName") { NLTextField(title: "Payer name", text: validated($payerName, field: "payerName")) }
                         field("signerName") { NLTextField(title: "Signer name", text: validated($signerName, field: "signerName")) }
                         field("signingType") {
@@ -515,6 +523,34 @@ struct SigningOrderFormView: View {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 let target = (OrderFormValidation.fieldOrder + ["review"]).first { fieldErrors[$0] != nil } ?? "orderSaveError"
                 withAnimation { proxy.scrollTo(target, anchor: .top) }
+            }
+        }
+    }
+
+    @ViewBuilder private var customerSuggestions: some View {
+        let suggestions = CustomerSummaries.suggestions(from: appState.orders, matching: customerName)
+        if !suggestions.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Existing customers")
+                    .font(NLTypography.caption).foregroundStyle(NLColor.muted)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(suggestions) { customer in
+                    let name = customer.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    Button {
+                        validated($customerName, field: "customerName").wrappedValue = name
+                        customerNameFocused = false
+                    } label: {
+                        Text(name).font(NLTypography.bodyStrong).foregroundStyle(NLColor.navy)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Use customer \(name)")
+                    .accessibilityHint("Fills the customer name and keeps the other form values.")
+                    .accessibilityIdentifier("customer-suggestion-\(customer.id)")
+                    if customer.id != suggestions.last?.id { Divider() }
+                }
             }
         }
     }

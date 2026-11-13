@@ -3,7 +3,13 @@ import SwiftUI
 enum LedgerTab: String, CaseIterable, Identifiable {
     case home, signings, money, more
     var id: String { rawValue }
-    var title: String { self == .more ? "Profile" : rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .money: "Accounting"
+        case .more: "Menu"
+        default: rawValue.capitalized
+        }
+    }
     var systemImage: String {
         switch self {
         case .home: "house"
@@ -24,7 +30,7 @@ enum LedgerTab: String, CaseIterable, Identifiable {
         switch section {
         case .dashboard: self = .home
         case .signings: self = .signings
-        case .money, .invoices, .expenses, .taxSummary: self = .money
+        case .money, .invoices, .expenses, .customers, .reports, .taxSummary: self = .money
         default: self = .more
         }
     }
@@ -40,7 +46,7 @@ struct LedgerAppShell: View {
     @State private var profileIcon = ProfileTabIconStore()
     private var profileIdentity: ProfileTabIdentity { ProfileTabIdentity(user: appState.currentUser) }
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: Binding(get: { selectedTab }, set: selectTab)) {
             NavigationStack { home.toolbar(.hidden, for: .navigationBar) }
                 .tabItem { Label("Home", systemImage: LedgerTab.home.systemImage) }.tag(LedgerTab.home)
             NavigationStack { SigningsView().toolbar(.hidden, for: .navigationBar) }
@@ -48,25 +54,18 @@ struct LedgerAppShell: View {
             NavigationStack(path: $moneyPath) {
                 LedgerDestinationsView(money: true)
                     .navigationDestination(for: AppSection.self) { LedgerFeatureView(section: $0) }
-            }.tabItem { Label("Money", systemImage: LedgerTab.money.systemImage) }.tag(LedgerTab.money)
+            }.tabItem { Label(LedgerTab.money.title, systemImage: LedgerTab.money.systemImage) }.tag(LedgerTab.money)
             NavigationStack(path: $morePath) {
                 LedgerDestinationsView(money: false)
                     .navigationDestination(for: AppSection.self) { LedgerFeatureView(section: $0) }
             }.tabItem {
-                Label { Text("Profile") } icon: { Image(uiImage: profileIcon.image(for: profileIdentity)).renderingMode(.original) }
+                Label { Text("Menu") } icon: { Image(uiImage: profileIcon.image(for: profileIdentity)).renderingMode(.original) }
             }.tag(LedgerTab.more)
         }.tint(Color.brassText)
             .task(id: profileIdentity) { await profileIcon.load(profileIdentity) }
             .toolbarBackground(Color.parchment, for: .tabBar).toolbarBackground(.visible, for: .tabBar)
             .onAppear { route(to: appState.selectedSection) }
             .onChange(of: appState.selectedSection) { _, section in route(to: section) }
-            .onChange(of: selectedTab) { _, tab in
-                switch tab {
-                case .money: appState.selectedSection = moneyPath.last ?? .money
-                case .more: appState.selectedSection = morePath.last ?? .more
-                default: appState.selectedSection = tab.root
-                }
-            }
             .onChange(of: moneyPath) { _, path in if selectedTab == .money, LedgerTab(section: appState.selectedSection) == .money { appState.selectedSection = path.last ?? .money } }
             .onChange(of: morePath) { _, path in if selectedTab == .more, LedgerTab(section: appState.selectedSection) == .more { appState.selectedSection = path.last ?? .more } }
             .onChange(of: scenePhase) { _, phase in if phase == .active, dashboardModel == nil { Task { await appState.refreshBillingStatus() } } }
@@ -74,6 +73,13 @@ struct LedgerAppShell: View {
     @ViewBuilder private var home: some View {
         if let dashboardModel { DashboardView(model: dashboardModel) }
         else { LedgerDashboardHost(appState: appState).id(appState.currentUser?.id) }
+    }
+    private func selectTab(_ tab: LedgerTab) {
+        guard tab != selectedTab else { return }
+        selectedTab = tab
+        moneyPath = []
+        morePath = []
+        appState.selectedSection = tab.root
     }
     private func route(to section: AppSection) {
         let tab = LedgerTab(section: section)
@@ -92,19 +98,19 @@ private struct LedgerDestinationsView: View {
     let money: Bool
     @EnvironmentObject private var appState: AppState
     private var sections: [AppSection] {
-        if money { return [.invoices, .expenses, .taxSummary] }
-        let base: [AppSection] = [.rescission, .customers, .billing, .businessCard, .profile, .terms, .privacy]
+        if money { return [.invoices, .expenses, .customers, .reports, .taxSummary] }
+        let base: [AppSection] = [.profile, .billing, .rescission, .businessCard, .terms, .privacy]
         return appState.currentUser?.canAccessAdminAudit == true ? base + [.adminAudit] : base
     }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                ScreenTitleBlock(title: money ? "Money" : "Profile", subtitle: money ? "Invoices, expenses, and reports." : "Manage your Notary Ledger account.")
+                ScreenTitleBlock(title: money ? "Accounting" : "Menu", subtitle: money ? "Invoices, expenses, customers, and reports." : "Manage your Notary Ledger account.")
                 if !money {
                     HStack {
                         Text(appState.currentUser?.fullName ?? "Notary Ledger").font(NLTypography.bodyStrong)
                         Spacer()
-                        PlanBadge(billing: appState.billingStatus, unavailable: appState.billingLoadFailed).accessibilityIdentifier("Profile plan")
+                        PlanBadge(billing: appState.billingStatus, unavailable: appState.billingLoadFailed).accessibilityIdentifier("Menu plan")
                     }
                 }
                 NLCard {
@@ -145,6 +151,7 @@ private struct LedgerFeatureView: View {
         case .invoices: InvoicesView()
         case .expenses: ExpensesView()
         case .customers: CustomersView()
+        case .reports: ReportsView()
         case .taxSummary: TaxSummaryView()
         case .billing: BillingView()
         case .profile: ProfileView()

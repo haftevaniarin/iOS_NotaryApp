@@ -68,6 +68,7 @@ struct ExpensesView: View {
                 await appState.refreshAll()
             }
         }
+        .onDisappear { searchText = "" }
         .sheet(isPresented: $showForm) {
             NavigationStack {
                 ExpenseFormView(expense: nil) { payload in

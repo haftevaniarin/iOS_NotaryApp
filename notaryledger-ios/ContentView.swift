@@ -58,6 +58,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
     case invoices
     case expenses
     case customers
+    case reports
     case taxSummary
     case billing
     case profile
@@ -72,13 +73,14 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: "Dashboard"
         case .journal: "Journal"
-        case .money: "Money"
-        case .more: "Profile"
+        case .money: "Accounting"
+        case .more: "Menu"
         case .signings: "Signings"
         case .rescission: "Rescission Calculator"
         case .invoices: "Invoices"
         case .expenses: "Expenses"
         case .customers: "Customers"
+        case .reports: "Reports"
         case .taxSummary: "Tax Summary"
         case .billing: "Billing"
         case .businessCard: "Digital Business Card"
@@ -100,6 +102,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .invoices: "doc.richtext"
         case .expenses: "creditcard"
         case .customers: "person.2"
+        case .reports: "chart.bar.doc.horizontal"
         case .taxSummary: "sum"
         case .billing: "creditcard.and.123"
         case .businessCard: "person.text.rectangle"
@@ -331,7 +334,7 @@ struct MoreView: View {
                 Label("Profile", systemImage: "person.crop.circle")
             }
         }
-        .navigationTitle("Profile")
+        .navigationTitle("Menu")
         .scrollContentBackground(.hidden)
         .background(ParchmentBackground())
     }
