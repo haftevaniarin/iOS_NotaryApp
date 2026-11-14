@@ -48,6 +48,10 @@ xcodebuild -project notaryledger-ios.xcodeproj -scheme notaryledger-ios -destina
 
 Use a simulator name installed on your machine if `iPhone 17` is unavailable.
 
+If you open the parent `../test.xcodeproj`, select its **NotaryLedger** scheme.
+That project has its own app target, whose product and Home Screen display name
+are both `NotaryLedger`.
+
 ## Test
 
 ```bash
