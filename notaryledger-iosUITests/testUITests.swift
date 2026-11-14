@@ -1,7 +1,7 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
-    @MainActor func testDashboardNativeTabsAndPlaceholderActions() throws {
+    @MainActor func testDashboardNativeTabsAndActions() throws {
         let app = launch(dashboardFixtures: true)
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
         enter("avery@example.test", into: app.textFields["Email"], in: app)
@@ -28,9 +28,17 @@ final class NotaryLedgerSmokeTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 5))
         }
         app.buttons["dashboard-open-file"].tap()
-        XCTAssertTrue(app.navigationBars["Signing file"].waitForExistence(timeout: 5)); app.buttons["Done"].tap()
+        XCTAssertTrue(app.navigationBars["Signing Detail"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Nora James"].exists)
+        XCTAssertTrue(app.staticTexts["PREVIEW-preview-next"].exists)
+        XCTAssertTrue(app.buttons["Edit signing"].exists)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["dashboard-open-file"].waitForExistence(timeout: 5))
         app.buttons["Notifications"].tap()
-        XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 5)); app.buttons["Done"].tap()
+        XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No credential alerts"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertEqual(app.buttons["dashboard-notifications"].value as? String, "0 credential alerts")
         let seeAll = app.buttons["dashboard-see-all"]
         reveal(seeAll, in: app)
         XCTAssertTrue(app.descendants(matching: .any)["dashboard-stat-mileage"].firstMatch.exists)
@@ -55,6 +63,45 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertLessThan(app.buttons["Profile"].frame.minY, app.buttons["Billing"].frame.minY)
         XCTAssertLessThan(app.buttons["Billing"].frame.minY, app.buttons["Rescission Calculator"].frame.minY)
     }
+    @MainActor func testCredentialAlertsShowBadgeAndRenewalUpdatesTheCount() throws {
+        let app = launch(credentialNotifications: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        let bell = app.buttons["dashboard-notifications"]
+        XCTAssertTrue(bell.waitForExistence(timeout: 10))
+        let count = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "2 credential alerts"), object: bell)
+        XCTAssertEqual(XCTWaiter.wait(for: [count], timeout: 5), .completed)
+        bell.tap()
+        XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Notary Commission"].exists)
+        XCTAssertTrue(app.staticTexts["Expired"].exists)
+        XCTAssertTrue(app.staticTexts["E&O Insurance"].exists)
+        XCTAssertTrue(app.staticTexts["Expires today"].exists)
+        XCTAssertFalse(app.staticTexts["Background Check"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Credential expiry notifications"; shot.lifetime = .keepAlways; add(shot)
+        app.buttons["Done"].tap()
+        XCTAssertEqual(bell.value as? String, "2 credential alerts")
+        bell.tap()
+        app.buttons["credential-notification-commission"].tap()
+        XCTAssertTrue(app.navigationBars["Credentials"].waitForExistence(timeout: 5))
+        revealOrderControl(app.buttons["Edit credentials"], in: app)
+        app.buttons["Edit credentials"].tap()
+        let expiration = app.textFields["Notary Commission expiration date"]
+        revealOrderControl(expiration, in: app)
+        expiration.tap()
+        expiration.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 10) + "2099-12-31")
+        let save = app.buttons["Save Credentials"]
+        revealOrderControl(save, in: app); save.tap()
+        XCTAssertTrue(app.staticTexts["Your credentials have been saved."].waitForExistence(timeout: 5))
+        app.navigationBars.buttons["Notifications"].tap()
+        XCTAssertFalse(app.buttons["credential-notification-commission"].exists)
+        app.buttons["Done"].tap()
+        XCTAssertEqual(bell.value as? String, "1 credential alert")
+    }
+
     @MainActor func testDashboardQuickActionsCreateSigningAndExpenseFromEmptyState() throws {
         let app = launch()
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
@@ -218,7 +265,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(plans.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["billing-compare-plans"].exists)
     }
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false, dashboardFixtures: Bool = false, reportsUnavailable: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false, dashboardFixtures: Bool = false, reportsUnavailable: Bool = false, credentialNotifications: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
@@ -228,6 +275,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         if appointmentFeedback { app.launchArguments.append("--appointment-feedback-fixtures") }
         if dashboardFixtures { app.launchArguments.append("--dashboard-design-fixtures") }
         if reportsUnavailable { app.launchArguments.append("--reports-unavailable") }
+        if credentialNotifications { app.launchArguments.append("--credential-notification-fixtures") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app

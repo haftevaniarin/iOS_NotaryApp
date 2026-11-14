@@ -137,6 +137,7 @@ final class CredentialsEditorModel: ObservableObject {
     @Published private(set) var success = ""
     private let fetch: () async throws -> Credentials
     private let persist: (Credentials) async throws -> Credentials
+    private var accountRevision = UUID()
 
     // No actor-bound cleanup is needed. Avoid isolated-deinit runtime crashes on
     // iOS 26.1 when SwiftUI releases the editor outside a Swift task.
@@ -164,13 +165,30 @@ final class CredentialsEditorModel: ObservableObject {
         error = ""; success = ""
     }
     func load() async {
-        guard saved == nil, !isBusy else { return }
+        guard saved == nil else { return }
+        await reload()
+    }
+    func reload() async {
+        guard !isBusy, !hasChanges, !Task.isCancelled else { return }
+        let revision = accountRevision
         isLoading = true; error = ""
-        defer { isLoading = false }
+        defer { if accountRevision == revision { isLoading = false } }
         do {
             let result = try await fetch().normalizedForEditing
+            try Task.checkCancellation()
+            guard accountRevision == revision else { return }
             saved = result; draft = result
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            guard accountRevision == revision, !RequestCancellation.isCancellation(error) else { return }
+            self.error = error.localizedDescription
+        }
+    }
+    func reset() {
+        accountRevision = UUID()
+        saved = nil; draft = Credentials()
+        isLoading = false; isSaving = false
+        isExpanded = false; isAdditionalExpanded = false
+        error = ""; success = ""
     }
     func save() async {
         guard canSave else { return }
@@ -196,11 +214,16 @@ final class CredentialsEditorModel: ObservableObject {
         do { _ = try submitted.requestBody() }
         catch { self.error = error.localizedDescription; return }
         isSaving = true
-        defer { isSaving = false }
+        let revision = accountRevision
+        defer { if accountRevision == revision { isSaving = false } }
         do {
             let result = try await persist(submitted).normalizedForEditing
+            guard accountRevision == revision else { return }
             saved = result; draft = result
             success = "Your credentials have been saved."
-        } catch { self.error = error.localizedDescription }
+        } catch {
+            guard accountRevision == revision else { return }
+            self.error = error.localizedDescription
+        }
     }
 }

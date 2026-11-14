@@ -6,6 +6,7 @@ import Foundation
 final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
     private nonisolated static let refreshLock = NSLock()
     private nonisolated(unsafe) static var orderReadCount = 0
+    private nonisolated(unsafe) static var credentialFixtureJSON: String?
 
     private nonisolated static func shouldCancelDashboardRefresh() -> Bool {
         refreshLock.withLock {
@@ -81,7 +82,15 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                     if ProcessInfo.processInfo.arguments.contains("--cancel-dashboard-refresh"), Self.shouldCancelDashboardRefresh() {
                         throw URLError(.cancelled)
                     }
-                    if ProcessInfo.processInfo.arguments.contains("--appointment-feedback-fixtures") {
+                    if ProcessInfo.processInfo.arguments.contains("--dashboard-design-fixtures") {
+                        let orders: [[String: Any]] = PreviewData.loaded.signings.map { signing in
+                            ["id": signing.id, "customerName": "Preview Title", "signerName": signing.signerName,
+                             "signingType": signing.loanType, "date": signing.startsAt.ISO8601Format(),
+                             "fee": NSDecimalNumber(decimal: signing.fee).doubleValue, "paid": false,
+                             "invoiceNumber": "PREVIEW-\(signing.id)"]
+                        }
+                        responseBody = String(decoding: try JSONSerialization.data(withJSONObject: orders), as: UTF8.self)
+                    } else if ProcessInfo.processInfo.arguments.contains("--appointment-feedback-fixtures") {
                         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.calendar = Calendar(identifier: .gregorian)
                         formatter.dateFormat = "yyyy-MM-dd"
                         let day = formatter.string(from: Date()); formatter.dateFormat = "HH:mm"
@@ -99,7 +108,18 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                     saved["id"] = "new-expense-fixture"
                     responseBody = String(decoding: try JSONSerialization.data(withJSONObject: saved), as: UTF8.self)
                 } else { responseBody = "[]" }
-            case "/api/credentials": responseBody = #"{"commissionNumber":null}"#
+            case "/api/credentials":
+                if ProcessInfo.processInfo.arguments.contains("--credential-notification-fixtures") {
+                    if request.httpMethod == "PUT" {
+                        let saved = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+                        Self.refreshLock.withLock { Self.credentialFixtureJSON = saved }
+                        responseBody = saved
+                    } else {
+                        let today = DateParser.apiDateString(from: Date())
+                        responseBody = Self.refreshLock.withLock { Self.credentialFixtureJSON }
+                            ?? #"{"commissionNumber":"CA123","commissionExpirationDate":"2000-01-01","eoProvider":"Example Insurance","eoExpirationDate":"\#(today)","backgroundCheckProvider":"Example Checks","backgroundCheckExpirationDate":"2099-12-31"}"#
+                    }
+                } else { responseBody = #"{"commissionNumber":null}"# }
             case "/api/stripe/subscription-account":
                 let isFree = ProcessInfo.processInfo.arguments.contains("--billing-free")
                 responseBody = #"{"account":{"billing":{"plan":"\#(isFree ? "FREE" : "PRO")","active":\#(!isFree),"isPro":\#(!isFree)},"provider":"none","plans":[{"id":"free","name":"Notary Ledger Free","price":null,"features":["20 lifetime signing orders"]}],"currentPlanID":"\#(isFree ? "free" : "monthly")","hasSubscription":false,"pendingUpdate":false,"capabilities":{"manage":false,"paymentMethod":false,"billingDetails":false,"cancel":false,"resume":false,"history":false},"history":{"items":[],"nextCursor":null}}}"#

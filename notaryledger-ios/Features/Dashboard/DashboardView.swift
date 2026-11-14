@@ -5,9 +5,12 @@ struct DashboardView: View {
     let onRoute: (DashboardRoute) -> Void
     let onNavigate: (Signing) -> Void
     let onSeeAll: () -> Void
+    let notificationCount: Int
+    let onRefresh: () async -> Void
 
-    init(model: DashboardViewModel, onRoute: @escaping (DashboardRoute) -> Void = { _ in }, onNavigate: @escaping (Signing) -> Void = { _ in }, onSeeAll: @escaping () -> Void = {}) {
+    init(model: DashboardViewModel, onRoute: @escaping (DashboardRoute) -> Void = { _ in }, onNavigate: @escaping (Signing) -> Void = { _ in }, onSeeAll: @escaping () -> Void = {}, notificationCount: Int = 0, onRefresh: @escaping () async -> Void = {}) {
         _model = State(initialValue: model); self.onRoute = onRoute; self.onNavigate = onNavigate; self.onSeeAll = onSeeAll
+        self.notificationCount = notificationCount; self.onRefresh = onRefresh
     }
     init(repository: (any DashboardRepository)? = nil, onRoute: @escaping (DashboardRoute) -> Void = { _ in }, onNavigate: @escaping (Signing) -> Void = { _ in }, onSeeAll: @escaping () -> Void = {}) {
         self.init(model: DashboardViewModel(repository: repository ?? InMemoryDashboardRepository(snapshot: .empty)), onRoute: onRoute, onNavigate: onNavigate, onSeeAll: onSeeAll)
@@ -29,7 +32,7 @@ struct DashboardView: View {
                 .frame(maxWidth: 600).frame(maxWidth: .infinity, alignment: .top)
         }.background(Color.parchment.ignoresSafeArea()).foregroundStyle(Color.ink)
             .accessibilityIdentifier("dashboard-content")
-            .refreshable { await model.load() }
+            .refreshable { await model.load(); await onRefresh() }
             .task { if model.loadsOnAppear { await model.load() } }
     }
     private var header: some View {
@@ -47,7 +50,19 @@ struct DashboardView: View {
                 Image(systemName: "bell").font(.system(size: 18)).foregroundStyle(Color.ink)
                     .frame(width: 44, height: 44).background(Color.card, in: Circle())
                     .overlay(Circle().stroke(Color.cardBorder, lineWidth: 1))
+                    .overlay(alignment: .topTrailing) {
+                        if notificationCount > 0 {
+                            Text(notificationCount.formatted())
+                                .font(.caption2.bold()).foregroundStyle(.white)
+                                .padding(.horizontal, 5).frame(minWidth: 20, minHeight: 20)
+                                .background(NLColor.danger, in: Capsule())
+                                .accessibilityIdentifier("dashboard-notification-badge")
+                                .accessibilityHidden(true)
+                        }
+                    }
             }.buttonStyle(.plain).accessibilityLabel("Notifications")
+                .accessibilityValue(notificationCount == 1 ? "1 credential alert" : "\(notificationCount) credential alerts")
+                .accessibilityIdentifier("dashboard-notifications")
         }
     }
     private func dashboardContents(signing: Signing?, stats: MonthStats, attention: [AttentionItem], upcoming: [Signing]) -> some View {

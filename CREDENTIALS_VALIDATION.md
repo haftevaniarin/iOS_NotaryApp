@@ -29,3 +29,15 @@ The final test bundle is
 `../.derived-data-module-fixed/Logs/Test/Test-notaryledger-ios-2026.11.03_15-01-11--0800.xcresult`.
 
 Network checks used fixtures; no live account credentials were changed.
+
+On November 14, 2026, credential alerts were connected to the Dashboard bell.
+The badge counts expired credentials and credentials expiring within one calendar
+month, including today. Notifications open the shared Profile credentials editor;
+saved renewals or removals resolve alerts immediately. Reading alerts leaves the
+count unchanged, and a zero count hides the badge. Account changes clear cached
+credentials and prevent late responses from restoring another account's alerts.
+
+Validation passed on the iPhone 17 Pro simulator running iOS 26.1: 20 focused
+unit tests and two Dashboard UI tests, including expired/today alerts, renewal
+reducing the badge count, and the empty notification state. Results are saved in
+`../validation-artifacts/credential-notifications.xcresult`.
