@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" fill="none" viewBox="0 0 120 120" role="img" aria-labelledby="title desc">
+  <title id="title">Notary Ledger icon</title>
+  <desc id="desc">A navy wax-seal medallion with the letters NL.</desc>
+  <rect width="120" height="120" rx="24" fill="#FAF6EC"/>
+  <circle cx="60" cy="60" r="43" stroke="#B8895B" stroke-width="3.6" stroke-dasharray="6 6"/>
+  <circle cx="60" cy="60" r="31" fill="#1B2A4A"/>
+  <text x="60" y="72" fill="#FAF6EC" font-family="Georgia, serif" font-size="34" font-weight="700" text-anchor="middle">NL</text>
+</svg>

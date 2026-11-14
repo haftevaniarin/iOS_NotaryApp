@@ -2,6 +2,10 @@
 
 Native SwiftUI client for the Notary Ledger backend and web app.
 
+The iOS app icon uses the web app's navy-and-brass NL seal. Its original SVG is
+preserved in `scripts/assets/notary-ledger-icon.svg`; regenerate the opaque
+1024×1024 app icon on macOS with `swift scripts/generate-app-icon.swift`.
+
 App pages and sheets use a fixed light appearance. The Billing comparison page uses its explicit navy theme.
 
 See [Billing & Subscription](BILLING_SUBSCRIPTION.md) for the Stripe-only billing flow, usage API, invoice-send tracking, local test configuration, and release requirements.
