@@ -74,7 +74,7 @@ struct ProfileView: View {
                                 .buttonStyle(PrimaryButtonStyle()).disabled(isSavingProfile)
                         }
                     }
-                    CredentialsEditor()
+                    CredentialsEditor(model: appState.credentials)
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
                             Text("Password").font(NLTypography.cardTitle).foregroundColor(NLColor.navy)

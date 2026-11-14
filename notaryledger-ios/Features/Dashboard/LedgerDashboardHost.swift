@@ -1,13 +1,16 @@
 import SwiftUI
 
-// This adapter reads the ledger already in memory. It adds no dashboard API calls.
+// Ledger totals use AppState; credential alerts share the Profile editor's saved data.
 struct LedgerDashboardHost: View {
     @ObservedObject var appState: AppState
+    @ObservedObject private var credentials: CredentialsEditorModel
     @State private var model: DashboardViewModel
     @State private var destination: DashboardRoute?
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     init(appState: AppState) {
         self.appState = appState
+        self.credentials = appState.credentials
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--dashboard-design-fixtures") {
             _model = State(initialValue: PreviewData.loadedModel)
@@ -19,12 +22,28 @@ struct LedgerDashboardHost: View {
         _model = State(initialValue: model)
     }
     var body: some View {
-        DashboardView(model: model, onRoute: { destination = $0 }, onNavigate: { signing in
-            if let url = DashboardMaps.url(address: signing.address) { openURL(url) }
-        }, onSeeAll: { appState.selectedSection = .signings })
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            DashboardView(model: model, onRoute: { destination = $0 }, onNavigate: { signing in
+                if let url = DashboardMaps.url(address: signing.address) { openURL(url) }
+            }, onSeeAll: { appState.selectedSection = .signings },
+                          notificationCount: CredentialNotification.make(credentials: credentials.saved, today: context.date).count,
+                          onRefresh: { await credentials.reload() })
+        }
             .task(id: LedgerDashboardRevision(orders: appState.orders, expenses: appState.expenses)) { await model.load() }
+            .task(id: appState.currentUser?.id) { await credentials.reload() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await credentials.reload() } }
+            }
             .sheet(item: $destination) { route in
                 switch route {
+                case .notifications:
+                    CredentialNotificationsView(credentials: credentials)
+                case .credentials:
+                    NavigationStack {
+                        ScrollView { CredentialsEditor(model: credentials).nlScreenPadding() }
+                            .background(ParchmentBackground()).navigationTitle("Credentials")
+                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { destination = nil } } }
+                    }
                 case .signing:
                     NavigationStack {
                         SigningOrderFormView(order: nil) { payload in
@@ -37,6 +56,22 @@ struct LedgerDashboardHost: View {
                         ExpenseFormView(expense: nil) { payload in
                             let created = try await APIService.shared.createExpense(payload)
                             appState.upsertExpense(created)
+                        }
+                    }
+                case .signingFile(let id):
+                    NavigationStack {
+                        Group {
+                            if let order = appState.orders.first(where: { $0.id == id }) {
+                                SigningOrderDetailView(order: order)
+                            } else {
+                                ContentUnavailableView("Signing unavailable", systemImage: "doc.text",
+                                                       description: Text("This signing order is no longer available."))
+                            }
+                        }
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { destination = nil }
+                            }
                         }
                     }
                 default:

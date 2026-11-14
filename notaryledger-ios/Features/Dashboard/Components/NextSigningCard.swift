@@ -46,5 +46,6 @@ struct NextSigningCard: View {
             HStack(spacing: 8) { Image(systemName: "doc.text").accessibilityHidden(true); Text("Open file") }
         }
             .buttonStyle(DashboardButtonStyle(primary: false)).accessibilityIdentifier("dashboard-open-file")
+            .accessibilityHint("Opens details for this signing order.")
     }
 }

@@ -11,9 +11,10 @@ final class AppState: ObservableObject {
 
     @Published var route: Route = SessionStorage.getAccessToken() == nil ? .auth : .app
     @Published var currentUser: AuthUser? = SessionStorage.getCurrentUser() {
-        didSet { if oldValue?.id != currentUser?.id { clearBillingStatus(); subscriptions.bind(accountID: currentUser?.id) } }
+        didSet { if oldValue?.id != currentUser?.id { clearBillingStatus(); credentials.reset(); subscriptions.bind(accountID: currentUser?.id) } }
     }
     let subscriptions: SubscriptionStore
+    let credentials: CredentialsEditorModel
     @Published var orders: [SigningOrder] = []
     @Published var expenses: [Expense] = []
     @Published var isLoading = false
@@ -43,7 +44,10 @@ final class AppState: ObservableObject {
         #else
         subscriptions = SubscriptionStore()
         #endif
-        self.api = api ?? APIService.shared
+        let service = api ?? APIService.shared
+        self.api = service
+        credentials = CredentialsEditorModel(fetch: { try await service.fetchCredentials() },
+                                            persist: { try await service.updateCredentials($0) })
         self.auth = AuthFlowModel(api: self.api)
         self.api.onAuthenticationRequired = { [weak self] in self?.requireAuthentication() }
         subscriptions.bind(accountID: currentUser?.id)
