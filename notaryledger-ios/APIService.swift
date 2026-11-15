@@ -164,9 +164,21 @@ final class APIService {
         let request = try makeRequest(path: "/api/auth/login", method: "POST", body: encodedBody(payload))
         let response: AuthResponse
         do { response = try await perform(request, decodeTo: AuthResponse.self) }
-        catch is DecodingError { throw APIError.serverError("Login response was missing session data.") }
+        catch let error as APIError {
+            if error == .invalidResponse { throw LoginFailure.invalidResponse }
+            throw error
+        }
+        catch {
+            if RequestCancellation.isCancellation(error) { throw error }
+            // Transport errors are classified in perform; remaining errors here
+            // come from JSON/envelope decoding (including invalid JSON).
+            if let failure = error as? LoginFailure { throw failure }
+            LoginDiagnostics.record(host: request.url?.host, event: "decoding_failure")
+            throw LoginFailure.decoding
+        }
         guard !response.token.isEmpty, response.user != nil, response.refreshToken?.isEmpty == false else {
-            throw APIError.serverError("Login response was missing session data.")
+            LoginDiagnostics.record(host: request.url?.host, event: "missing_session_data")
+            throw LoginFailure.decoding
         }
         SessionStorage.saveSession(response)
         return response
@@ -625,10 +637,12 @@ final class APIService {
     ) async throws -> T {
         try Task.checkCancellation()
         let startedAt = Date()
+        let isLogin = request.url?.path == "/api/auth/login"
+        if isLogin { LoginDiagnostics.record(host: request.url?.host, event: "started") }
 #if DEBUG
         let method = request.httpMethod ?? "REQUEST"
         let requestURL = request.url?.absoluteString ?? "<invalid URL>"
-        print("[API] -> \(method) \(requestURL)")
+        if !isLogin { print("[API] -> \(method) \(requestURL)") }
 #endif
 
         let data: Data
@@ -639,9 +653,15 @@ final class APIService {
             if Task.isCancelled || RequestCancellation.isCancellation(error) {
 #if DEBUG
                 let elapsed = Date().timeIntervalSince(startedAt)
-                print("[API] -- \(method) \(requestURL) cancelled after \(String(format: "%.2f", elapsed))s")
+                if !isLogin { print("[API] -- \(method) \(requestURL) cancelled after \(String(format: "%.2f", elapsed))s") }
 #endif
+                if isLogin { LoginDiagnostics.record(host: request.url?.host, event: "cancelled", urlError: URLError.cancelled.rawValue) }
                 throw CancellationError()
+            }
+            if isLogin {
+                let code = LoginDiagnostics.urlErrorCode(error)
+                LoginDiagnostics.record(host: request.url?.host, event: "transport_failure", urlError: code)
+                throw LoginFailure.transport(code)
             }
 #if DEBUG
             let elapsed = Date().timeIntervalSince(startedAt)
@@ -652,16 +672,18 @@ final class APIService {
         try Task.checkCancellation()
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            if isLogin { LoginDiagnostics.record(host: request.url?.host, event: "non_http_response") }
 #if DEBUG
-            print("[API] <- non-HTTP response for \(method) \(requestURL)")
+            if !isLogin { print("[API] <- non-HTTP response for \(method) \(requestURL)") }
 #endif
             throw APIError.invalidResponse
         }
+        if isLogin { LoginDiagnostics.record(host: request.url?.host, event: "http_response", status: httpResponse.statusCode) }
 #if DEBUG
         let elapsed = Date().timeIntervalSince(startedAt)
-        print("[API] <- \(httpResponse.statusCode) \(method) \(requestURL) in \(String(format: "%.2f", elapsed))s")
+        if !isLogin { print("[API] <- \(httpResponse.statusCode) \(method) \(requestURL) in \(String(format: "%.2f", elapsed))s") }
         // Order validation responses can echo imported names, addresses, and contact details.
-        if !(200...299).contains(httpResponse.statusCode), request.url?.path.hasPrefix("/api/orders") != true {
+        if !isLogin, !(200...299).contains(httpResponse.statusCode), request.url?.path.hasPrefix("/api/orders") != true {
             print("[API] Error response:\n\(Self.sanitizedDebugResponseBody(from: data))")
         }
 #endif

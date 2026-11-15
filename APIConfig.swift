@@ -1,5 +1,10 @@
 import Foundation
 
+// The staging application must never archive with a different environment.
+#if STAGING_APP && (!STAGING || PRODUCTION)
+#error("The staging app requires STAGING and must not define PRODUCTION.")
+#endif
+
 enum APIConfig {
     enum Environment: String {
         case local
