@@ -6,11 +6,12 @@ struct DashboardView: View {
     let onNavigate: (Signing) -> Void
     let onSeeAll: () -> Void
     let notificationCount: Int
+    let billingStatus: BillingStatusPayload?
     let onRefresh: () async -> Void
 
-    init(model: DashboardViewModel, onRoute: @escaping (DashboardRoute) -> Void = { _ in }, onNavigate: @escaping (Signing) -> Void = { _ in }, onSeeAll: @escaping () -> Void = {}, notificationCount: Int = 0, onRefresh: @escaping () async -> Void = {}) {
+    init(model: DashboardViewModel, onRoute: @escaping (DashboardRoute) -> Void = { _ in }, onNavigate: @escaping (Signing) -> Void = { _ in }, onSeeAll: @escaping () -> Void = {}, notificationCount: Int = 0, billingStatus: BillingStatusPayload? = nil, onRefresh: @escaping () async -> Void = {}) {
         _model = State(initialValue: model); self.onRoute = onRoute; self.onNavigate = onNavigate; self.onSeeAll = onSeeAll
-        self.notificationCount = notificationCount; self.onRefresh = onRefresh
+        self.notificationCount = notificationCount; self.billingStatus = billingStatus; self.onRefresh = onRefresh
     }
     init(repository: (any DashboardRepository)? = nil, onRoute: @escaping (DashboardRoute) -> Void = { _ in }, onNavigate: @escaping (Signing) -> Void = { _ in }, onSeeAll: @escaping () -> Void = {}) {
         self.init(model: DashboardViewModel(repository: repository ?? InMemoryDashboardRepository(snapshot: .empty)), onRoute: onRoute, onNavigate: onNavigate, onSeeAll: onSeeAll)
@@ -41,6 +42,21 @@ struct DashboardView: View {
                 Text(model.dateLabel).font(DashboardTheme.body(12, weight: .semibold)).tracking(0.96).foregroundStyle(Color.brassText)
                 Text(model.greeting).font(DashboardTheme.heading(32)).accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("dashboard-greeting")
+                if let billingStatus, !billingStatus.hasProAccess {
+                    HStack(spacing: 8) {
+                        Text("FREE").font(DashboardTheme.body(10, weight: .semibold)).tracking(0.8)
+                            .foregroundStyle(Color.brassText)
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(Color.brassText.opacity(0.1), in: Capsule())
+                            .accessibilityLabel("Free plan").accessibilityIdentifier("dashboard-plan-badge")
+                        if let remaining = billingStatus.remainingFreeOrders {
+                            let count = max(0, remaining)
+                            Text(count == 1 ? "1 order left" : "\(count.formatted()) orders left")
+                                .font(DashboardTheme.body(12)).foregroundStyle(Color.muted)
+                                .accessibilityIdentifier("dashboard-orders-remaining")
+                        }
+                    }.fixedSize(horizontal: false, vertical: true)
+                }
                 if model.isLoading {
                     Text("Loading dashboard…").font(DashboardTheme.body(14)).foregroundStyle(Color.muted)
                         .accessibilityIdentifier("dashboard-loading")
