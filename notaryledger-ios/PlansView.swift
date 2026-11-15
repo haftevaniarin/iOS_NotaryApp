@@ -25,6 +25,10 @@ struct PlansView: View {
             }.padding(.horizontal, 22).padding(.top, 8).padding(.bottom, 22).frame(maxWidth: 600).frame(maxWidth: .infinity)
         }.foregroundStyle(Theme.inkNavy).background(Theme.parchment.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            .onAppear { model.selectCurrentInterval() }
+            .onChange(of: model.store.currentSubscription?.interval) { _, _ in
+                model.selectCurrentInterval()
+            }
     }
     private var freeCard: some View {
         BillingPanel {

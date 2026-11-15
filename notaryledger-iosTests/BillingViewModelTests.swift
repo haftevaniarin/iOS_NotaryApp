@@ -31,6 +31,31 @@ private final class BillingServiceProbe: BillingService {
 
 @MainActor
 struct BillingViewModelTests {
+    @Test func plansOpenOnCurrentIntervalIncludingScheduledCancellation() {
+        for interval in BillingInterval.allCases {
+            for cancellationScheduled in [false, true] {
+                let model = BillingViewModel(store: .preview(interval: interval, cancellationScheduled: cancellationScheduled))
+                #expect(model.selectedInterval == interval)
+                model.selectedInterval = interval == .monthly ? .annual : .monthly
+                model.selectCurrentInterval()
+                #expect(model.selectedInterval == interval)
+            }
+        }
+    }
+
+    @Test func plansSelectIntervalWhenSubscriptionArrivesAfterInitialization() async throws {
+        let service = BillingServiceProbe(try #require(SubscriptionStore.preview(interval: .monthly).account))
+        let model = BillingViewModel(store: SubscriptionStore(accountID: "owner", service: service, country: { "USA" }))
+        await model.refresh()
+        model.selectCurrentInterval()
+        #expect(model.selectedInterval == .monthly)
+
+        service.account = try #require(SubscriptionStore.preview(interval: .annual).account)
+        await model.refresh()
+        model.selectCurrentInterval()
+        #expect(model.selectedInterval == .annual)
+    }
+
     @Test func checkoutUsesSelectedIntervalAndOnlyBackendRefreshConfirmsAccess() async throws {
         let service = BillingServiceProbe(try #require(SubscriptionStore.preview(tier: .free).account))
         let name = "billing-vm-\(UUID())", defaults = try #require(UserDefaults(suiteName: name))

@@ -18,8 +18,8 @@ struct CredentialNotificationsView: View {
                         if credentials.isLoading && credentials.saved == nil {
                             ProgressView("Loading notifications…").frame(maxWidth: .infinity)
                         } else if credentials.saved != nil && notifications.isEmpty {
-                            ContentUnavailableView("No credential alerts", systemImage: "checkmark.seal",
-                                                   description: Text("Expired credentials and credentials expiring within one month will appear here."))
+                            ContentUnavailableView("No notifications at the moment", systemImage: "checkmark.seal",
+                                                   description: Text("New updates and reminders will appear here."))
                         }
                         ForEach(notifications) { notification in
                             NavigationLink {

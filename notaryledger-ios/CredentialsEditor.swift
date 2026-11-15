@@ -34,8 +34,12 @@ struct CredentialsEditor: View {
                             ForEach(CredentialSection.summarySections) { section in
                                 fields(section)
                             }
-                            DisclosureGroup("Additional credential", isExpanded: $model.isAdditionalExpanded) {
-                                fields(.additional).padding(.top, NLSpacing.md)
+                            if CredentialSection.additional.isAdded(in: saved) {
+                                fields(.additional)
+                            } else {
+                                DisclosureGroup("Additional credential", isExpanded: $model.isAdditionalExpanded) {
+                                    fields(.additional).padding(.top, NLSpacing.md)
+                                }
                             }
                             Button(model.isSaving ? "Saving…" : "Save Credentials") {
                                 Task { await model.save() }
