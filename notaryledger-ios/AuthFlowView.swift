@@ -45,6 +45,11 @@ struct AuthFlowView: View {
                             }.disabled(model.isSubmitting)
                         }
                         ErrorBanner(message: model.error)
+                        if let code = model.diagnosticCode {
+                            Text("Support code: \(code)")
+                                .font(NLTypography.caption).foregroundColor(NLColor.muted)
+                                .accessibilityIdentifier("Login diagnostic code")
+                        }
                         BannerView(kind: .success, message: model.success)
                         if model.screen == .signup {
                             nameField("First name", text: $model.firstName, key: "firstName")

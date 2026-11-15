@@ -74,6 +74,7 @@ final class AuthFlowModel: ObservableObject {
     @Published var password = ""
     @Published var confirmPassword = ""
     @Published private(set) var error = ""
+    @Published private(set) var diagnosticCode: String?
     @Published private(set) var success = ""
     @Published private(set) var fieldErrors: [String: String] = [:]
     @Published private(set) var isSubmitting = false
@@ -95,6 +96,7 @@ final class AuthFlowModel: ObservableObject {
     func navigate(_ screen: AuthScreen, token: String = "") {
         revision += 1
         self.screen = screen; self.token = token
+        diagnosticCode = nil
         error = screen == .reset && token.isEmpty ? AuthCopy.missingResetToken : ""
         success = ""; fieldErrors = [:]; isSubmitting = false
         verification = token.isEmpty ? .invalid : .loading
@@ -103,7 +105,7 @@ final class AuthFlowModel: ObservableObject {
         navigate(.login)
         clearForm()
     }
-    func showError(_ message: String) { error = message; success = "" }
+    func showError(_ message: String) { error = message; success = ""; diagnosticCode = nil }
     func clearFieldError(_ field: String) { fieldErrors[field] = nil }
     private func clearForm(keepingEmail: Bool = false) {
         firstName = ""; lastName = ""; password = ""; confirmPassword = ""
@@ -136,6 +138,7 @@ final class AuthFlowModel: ObservableObject {
     func submit(authenticate: (AuthResponse) async -> Void, passwordReset: () -> Void = {}) async {
         guard !isSubmitting, screen != .verification else { return }
         error = ""; success = ""; fieldErrors = [:]
+        diagnosticCode = nil
         guard validate() else { return }
         isSubmitting = true
         let started = revision
@@ -178,6 +181,13 @@ final class AuthFlowModel: ObservableObject {
         } catch {
             guard revision == started else { return }
             self.error = error.localizedDescription
+            if submittedScreen == .login, APIConfig.environment == .staging {
+                if let failure = error as? LoginFailure {
+                    diagnosticCode = failure.diagnosticCode
+                } else if case APIError.httpError(let status, _) = error {
+                    diagnosticCode = "NL-HTTP-\(status)"
+                }
+            }
         }
     }
     func verify() async {

@@ -14,7 +14,10 @@ final class BillingViewModel {
     var selectedInterval: BillingInterval = .annual
     var browser: StripeBrowserSession?
 
-    init(store: SubscriptionStore) { self.store = store }
+    init(store: SubscriptionStore) {
+        self.store = store
+        selectCurrentInterval()
+    }
     convenience init(accountID: String, service: any BillingService) {
         self.init(store: SubscriptionStore(accountID: accountID, service: service))
     }
@@ -81,6 +84,11 @@ final class BillingViewModel {
     }
     var cancellationNotice: String {
         "Your Pro subscription ends \(currentPeriodLabel). Billing interval switching is unavailable while cancellation is scheduled."
+    }
+    func selectCurrentInterval() {
+        if let interval = store.currentSubscription?.interval {
+            selectedInterval = interval
+        }
     }
     func refresh() async { await store.refresh() }
     func manage() async {

@@ -8,7 +8,7 @@ Open `notaryledger-ios.xcodeproj` and use the **notaryledger-ios-Stripe** scheme
 
 The existing backend remains the authority for the Stripe customer, configured monthly/annual prices, subscription, schedules, and feature access. Only the configured Free and Pro tiers are shown. Paid prices come from authenticated backend responses. Plan names, feature copy, and the free allowance live in PlanCatalog.swift. Annual savings use the web app’s rounded percentage calculation from the actual prices. Preview numbers are isolated debug fixtures.
 
-The current Debug build uses the existing `STAGING` compile flag. Deploy backend changes to staging, or remove that flag for a local build targeting `http://localhost:4000`.
+The parent TestFlight app target explicitly uses `STAGING STAGING_APP` in Debug and Release. Deploy backend changes to staging. For intentional local development, use the separate `notaryledger-ios.xcodeproj`; the staging app's environment flags must remain intact. See [TestFlight login verification](TESTFLIGHT_LOGIN_VALIDATION.md).
 
 Server-only settings live in `/Users/arin/notary-backend/.env`:
 

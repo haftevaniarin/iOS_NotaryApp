@@ -1,0 +1,18 @@
+--- a/test.xcodeproj/project.pbxproj
++++ b/test.xcodeproj/project.pbxproj
+@@ -517,6 +517,7 @@
+ 				MACOSX_DEPLOYMENT_TARGET = 15.7;
+ 				MARKETING_VERSION = 1.0.0;
+ 				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.app.staging;
++				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) STAGING STAGING_APP";
+ 				PRODUCT_MODULE_NAME = notaryledger_ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				REGISTER_APP_GROUPS = YES;
+@@ -564,6 +565,7 @@
+ 				MACOSX_DEPLOYMENT_TARGET = 15.7;
+ 				MARKETING_VERSION = 1.0.0;
+ 				PRODUCT_BUNDLE_IDENTIFIER = org.notaryledger.app.staging;
++				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) STAGING STAGING_APP";
+ 				PRODUCT_MODULE_NAME = notaryledger_ios;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				REGISTER_APP_GROUPS = YES;

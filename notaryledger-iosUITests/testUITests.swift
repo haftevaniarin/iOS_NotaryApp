@@ -36,7 +36,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["dashboard-open-file"].waitForExistence(timeout: 5))
         app.buttons["Notifications"].tap()
         XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["No credential alerts"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No notifications at the moment"].waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
         XCTAssertEqual(app.buttons["dashboard-notifications"].value as? String, "0 credential alerts")
         let seeAll = app.buttons["dashboard-see-all"]

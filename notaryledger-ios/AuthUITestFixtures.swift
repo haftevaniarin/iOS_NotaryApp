@@ -125,7 +125,7 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                 responseBody = #"{"account":{"billing":{"plan":"\#(isFree ? "FREE" : "PRO")","active":\#(!isFree),"isPro":\#(!isFree)},"provider":"none","plans":[{"id":"free","name":"Notary Ledger Free","price":null,"features":["20 lifetime signing orders"]}],"currentPlanID":"\#(isFree ? "free" : "monthly")","hasSubscription":false,"pendingUpdate":false,"capabilities":{"manage":false,"paymentMethod":false,"billingDetails":false,"cancel":false,"resume":false,"history":false},"history":{"items":[],"nextCursor":null}}}"#
             case "/api/stripe/billing-status":
                 responseBody = ProcessInfo.processInfo.arguments.contains("--billing-free")
-                    ? #"{"billing":{"plan":"FREE","active":false,"isPro":false}}"#
+                    ? #"{"billing":{"plan":"FREE","active":false,"isPro":false,"remainingFreeOrders":6}}"#
                     : #"{"billing":{"plan":"PRO","active":true,"isPro":true,"features":{"invoiceGeneration":true}}}"#
             case "/api/billing/usage":
                 responseBody = #"{"usage":{"signingsLogged":14,"invoicesSent":3,"signingLimit":20,"remainingFreeOrders":6,"hasExternalSubscription":false}}"#

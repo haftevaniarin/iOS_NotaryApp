@@ -27,10 +27,12 @@ struct LedgerDashboardHost: View {
                 if let url = DashboardMaps.url(address: signing.address) { openURL(url) }
             }, onSeeAll: { appState.selectedSection = .signings },
                           notificationCount: CredentialNotification.make(credentials: credentials.saved, today: context.date).count,
-                          onRefresh: { await credentials.reload() })
+                          billingStatus: appState.billingStatus,
+                          onRefresh: { await credentials.reload(); await appState.refreshBillingStatus() })
         }
             .task(id: LedgerDashboardRevision(orders: appState.orders, expenses: appState.expenses)) { await model.load() }
             .task(id: appState.currentUser?.id) { await credentials.reload() }
+            .task(id: appState.orders.map(\.id)) { await appState.refreshBillingStatus() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await credentials.reload() } }
             }

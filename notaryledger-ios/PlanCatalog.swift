@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum BillingInterval: String, CaseIterable, Identifiable, Codable {
-    case annual, monthly
+    case monthly, annual
     var id: String { rawValue }
     var title: String { self == .annual ? "Annual" : "Monthly" }
     var unit: String { self == .annual ? "year" : "month" }
