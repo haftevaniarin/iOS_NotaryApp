@@ -353,8 +353,7 @@ struct SupportContactView: View {
 
                 NLFormSection("Message") {
                     NLTextField(title: "Subject", text: $subject)
-                    TextEditor(text: $message)
-                        .frame(minHeight: 120)
+                    NLTextArea(title: "Message", text: $message, showsLabel: false, minimumHeight: 120)
                 }
 
                 if !successMessage.isEmpty {

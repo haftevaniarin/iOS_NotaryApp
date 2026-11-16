@@ -82,7 +82,24 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                     if ProcessInfo.processInfo.arguments.contains("--cancel-dashboard-refresh"), Self.shouldCancelDashboardRefresh() {
                         throw URLError(.cancelled)
                     }
-                    if ProcessInfo.processInfo.arguments.contains("--dashboard-design-fixtures") {
+                    if ProcessInfo.processInfo.arguments.contains("--unpaid-invoice-fixtures") {
+                        let today = OrderCalendarDay(date: Date())
+                        let yesterday = today.adding(days: -1).key
+                        var orders: [[String: Any]] = [
+                            ["id": "past", "signerName": "Unpaid past signer", "date": yesterday, "paid": false, "paymentStatus": "Scheduled"],
+                            ["id": "today", "signerName": "Today signer", "date": today.key, "paid": false],
+                            ["id": "future", "signerName": "Future signer", "date": today.adding(days: 1).key, "paid": false],
+                            ["id": "paid", "signerName": "Paid signer", "date": yesterday, "paid": true],
+                            ["id": "dated", "signerName": "Paid date signer", "date": yesterday, "paid": false, "paidDate": yesterday],
+                            ["id": "cancelled", "signerName": "Cancelled signer", "date": yesterday, "paid": false, "paymentStatus": "Cancelled"]
+                        ]
+                        for index in orders.indices {
+                            orders[index]["customerName"] = "Fixture Title"
+                            orders[index]["fee"] = 100
+                            orders[index]["invoiceNumber"] = "UNPAID-\(index)"
+                        }
+                        responseBody = String(decoding: try JSONSerialization.data(withJSONObject: orders), as: UTF8.self)
+                    } else if ProcessInfo.processInfo.arguments.contains("--dashboard-design-fixtures") {
                         let orders: [[String: Any]] = PreviewData.loaded.signings.map { signing in
                             ["id": signing.id, "customerName": "Preview Title", "signerName": signing.signerName,
                              "signingType": signing.loanType, "date": signing.startsAt.ISO8601Format(),

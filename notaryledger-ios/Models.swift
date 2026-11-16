@@ -350,6 +350,17 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         !paid && !isCancelled
     }
 
+    func needsUnpaidInvoiceFollowUp(asOf now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard isUnpaidCandidate,
+              paidDate?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false else { return false }
+        let value = date.trimmingCharacters(in: .whitespacesAndNewlines)
+        let signingDate = value.count == 10
+            ? OrderCalendarDay(value)?.date(timeZone: calendar.timeZone)
+            : DateParser.date(from: value)
+        guard let signingDate else { return false }
+        return calendar.startOfDay(for: signingDate) < calendar.startOfDay(for: now)
+    }
+
     var countsInFinancialTotals: Bool {
         !isCancelled
     }

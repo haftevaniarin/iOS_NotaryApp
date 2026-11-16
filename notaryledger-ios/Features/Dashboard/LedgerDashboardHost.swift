@@ -29,8 +29,9 @@ struct LedgerDashboardHost: View {
                           notificationCount: CredentialNotification.make(credentials: credentials.saved, today: context.date).count,
                           billingStatus: appState.billingStatus,
                           onRefresh: { await credentials.reload(); await appState.refreshBillingStatus() })
+                .task(id: LedgerDashboardRevision(orders: appState.orders, expenses: appState.expenses,
+                                                  day: Calendar.current.startOfDay(for: context.date))) { await model.load() }
         }
-            .task(id: LedgerDashboardRevision(orders: appState.orders, expenses: appState.expenses)) { await model.load() }
             .task(id: appState.currentUser?.id) { await credentials.reload() }
             .task(id: appState.orders.map(\.id)) { await appState.refreshBillingStatus() }
             .onChange(of: scenePhase) { _, phase in
@@ -76,6 +77,19 @@ struct LedgerDashboardHost: View {
                             }
                         }
                     }
+                case .unpaidInvoices:
+                    NavigationStack {
+                        TimelineView(.periodic(from: .now, by: 60)) { context in
+                            SigningsView(unpaidInvoicesOnly: true, asOf: context.date)
+                        }
+                        .navigationTitle("Unpaid invoices")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { destination = nil }
+                            }
+                        }
+                    }
                 default:
                     DashboardPlaceholderView(route: route)
                 }
@@ -83,7 +97,7 @@ struct LedgerDashboardHost: View {
     }
 }
 
-private struct LedgerDashboardRevision: Equatable { let orders: [SigningOrder]; let expenses: [Expense] }
+private struct LedgerDashboardRevision: Equatable { let orders: [SigningOrder]; let expenses: [Expense]; let day: Date }
 
 struct DashboardPlaceholderView: View {
     let route: DashboardRoute
@@ -134,9 +148,9 @@ enum LedgerDashboardSnapshot {
             return Signing(id: order.id, signerName: order.signerName, loanType: order.signingType ?? "Signing",
                            address: address(order), startsAt: start, distanceMiles: order.mileageDetails?.oneWayMiles.map { decimal($0) }, fee: decimal(order.fee))
         }
-        let unpaid = active.filter(\.isUnpaidCandidate)
+        let unpaid = active.filter { $0.needsUnpaidInvoiceFollowUp(asOf: now, calendar: calendar) }
         let attention: [AttentionItem] = unpaid.isEmpty ? [] : [AttentionItem(id: "unpaid", title: "\(unpaid.count) unpaid invoice\(unpaid.count == 1 ? "" : "s")",
-            subtitle: "Review outstanding signing fees", systemImage: "doc.richtext", route: .unpaidInvoices)]
+            subtitle: "Review unpaid signings before today", systemImage: "doc.richtext", route: .unpaidInvoices)]
         return DashboardSnapshot(signings: signings, monthStats: stats, attentionItems: attention)
     }
     private static func decimal(_ value: Double) -> Decimal { Decimal(string: String(value), locale: Locale(identifier: "en_US_POSIX")) ?? 0 }
