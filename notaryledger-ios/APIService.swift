@@ -243,7 +243,8 @@ final class APIService {
     }
 
     func createOrder(_ order: SigningOrderPayload) async throws -> SigningOrder {
-        let request = try await authenticatedRequest(path: "/api/orders", method: "POST", body: encodedMutableBody(order))
+        let prepared = SigningPaymentDefaults().applying(to: order, ownerID: SessionStorage.getCurrentUser()?.id)
+        let request = try await authenticatedRequest(path: "/api/orders", method: "POST", body: encodedMutableBody(prepared))
         return try await performAuthenticated(request, decodeTo: SigningOrder.self)
     }
 
@@ -482,7 +483,16 @@ final class APIService {
         _ = try await authenticatedRequest(path: "/api/orders/import", method: "POST")
         var request = try makeMultipartRequest(path: "/api/orders/import", token: SessionStorage.getAccessToken(), files: [file])
         request.timeoutInterval = 120
-        return try await performAuthenticated(request, decodeTo: SigningImportResult.self)
+        let ownerID = SessionStorage.getCurrentUser()?.id
+        var result = try await performAuthenticated(request, decodeTo: SigningImportResult.self)
+        for index in result.orders.indices {
+            guard SessionStorage.getCurrentUser()?.id == ownerID else { break }
+            let order = result.orders[index]
+            guard let payload = SigningPaymentDefaults().applying(to: order, ownerID: ownerID) else { continue }
+            do { result.orders[index] = try await updateOrder(orderId: order.id, order: payload) }
+            catch { result.paymentTermsFailureCount += 1 }
+        }
+        return result
     }
     func extractSigning(_ file: MultipartFile) async throws -> ExtractedSigning {
         try UploadValidation.validate(data: file.data, mimeType: file.mimeType, photo: false)

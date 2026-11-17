@@ -1,34 +1,15 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
-    @MainActor func testDueDateEditingClearingAndPaymentModesUseSavedServerStatuses() throws {
+    @MainActor func testPaymentModesAndOptionalPaidDateWithoutDueDateControls() throws {
         let app = launch(orderPayments: true)
         signInForPaymentTest(app)
         app.tabBars.buttons["Signings"].tap()
         XCTAssertTrue(app.staticTexts["Overdue"].waitForExistence(timeout: 5))
         let edit = app.buttons["Edit signing for Payment signer"]
         reveal(edit, in: app); edit.tap()
-        let due = app.buttons["Payment due date"]
-        revealOrderControl(due, in: app)
-        XCTAssertEqual(due.value as? String, "Feb 1, 2000")
-        let clear = app.buttons["Clear payment due date"]
-        revealOrderControl(clear, in: app); clear.tap()
-        app.buttons["Save"].tap()
-        XCTAssertTrue(app.staticTexts["Pending"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Overdue"].exists)
-        reveal(edit, in: app); edit.tap()
-        XCTAssertEqual(app.switches["Set payment due date"].value as? String, "0")
-        let setDue = app.switches["Set payment due date"]
-        revealOrderControl(setDue, in: app); setDue.tap()
-        revealOrderControl(due, in: app)
-        let selectedDueDate = due.value as? String
-        due.tap()
-        XCTAssertTrue(app.navigationBars["Payment due date"].waitForExistence(timeout: 5))
-        app.navigationBars["Payment due date"].buttons["Done"].tap()
-        app.buttons["Save"].tap()
-        XCTAssertTrue(edit.waitForExistence(timeout: 5))
-        reveal(edit, in: app); edit.tap()
-        XCTAssertEqual(due.value as? String, selectedDueDate)
+        XCTAssertFalse(app.switches["Set payment due date"].exists)
+        XCTAssertFalse(app.buttons["Payment due date"].exists)
         let status = app.buttons["Status"].firstMatch
         revealOrderControl(status, in: app); status.tap(); app.buttons["Paid"].tap()
         let hasPaidDate = app.switches["Has paid date"]
@@ -47,34 +28,48 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Paid"].exists)
         XCTAssertFalse(app.staticTexts["Cancelled"].exists)
+        XCTAssertTrue(app.staticTexts["Overdue"].exists)
     }
 
-    @MainActor func testNewSigningSavesDueDateAndPaidWithoutRequiringPaidDate() throws {
+    @MainActor func testProfileDefaultPaymentTermsPersistAndSigningFormHasNoDueDateControls() throws {
         let app = launch(orderPayments: true)
         signInForPaymentTest(app)
+        app.tabBars.buttons["Menu"].tap()
+        app.buttons["Profile"].tap()
+        let days = app.textFields["Default payment due (days)"]
+        revealOrderControl(days, in: app); days.tap()
+        if let current = days.value as? String, Int(current) != nil {
+            days.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count))
+        }
+        days.typeText("30")
+        let saveTerms = app.buttons["Save Payment Terms"]
+        revealOrderControl(saveTerms, in: app); saveTerms.tap()
+        XCTAssertTrue(app.staticTexts["Default payment terms saved."].waitForExistence(timeout: 5))
         app.tabBars.buttons["Signings"].tap()
         app.buttons["New Signing"].tap()
+        XCTAssertFalse(app.switches["Set payment due date"].exists)
+        XCTAssertFalse(app.buttons["Payment due date"].exists)
         enterOrderField("New payment title", into: app.textFields["Customer name"], in: app)
         enterOrderField("New payment signer", into: app.textFields["Signer name"], in: app)
         enterOrderField("125", into: app.textFields["Fee"], in: app)
         enterOrderField("DUE-NEW", into: app.textFields["Invoice number"], in: app)
-        let setDue = app.switches["Set payment due date"]
-        revealOrderControl(setDue, in: app); setDue.tap()
-        let due = app.buttons["Payment due date"]
-        let selectedDueDate = due.value as? String
-        let paid = app.switches["Paid"]
-        revealOrderControl(paid, in: app); paid.tap()
-        let hasPaidDate = app.switches["Has paid date"]
-        revealOrderControl(hasPaidDate, in: app); hasPaidDate.tap()
         app.buttons["Save"].tap()
         let edit = app.buttons["Edit signing for New payment signer"]
         XCTAssertTrue(edit.waitForExistence(timeout: 5))
         reveal(edit, in: app); edit.tap()
         XCTAssertEqual(app.textFields["Invoice number"].value as? String, "DUE-NEW")
-        XCTAssertEqual(due.value as? String, selectedDueDate)
-        XCTAssertEqual(hasPaidDate.value as? String, "0")
-        XCTAssertEqual(paid.value as? String, "1")
+        XCTAssertFalse(app.switches["Set payment due date"].exists)
+        XCTAssertFalse(app.buttons["Payment due date"].exists)
         app.buttons["Cancel"].tap()
+        app.terminate(); app.launch()
+        signInForPaymentTest(app)
+        app.tabBars.buttons["Menu"].tap()
+        app.buttons["Profile"].tap()
+        revealOrderControl(days, in: app)
+        XCTAssertEqual(days.value as? String, "30")
+        days.tap(); days.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2))
+        revealOrderControl(saveTerms, in: app); saveTerms.tap()
+        XCTAssertTrue(app.staticTexts["Default payment terms saved."].waitForExistence(timeout: 5))
     }
 
     @MainActor private func signInForPaymentTest(_ app: XCUIApplication) {

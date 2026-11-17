@@ -185,9 +185,6 @@ struct SigningOrderCard: View {
 
                 DetailRow(label: "Date", value: [order.displayDate, order.time].compactMap { $0 }.joined(separator: " at "))
                 DetailRow(label: "Fee", value: order.fee.currencyString)
-                if let dueDate = order.dueDate {
-                    DetailRow(label: "Payment due", value: OrderCalendarDay(dueDate)?.display() ?? dueDate)
-                }
                 DetailRow(label: "Invoice", value: order.invoiceNumber)
                 DetailRow(label: "Travel", value: travelSummary)
 
@@ -251,7 +248,6 @@ struct SigningOrderDetailView: View {
                     DetailRow(label: "Notarial Act Fee", value: liveOrder.notarialActFee.currencyString)
                     DetailRow(label: "Paid", value: liveOrder.isCollected ? "Yes" : "No")
                     DetailRow(label: "Paid Date", value: liveOrder.paidDate ?? "")
-                    DetailRow(label: "Payment due date", value: liveOrder.dueDate.flatMap { OrderCalendarDay($0)?.display() } ?? "None")
                     DetailRow(label: "Invoice", value: liveOrder.invoiceNumber)
                 }
                 NLFormSection("Travel") {
@@ -321,7 +317,6 @@ struct SigningOrderFormView: View {
     @State private var fee = ""
     @State private var notarialActFee = ""
     @State private var payment = SigningPaymentDraft()
-    @State private var dueDate = ""
     @State private var invoiceNumber = ""
     @State private var notes = ""
     @State private var mileage = ""
@@ -446,16 +441,6 @@ struct SigningOrderFormView: View {
                                 NLDateField(title: "Paid date", selection: validated(paidDateSelection, field: "paidDate"))
                             }
                         }
-                        field("dueDate") {
-                            Toggle("Set payment due date", isOn: validated(hasDueDateSelection, field: "dueDate"))
-                            if !dueDate.isEmpty {
-                                NLDateField(title: "Payment due date", selection: validated(dueDateSelection, field: "dueDate"))
-                                Button("Clear payment due date") { dueDate = "" }
-                                    .font(NLTypography.caption)
-                            }
-                            Text("Payment is due through this date in UTC. Without a due date, an unpaid order never automatically becomes Overdue.")
-                                .font(NLTypography.caption).foregroundStyle(NLColor.muted)
-                        }
                         field("invoiceNumber") { NLTextField(title: "Invoice number", text: validated($invoiceNumber, field: "invoiceNumber")) }
                     }
                     NLFormSection("Travel") {
@@ -547,15 +532,6 @@ struct SigningOrderFormView: View {
     private var paidDateSelection: Binding<Date> {
         Binding(get: { payment.paidDate.flatMap { OrderCalendarDay($0)?.date() } ?? Date() },
                 set: { payment.paidDate = OrderCalendarDay(date: $0).key })
-    }
-
-    private var hasDueDateSelection: Binding<Bool> {
-        Binding(get: { !dueDate.isEmpty }, set: { dueDate = $0 ? OrderCalendarDay(date: Date()).key : "" })
-    }
-
-    private var dueDateSelection: Binding<Date> {
-        Binding(get: { OrderCalendarDay(dueDate)?.date() ?? Date() },
-                set: { dueDate = OrderCalendarDay(date: $0).key })
     }
 
     @ViewBuilder private var customerSuggestions: some View {
@@ -656,7 +632,6 @@ struct SigningOrderFormView: View {
         fee = String(format: "%.2f", order.fee)
         notarialActFee = String(format: "%.2f", order.notarialActFee)
         payment = SigningPaymentDraft(order: order)
-        dueDate = order.dueDate ?? ""
         invoiceNumber = order.invoiceNumber
         notes = order.notes ?? ""
         mileage = order.mileage.map { String(format: "%.2f", $0) } ?? ""
@@ -717,7 +692,6 @@ struct SigningOrderFormView: View {
             travelFee: travelValue,
             status: payment.mode.requestStatus
         )
-        payload.dueDate = .fromForm(dueDate, original: order?.dueDate)
 
         if let order { payload.preserveMileage = mileageValue == order.mileage && travelValue == order.travelFee }
         await persist(payload, checkDuplicates: screenshot != nil)
@@ -811,6 +785,9 @@ struct ImportSigningsSheet: View {
                 SpreadsheetImportReviewView(draft: draft) { result in
                     result.orders.forEach { appState.upsertOrder($0) }
                     message = "Imported \(result.importedCount) signing(s). Skipped \(result.skippedDuplicateCount) duplicate(s)."
+                    if result.paymentTermsFailureCount > 0 {
+                        error = "The signings were imported, but payment due dates could not be saved for \(result.paymentTermsFailureCount) signing(s)."
+                    }
                 }
             }
         }.presentationDetents([.large])

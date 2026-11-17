@@ -29,8 +29,10 @@ struct SpreadsheetImportReviewView: View {
     private func save() async {
         error = ""; busy = true
         defer { busy = false }
+        let ownerID = SessionStorage.getCurrentUser()?.id
         do {
             let result = try await APIService.shared.importSignings(MultipartFile(fieldName: "file", fileName: draft.filename, mimeType: draft.mimeType, data: Data(text.utf8)))
+            guard SessionStorage.getCurrentUser()?.id == ownerID else { return }
             onImport(result); dismiss()
         } catch { self.error = error.localizedDescription }
     }

@@ -240,5 +240,8 @@ struct SpreadsheetDraft: Identifiable {
 struct SigningImportResult: Decodable {
     let importedCount: Int
     let skippedDuplicateCount: Int
-    let orders: [SigningOrder]
+    var orders: [SigningOrder]
+    var paymentTermsFailureCount = 0
+
+    enum CodingKeys: String, CodingKey { case importedCount, skippedDuplicateCount, orders }
 }

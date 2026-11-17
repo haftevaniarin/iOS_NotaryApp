@@ -74,6 +74,9 @@ struct ProfileView: View {
                                 .buttonStyle(PrimaryButtonStyle()).disabled(isSavingProfile)
                         }
                     }
+                    if let ownerID = appState.currentUser?.id {
+                        PaymentTermsSettingsView(ownerID: ownerID)
+                    }
                     CredentialsEditor(model: appState.credentials)
                     NLCard {
                         VStack(alignment: .leading, spacing: NLSpacing.md) {
