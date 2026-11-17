@@ -19,6 +19,7 @@ struct AttentionList: View {
                             Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.muted).accessibilityHidden(true)
                         }.padding(.vertical, 10).frame(minHeight: 64)
                     }.buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityLabel("\(item.title). \(item.subtitle)")
+                        .accessibilityIdentifier("dashboard-attention-\(item.route.id)")
                 }
             }
         }

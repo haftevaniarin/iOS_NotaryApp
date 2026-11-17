@@ -1,6 +1,33 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
+    @MainActor func testDashboardUnpaidInvoicesOpensOnlyPastSigningsWithoutPaymentEvidence() throws {
+        let app = launch(unpaidInvoices: true)
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        let notNow = app.buttons["Not Now"]
+        if notNow.waitForExistence(timeout: 5) { notNow.tap() }
+        let unpaid = app.descendants(matching: .any)["dashboard-attention-unpaid-invoices"].firstMatch
+        XCTAssertTrue(unpaid.waitForExistence(timeout: 10))
+        reveal(unpaid, in: app)
+        XCTAssertTrue(unpaid.label.hasPrefix("1 unpaid invoice."))
+        unpaid.tap()
+        XCTAssertTrue(app.navigationBars["Unpaid invoices"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Signer: Unpaid past signer"].exists)
+        for signer in ["Today signer", "Future signer", "Paid signer", "Paid date signer", "Cancelled signer"] {
+            XCTAssertFalse(app.staticTexts["Signer: \(signer)"].exists)
+        }
+        let edit = app.buttons["Edit signing for Unpaid past signer"]
+        revealOrderControl(edit, in: app); edit.tap()
+        XCTAssertTrue(app.navigationBars["Edit Signing"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Unpaid invoices"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 5))
+    }
+
     @MainActor func testDashboardNativeTabsAndActions() throws {
         let app = launch(dashboardFixtures: true)
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
@@ -265,7 +292,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(plans.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["billing-compare-plans"].exists)
     }
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false, dashboardFixtures: Bool = false, reportsUnavailable: Bool = false, credentialNotifications: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false, dashboardFixtures: Bool = false, reportsUnavailable: Bool = false, credentialNotifications: Bool = false, unpaidInvoices: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
@@ -276,6 +303,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         if dashboardFixtures { app.launchArguments.append("--dashboard-design-fixtures") }
         if reportsUnavailable { app.launchArguments.append("--reports-unavailable") }
         if credentialNotifications { app.launchArguments.append("--credential-notification-fixtures") }
+        if unpaidInvoices { app.launchArguments.append("--unpaid-invoice-fixtures") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app

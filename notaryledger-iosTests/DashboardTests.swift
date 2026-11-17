@@ -76,6 +76,50 @@ import Testing
         #expect(components.host == "maps.apple.com" && components.scheme == "https")
         #expect(components.queryItems?.first(where: { $0.name == "daddr" })?.value == address)
     }
+    @Test func unpaidAttentionRequiresAPastDateAndNoPaymentEvidence() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "America/Los_Angeles"))
+        let now = try #require(ISO8601DateFormatter().date(from: "2026-11-16T00:30:00-08:00"))
+        func order(_ id: String, date: String = "2026-11-15", paid: Bool = false,
+                   paidDate: String? = nil, status: SigningStatus = .scheduled) -> SigningOrder {
+            SigningOrder(id: id, customerName: "Title", signerName: id, date: date,
+                         fee: 100, paid: paid, paidDate: paidDate, status: status)
+        }
+        let orders = [
+            order("past-scheduled"), order("past-pending", status: .pending),
+            order("past-overdue", status: .overdue), order("blank-paid-date", paidDate: " \n "),
+            order("local-yesterday", date: "2026-11-16T07:00:00Z"),
+            order("today", date: "2026-11-16"), order("future", date: "2026-11-17"),
+            order("local-today", date: "2026-11-17T01:00:00Z"),
+            order("paid", paid: true), order("has-paid-date", paidDate: "2026-11-15"),
+            order("cancelled", status: .cancelled), order("missing-date", date: ""),
+            order("invalid-date", date: "2026-02-30")
+        ]
+        let eligible = orders.filter { $0.needsUnpaidInvoiceFollowUp(asOf: now, calendar: calendar) }
+        #expect(eligible.map(\.id) == ["past-scheduled", "past-pending", "past-overdue", "blank-paid-date", "local-yesterday"])
+        let snapshot = LedgerDashboardSnapshot.make(orders: orders, expenses: [], now: now, calendar: calendar)
+        #expect(snapshot.attentionItems == [AttentionItem(id: "unpaid", title: "5 unpaid invoices",
+            subtitle: "Review unpaid signings before today", systemImage: "doc.richtext", route: .unpaidInvoices)])
+        // This follow-up rule must not narrow invoice generation's existing eligibility.
+        #expect(orders.first { $0.id == "future" }?.isUnpaidCandidate == true)
+        #expect(orders.first { $0.id == "has-paid-date" }?.isUnpaidCandidate == true)
+    }
+
+    @Test func unpaidAttentionUpdatesAfterPaymentAndAtTheNextLocalDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "America/Los_Angeles"))
+        let today = try #require(ISO8601DateFormatter().date(from: "2026-11-16T23:59:00-08:00"))
+        let tomorrow = try #require(calendar.date(byAdding: .day, value: 1, to: today))
+        var order = SigningOrder(id: "today", customerName: "Title", signerName: "Signer",
+                                 date: "2026-11-16", fee: 100, paid: false, status: .pending)
+        #expect(LedgerDashboardSnapshot.make(orders: [order], expenses: [], now: today, calendar: calendar).attentionItems.isEmpty)
+        #expect(LedgerDashboardSnapshot.make(orders: [order], expenses: [], now: tomorrow, calendar: calendar).attentionItems.first?.title == "1 unpaid invoice")
+        order.paid = true
+        #expect(LedgerDashboardSnapshot.make(orders: [order], expenses: [], now: tomorrow, calendar: calendar).attentionItems.isEmpty)
+        order.paid = false
+        order.paidDate = "2026-11-17"
+        #expect(LedgerDashboardSnapshot.make(orders: [order], expenses: [], now: tomorrow, calendar: calendar).attentionItems.isEmpty)
+    }
     @Test func legacyDestinationsHaveStableTabOwners() {
         #expect(LedgerTab(section: .dashboard) == .home)
         #expect(LedgerTab(section: .signings) == .signings)

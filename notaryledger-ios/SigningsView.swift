@@ -2,6 +2,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SigningsView: View {
+    var unpaidInvoicesOnly = false
+    var asOf = Date()
     @EnvironmentObject private var appState: AppState
     @State private var searchText = ""
     @State private var selectedStatus: SigningStatus?
@@ -15,13 +17,14 @@ struct SigningsView: View {
 
     private var filteredOrders: [SigningOrder] {
         appState.orders.filter { order in
+            let matchesScope = !unpaidInvoicesOnly || order.needsUnpaidInvoiceFollowUp(asOf: asOf)
             let matchesStatus = selectedStatus == nil || order.normalizedStatus == selectedStatus
             let haystack = [order.customerName, order.payerName, order.signerName, order.signingType, order.invoiceNumber]
                 .compactMap { $0 }
                 .joined(separator: " ")
                 .lowercased()
             let matchesSearch = searchText.isEmpty || haystack.contains(searchText.lowercased())
-            return matchesStatus && matchesSearch
+            return matchesScope && matchesStatus && matchesSearch
         }
     }
 
@@ -30,40 +33,45 @@ struct SigningsView: View {
             ParchmentBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: NLSpacing.lg) {
-                    ScreenTitleBlock(title: "Signings", subtitle: "Search, filter, import, and manage signing orders.")
+                    ScreenTitleBlock(title: unpaidInvoicesOnly ? "Unpaid invoices" : "Signings",
+                                     subtitle: unpaidInvoicesOnly ? "Past-date signings with no payment or paid date recorded." : "Search, filter, import, and manage signing orders.")
                     ErrorBanner(message: errorMessage)
 
                     VStack(alignment: .leading, spacing: NLSpacing.md) {
                         NLTextField(title: "Search", text: $searchText)
-                        NLSelectField(title: "Status", selection: $selectedStatus, value: selectedStatus?.rawValue ?? "All") {
-                            Text("All").tag(SigningStatus?.none)
-                            ForEach(SigningStatus.allCases) { status in
-                                Text(status.rawValue).tag(Optional(status))
+                        if !unpaidInvoicesOnly {
+                            NLSelectField(title: "Status", selection: $selectedStatus, value: selectedStatus?.rawValue ?? "All") {
+                                Text("All").tag(SigningStatus?.none)
+                                ForEach(SigningStatus.allCases) { status in
+                                    Text(status.rawValue).tag(Optional(status))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .tint(NLColor.navy)
+                        }
+                    }
+                    .nlPanel()
+
+                    if !unpaidInvoicesOnly {
+                        NLActionRow {
+                            Button {
+                                showForm = true
+                            } label: {
+                                ActionPill(title: "New Signing", systemImage: "plus")
                             }
                         }
-                        .pickerStyle(.menu)
-                        .tint(NLColor.navy)
-                    }
-                    .nlPanel()
 
-                    NLActionRow {
-                        Button {
-                            showForm = true
-                        } label: {
-                            ActionPill(title: "New Signing", systemImage: "plus")
+                        VStack(alignment: .leading, spacing: NLSpacing.sm) {
+                            Button { showBulkImport = true } label: {
+                                Label("Bulk Import Signings", systemImage: "tablecells")
+                            }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityHint("Import multiple signing orders from a spreadsheet export.")
+                            Text("Add multiple signing orders from a CSV, TSV, or TXT spreadsheet export.")
+                                .font(NLTypography.caption).foregroundStyle(NLColor.muted)
                         }
+                        .nlPanel()
                     }
-
-                    VStack(alignment: .leading, spacing: NLSpacing.sm) {
-                        Button { showBulkImport = true } label: {
-                            Label("Bulk Import Signings", systemImage: "tablecells")
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .accessibilityHint("Import multiple signing orders from a spreadsheet export.")
-                        Text("Add multiple signing orders from a CSV, TSV, or TXT spreadsheet export.")
-                            .font(NLTypography.caption).foregroundStyle(NLColor.muted)
-                    }
-                    .nlPanel()
 
                     if appState.isLoading {
                         ProgressView("Loading signings...")
@@ -72,7 +80,9 @@ struct SigningsView: View {
                     }
 
                     if filteredOrders.isEmpty {
-                        EmptyStateView(title: "No signings found", systemImage: "doc.text.magnifyingglass", message: "Adjust search or create a new signing order.")
+                        EmptyStateView(title: unpaidInvoicesOnly ? "No unpaid invoices found" : "No signings found",
+                                       systemImage: "doc.text.magnifyingglass",
+                                       message: unpaidInvoicesOnly ? "No signings match the unpaid invoice criteria and your search." : "Adjust search or create a new signing order.")
                     } else {
                         SectionHeader(title: "Signing Orders")
                         ForEach(filteredOrders) { order in
@@ -183,6 +193,7 @@ struct SigningOrderCard: View {
                         Image(systemName: "pencil")
                             .frame(width: 36, height: 36)
                     }
+                    .accessibilityLabel("Edit signing for \(order.signerName)")
                     Button(action: onMileage) {
                         Image(systemName: "car")
                             .frame(width: 36, height: 36)

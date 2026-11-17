@@ -12,6 +12,8 @@ The production host reads the ledger that AppState has already loaded. Credentia
 
 Currency values in the new models, calculations, and presentation use Decimal and currency FormatStyle. The compatibility adapter converts the existing legacy Double fields through their decimal string representation before calculating; the old backend/data models are unchanged. Date/time labels use the user's locale. Offset-bearing order timestamps use the existing scheduling helper and local zone.
 
+The Dashboard's unpaid invoices alert counts non-cancelled signings whose signing date is before today in the device's local time, Paid is unchecked, and paid date is missing or blank. Today's and future signings are excluded. Tapping the alert opens a searchable list of those same signing records with the existing edit, travel, invoice, and delete actions. Saved order changes update the list and count; the date boundary refreshes every minute while visible. A zero count hides the alert. This follow-up rule does not change the Accounting invoice generator's eligibility rules.
+
 ## Assumptions
 
 - The public reference wrapper could be retrieved, but its embedded design could not be rendered (the frame URL returned 404). The written 390×844 specification is the visual source; exact pixel comparison with the artifact remains unavailable.
