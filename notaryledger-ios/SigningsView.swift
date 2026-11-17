@@ -185,6 +185,9 @@ struct SigningOrderCard: View {
 
                 DetailRow(label: "Date", value: [order.displayDate, order.time].compactMap { $0 }.joined(separator: " at "))
                 DetailRow(label: "Fee", value: order.fee.currencyString)
+                if let dueDate = order.dueDate {
+                    DetailRow(label: "Payment due", value: OrderCalendarDay(dueDate)?.display() ?? dueDate)
+                }
                 DetailRow(label: "Invoice", value: order.invoiceNumber)
                 DetailRow(label: "Travel", value: travelSummary)
 
@@ -246,8 +249,9 @@ struct SigningOrderDetailView: View {
                 NLFormSection("Payment") {
                     DetailRow(label: "Fee", value: liveOrder.fee.currencyString)
                     DetailRow(label: "Notarial Act Fee", value: liveOrder.notarialActFee.currencyString)
-                    DetailRow(label: "Paid", value: liveOrder.paid ? "Yes" : "No")
+                    DetailRow(label: "Paid", value: liveOrder.isCollected ? "Yes" : "No")
                     DetailRow(label: "Paid Date", value: liveOrder.paidDate ?? "")
+                    DetailRow(label: "Payment due date", value: liveOrder.dueDate.flatMap { OrderCalendarDay($0)?.display() } ?? "None")
                     DetailRow(label: "Invoice", value: liveOrder.invoiceNumber)
                 }
                 NLFormSection("Travel") {
@@ -316,14 +320,12 @@ struct SigningOrderFormView: View {
     @State private var time = ""
     @State private var fee = ""
     @State private var notarialActFee = ""
-    @State private var paid = false
-    @State private var paidDate = Date()
-    @State private var hasPaidDate = false
+    @State private var payment = SigningPaymentDraft()
+    @State private var dueDate = ""
     @State private var invoiceNumber = ""
     @State private var notes = ""
     @State private var mileage = ""
     @State private var travelFee = ""
-    @State private var status: SigningStatus = .scheduled
     @State private var errorMessage = ""
     @State private var fieldErrors: [String: String] = [:]
     @State private var validationAttempt = UUID()
@@ -415,12 +417,14 @@ struct SigningOrderFormView: View {
                         }
                         OrderScheduleFeedbackView(model: scheduling) { viewingConflict = $0 }
                         field("status") {
-                            NLSelectField(title: "Status", selection: validated($status, field: "status"), value: status.rawValue) {
-                                ForEach(SigningStatus.allCases) { status in
-                                    Text(status.rawValue).tag(status)
+                            NLSelectField(title: "Status", selection: validated(paymentModeSelection, field: "status"), value: payment.mode.rawValue) {
+                                ForEach(SigningPaymentMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
                                 }
                             }
                         }
+                        Text("Automatic uses Scheduled, Pending, or Overdue based on UTC dates. Pending does not confirm that the signing was completed.")
+                            .font(NLTypography.caption).foregroundStyle(NLColor.muted)
                     }
                     if RescissionRules.applies(to: signingType) {
                         NLFormSection("Rescission") {
@@ -432,15 +436,25 @@ struct SigningOrderFormView: View {
                         if screenshot != nil { Toggle("I confirm the notary fee in USD", isOn: $confirmedFee) }
                         field("notarialActFee") { NLTextField(title: "Notarial act fee", text: validated($notarialActFee, field: "notarialActFee"), keyboardType: .decimalPad) }
                         field("paid") {
-                            Toggle("Paid", isOn: validated($paid, field: "paid"))
-                                .disabled(status == .cancelled)
+                            Toggle("Paid", isOn: validated(paidSelection, field: "paid"))
+                                .disabled(payment.mode == .cancelled)
                         }
                         field("paidDate") {
-                            Toggle("Has paid date", isOn: validated($hasPaidDate, field: "paidDate"))
-                                .disabled(status == .cancelled || !paid)
-                            if hasPaidDate && paid && status != .cancelled {
-                                NLDateField(title: "Paid date", selection: validated($paidDate, field: "paidDate"))
+                            Toggle("Has paid date", isOn: validated(hasPaidDateSelection, field: "paidDate"))
+                                .disabled(!payment.isPaid)
+                            if payment.isPaid && payment.paidDate != nil {
+                                NLDateField(title: "Paid date", selection: validated(paidDateSelection, field: "paidDate"))
                             }
+                        }
+                        field("dueDate") {
+                            Toggle("Set payment due date", isOn: validated(hasDueDateSelection, field: "dueDate"))
+                            if !dueDate.isEmpty {
+                                NLDateField(title: "Payment due date", selection: validated(dueDateSelection, field: "dueDate"))
+                                Button("Clear payment due date") { dueDate = "" }
+                                    .font(NLTypography.caption)
+                            }
+                            Text("Payment is due through this date in UTC. Without a due date, an unpaid order never automatically becomes Overdue.")
+                                .font(NLTypography.caption).foregroundStyle(NLColor.muted)
                         }
                         field("invoiceNumber") { NLTextField(title: "Invoice number", text: validated($invoiceNumber, field: "invoiceNumber")) }
                     }
@@ -510,32 +524,38 @@ struct SigningOrderFormView: View {
             } message: {
                 Text("\(duplicateOrders.count) existing order(s) match the order reference or signer, date, and location. Review your signings before creating another order.")
             }
-            .onChange(of: paid) { _, value in
-                fieldErrors["paid"] = nil
-                if value && status != .cancelled { status = .paid }
-                else if !value && status == .paid { status = .pending; hasPaidDate = false }
-            }
-            .onChange(of: status) { _, newValue in
-                fieldErrors["status"] = nil
-                fieldErrors["paid"] = nil
-                fieldErrors["paidDate"] = nil
-                if newValue == .cancelled {
-                    paid = false
-                    hasPaidDate = false
-                } else if newValue == .paid {
-                    paid = true
-                    hasPaidDate = true
-                } else {
-                    paid = false
-                    hasPaidDate = false
-                }
-            }
             .onChange(of: validationAttempt) { _, _ in
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 let target = (OrderFormValidation.fieldOrder + ["review"]).first { fieldErrors[$0] != nil } ?? "orderSaveError"
                 withAnimation { proxy.scrollTo(target, anchor: .top) }
             }
         }
+    }
+
+    private var paymentModeSelection: Binding<SigningPaymentMode> {
+        Binding(get: { payment.mode }, set: { payment.select($0) })
+    }
+
+    private var paidSelection: Binding<Bool> {
+        Binding(get: { payment.isPaid }, set: { payment.setPaid($0) })
+    }
+
+    private var hasPaidDateSelection: Binding<Bool> {
+        Binding(get: { payment.paidDate != nil }, set: { payment.setHasPaidDate($0) })
+    }
+
+    private var paidDateSelection: Binding<Date> {
+        Binding(get: { payment.paidDate.flatMap { OrderCalendarDay($0)?.date() } ?? Date() },
+                set: { payment.paidDate = OrderCalendarDay(date: $0).key })
+    }
+
+    private var hasDueDateSelection: Binding<Bool> {
+        Binding(get: { !dueDate.isEmpty }, set: { dueDate = $0 ? OrderCalendarDay(date: Date()).key : "" })
+    }
+
+    private var dueDateSelection: Binding<Date> {
+        Binding(get: { OrderCalendarDay(dueDate)?.date() ?? Date() },
+                set: { dueDate = OrderCalendarDay(date: $0).key })
     }
 
     @ViewBuilder private var customerSuggestions: some View {
@@ -624,7 +644,6 @@ struct SigningOrderFormView: View {
             notarialActFee = "0"
             invoiceNumber = extracted.invoiceNumber ?? ""
             notes = extracted.notes ?? ""
-            status = .pending
             return
         }
         guard let order else { return }
@@ -636,16 +655,12 @@ struct SigningOrderFormView: View {
         time = TimeParser.normalized(order.time)
         fee = String(format: "%.2f", order.fee)
         notarialActFee = String(format: "%.2f", order.notarialActFee)
-        paid = order.paid
-        if let paidDateValue = DateParser.date(from: order.paidDate) {
-            paidDate = paidDateValue
-            hasPaidDate = true
-        }
+        payment = SigningPaymentDraft(order: order)
+        dueDate = order.dueDate ?? ""
         invoiceNumber = order.invoiceNumber
         notes = order.notes ?? ""
         mileage = order.mileage.map { String(format: "%.2f", $0) } ?? ""
         travelFee = order.travelFee.map { String(format: "%.2f", $0) } ?? ""
-        status = order.normalizedStatus
     }
 
     private func applyScreenshot(_ source: ScreenshotReviewSource) {
@@ -694,14 +709,15 @@ struct SigningOrderFormView: View {
             time: nilIfBlank(time),
             fee: feeValue,
             notarialActFee: notarialValue,
-            paid: paid,
-            paidDate: hasPaidDate && paid ? DateParser.apiDateString(from: paidDate) : nil,
+            paid: payment.isPaid,
+            paidDate: payment.paidDate,
             invoiceNumber: invoiceNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             notes: nilIfBlank(notes),
             mileage: mileageValue,
             travelFee: travelValue,
-            status: status
+            status: payment.mode.requestStatus
         )
+        payload.dueDate = .fromForm(dueDate, original: order?.dueDate)
 
         if let order { payload.preserveMileage = mileageValue == order.mileage && travelValue == order.travelFee }
         await persist(payload, checkDuplicates: screenshot != nil)
@@ -728,6 +744,7 @@ struct SigningOrderFormView: View {
                 }
             }
             try await onSave(payload)
+            await appState.refreshOrders()
             dismiss()
         } catch let error as OrderValidationFailure {
             guard appState.currentUser?.id == owner, scheduleInput == appointment else { return }

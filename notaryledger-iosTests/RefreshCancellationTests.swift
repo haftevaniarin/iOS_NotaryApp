@@ -3,6 +3,42 @@ import Testing
 @testable import notaryledger_ios
 
 extension ValidationAndAPITests {
+    @Test func orderRefreshUsesCalculatedServerStatusAndLeavesExpensesIntact() async {
+        let previousToken = SessionStorage.getAccessToken()
+        SessionStorage.saveAccessToken("refresh-fixture-token")
+        defer { endRefreshFixture(previousToken) }
+        let state = refreshState()
+        let expenses = state.expenses
+        MockURLProtocol.requests = []
+        MockURLProtocol.requestHandler = { request in
+            let body = request.url?.path == "/api/config/maintenance" ? #"{"enabled":false}"#
+                : #"[{"id":"saved","customerName":"Title","date":"2000-01-01","dueDate":null,"paid":false,"paymentStatus":"Pending"}]"#
+            return MockURLProtocol.jsonResponse(for: request, body: body)
+        }
+        await state.refreshOrders()
+        #expect(state.orders.first?.normalizedStatus == .pending)
+        #expect(state.orders.first?.dueDate == nil)
+        #expect(state.expenses == expenses)
+        #expect(!MockURLProtocol.requests.contains { $0.url?.path == "/api/expenses" })
+    }
+
+    @Test func failedOrderRefreshKeepsTheSavedResponse() async {
+        let previousToken = SessionStorage.getAccessToken()
+        SessionStorage.saveAccessToken("refresh-fixture-token")
+        defer { endRefreshFixture(previousToken) }
+        let state = refreshState()
+        let saved = state.orders
+        MockURLProtocol.requestHandler = { request in
+            if request.url?.path == "/api/config/maintenance" {
+                return MockURLProtocol.jsonResponse(for: request, body: #"{"enabled":false}"#)
+            }
+            throw URLError(.notConnectedToInternet)
+        }
+        await state.refreshOrders()
+        #expect(state.orders == saved)
+        #expect(!state.errorMessage.isEmpty)
+    }
+
     private func refreshState() -> AppState {
         let api = APIService(baseURL: "https://refresh.example.test", session: MockURLProtocol.session())
         let state = AppState(api: api)
