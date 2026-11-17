@@ -9,7 +9,7 @@ keeps the correct messages and form values together.
 
 | Action / outcome | iOS behavior aligned with web |
 | --- | --- |
-| Login validation | “Please enter your email.” / “Please enter your password.” |
+| Login validation | “Please enter your email.” / “Please enter a valid email address.” / “Please enter your password.” |
 | Bad login, unverified email, rate limit | Stay on sign-in and display the safe server message; a login 401 no longer becomes a generic session-expired error. |
 | Successful login | Dashboard, or the supported protected destination requested before authentication. Clear the form. |
 | Signup validation | Require both names, enforce the 100-character name limit, validate email, use the web's complete password-requirements message, and check confirmation. Spaces do not count as password symbols. |
@@ -23,6 +23,13 @@ keeps the correct messages and form values together.
 | Email verification | Distinct loading, success, invalid/expired-link, and network/server-error screens with the web's titles, messages, and sign-in/create-account actions. Verification does not automatically log in. |
 | Repeated verification link | Share an in-flight request; reuse completed success/invalid results. Network/server errors remain retryable. |
 | Expired protected session | Return to sign-in with “Your session has expired. Please sign in again.” Remember the destination for the next login. |
+
+Login, signup, and password recovery validate email format locally using the
+existing backend auth schema's email rules and 320-character limit. Invalid
+punctuation such as a comma before `@` is rejected before any request, with no
+HTTP support code. Editing the email clears this local validation message.
+Supported symbols such as `+`, internal apostrophes, underscores, and hyphens
+remain accepted; passwords are passed through unchanged.
 | Session restoration / logout | Show restoration progress before entering the app; preserve a protected incoming destination. Logout clears auth drafts and returns to a clean sign-in. |
 
 Auth tabs clear stale error/success banners. Passwords have show/hide controls;

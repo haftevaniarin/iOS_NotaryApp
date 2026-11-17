@@ -29,6 +29,40 @@ extension ValidationAndAPITests {
         #expect(MockURLProtocol.requests.isEmpty)
     }
 
+    @Test func invalidEmailPunctuationIsRejectedLocallyAcrossAuthForms() async {
+        defer { clearAuthFixture() }
+        for screen in [AuthScreen.login, .signup, .forgot] {
+            for email in ["avery,@example.test", "avery;@example.test", "avery@@example.test", "a b@example.test", "avery..notary@example.test", ".avery@example.test", "avery.@example.test", "avery@example", "avery@example.test\nother@example.test"] {
+                let model = authModel(screen)
+                validSignup(model)
+                model.email = email
+                await model.submit(authenticate: { _ in Issue.record("Invalid email must not authenticate") })
+                #expect(model.error == AuthCopy.invalidEmail)
+                #expect(model.diagnosticCode == nil && !model.isSubmitting)
+                #expect(model.email == email && model.password == "StrongPass12!")
+                #expect(MockURLProtocol.requests.isEmpty)
+                model.email = "avery+work@example.test"
+                model.clearFieldError("email")
+                #expect(model.error.isEmpty)
+            }
+        }
+    }
+
+    @Test func validEmailSymbolsAndPasswordCharactersReachLoginUnchanged() async throws {
+        defer { clearAuthFixture() }
+        for email in ["avery+work@example.test", "avery.o'neill@example.co.uk", "first_last@example.test", "first-last@example.test", " AVERY+Work@example.test "] {
+            let model = authModel(status: 401, body: #"{"message":"Invalid email or password."}"#)
+            model.email = email
+            model.password = "Fixture,Password+123!"
+            await model.submit(authenticate: { _ in Issue.record("Fixture login must fail") })
+            let request = try #require(MockURLProtocol.requests.first { $0.url?.path == "/api/auth/login" })
+            let payload = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: String])
+            #expect(payload["email"] == email.trimmingCharacters(in: .whitespacesAndNewlines))
+            #expect(payload["password"] == "Fixture,Password+123!")
+            #expect(model.error == "Invalid email or password.")
+        }
+    }
+
     @Test func signupValidatesBothNamesEmailPasswordAndConfirmationInWebOrder() async {
         let model = authModel(.signup)
         defer { clearAuthFixture() }

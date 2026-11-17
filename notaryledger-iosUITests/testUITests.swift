@@ -607,6 +607,26 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["If an account exists for that email, a password reset link has been sent."].exists)
     }
 
+    @MainActor func testLoginRejectsCommaEmailAndAcceptsCorrectedPlusAlias() throws {
+        let app = launch()
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        let invalid = "avery,@example.test"
+        let email = app.textFields["Email"]
+        enter(invalid, into: email, in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["Please enter a valid email address."].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Login diagnostic code"].exists)
+        XCTAssertEqual(email.value as? String, invalid)
+        email.tap()
+        email.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: invalid.count) + "avery+work@example.test")
+        XCTAssertFalse(app.staticTexts["Please enter a valid email address."].exists)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        let notNow = app.buttons["Not Now"]
+        if notNow.waitForExistence(timeout: 5) { notNow.tap() }
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+    }
+
     @MainActor func testCustomersCreateInvoiceExportsSelectedCustomerAndShowsAccessErrors() throws {
         for free in [false, true] {
             let app = launch(freePlan: free, customerInvoices: true)
