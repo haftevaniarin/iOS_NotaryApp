@@ -30,7 +30,7 @@ struct LedgerDashboardHost: View {
                           billingStatus: appState.billingStatus,
                           onRefresh: { await credentials.reload(); await appState.refreshBillingStatus() })
                 .task(id: LedgerDashboardRevision(orders: appState.orders, expenses: appState.expenses,
-                                                  day: Calendar.current.startOfDay(for: context.date))) { await model.load() }
+                                                  day: OrderPaymentRules.utcCalendar.startOfDay(for: context.date))) { await model.load() }
         }
             .task(id: appState.currentUser?.id) { await credentials.reload() }
             .task(id: appState.orders.map(\.id)) { await appState.refreshBillingStatus() }
@@ -148,7 +148,7 @@ enum LedgerDashboardSnapshot {
             return Signing(id: order.id, signerName: order.signerName, loanType: order.signingType ?? "Signing",
                            address: address(order), startsAt: start, distanceMiles: order.mileageDetails?.oneWayMiles.map { decimal($0) }, fee: decimal(order.fee))
         }
-        let unpaid = active.filter { $0.needsUnpaidInvoiceFollowUp(asOf: now, calendar: calendar) }
+        let unpaid = active.filter { $0.needsUnpaidInvoiceFollowUp(asOf: now) }
         let attention: [AttentionItem] = unpaid.isEmpty ? [] : [AttentionItem(id: "unpaid", title: "\(unpaid.count) unpaid invoice\(unpaid.count == 1 ? "" : "s")",
             subtitle: "Review unpaid signings before today", systemImage: "doc.richtext", route: .unpaidInvoices)]
         return DashboardSnapshot(signings: signings, monthStats: stats, attentionItems: attention)
@@ -159,7 +159,7 @@ enum LedgerDashboardSnapshot {
         return calendar.isDate(parsed, equalTo: date, toGranularity: .month)
     }
     private static func net(orders: [SigningOrder], expenses: [Expense], date: Date, calendar: Calendar) -> Decimal {
-        let earned = orders.filter(\.paid).reduce(Decimal.zero) { $0 + decimal($1.fee) }
+        let earned = orders.filter(\.isCollected).reduce(Decimal.zero) { $0 + decimal($1.fee) }
         let costs = expenses.filter { contains($0.date, inMonthOf: date, calendar: calendar) }.reduce(Decimal.zero) { $0 + decimal($1.amount) * decimal($1.businessUsePercent) / 100 }
         return earned - costs - orders.reduce(Decimal.zero) { $0 + decimal($1.travelFee ?? 0) }
     }

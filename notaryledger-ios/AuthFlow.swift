@@ -3,6 +3,7 @@ import Combine
 
 // Copy and transitions follow App.jsx's authentication handlers.
 enum AuthCopy {
+    static let invalidEmail = "Please enter a valid email address."
     static let passwordRequirements = "Password must be 12-128 characters, cannot be only spaces, and must include at least 3 of these: lowercase letter, uppercase letter, number, and symbol."
     static let passwordHint = "Use 12-128 characters, not only spaces, and include at least 3 of these: lowercase letter, uppercase letter, number, and symbol."
     static let duplicateEmail = "An account with this email already exists. Please sign in or use a different email address."
@@ -10,6 +11,15 @@ enum AuthCopy {
     static let resetSent = "If an account exists for that email, a password reset link has been sent."
     static let resetComplete = "Your password has been reset. Sign in with your new password."
     static let missingResetToken = "This reset link is missing a token. Request a new password reset email."
+}
+
+enum AuthEmailValidation {
+    static func isValid(_ email: String) -> Bool {
+        let value = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Match the existing auth schema's Zod email validator and 320-character limit.
+        let pattern = #"^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$"#
+        return value.utf16.count <= 320 && value.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
 }
 
 enum AuthScreen: Equatable { case login, signup, forgot, reset, verification }
@@ -106,7 +116,10 @@ final class AuthFlowModel: ObservableObject {
         clearForm()
     }
     func showError(_ message: String) { error = message; success = ""; diagnosticCode = nil }
-    func clearFieldError(_ field: String) { fieldErrors[field] = nil }
+    func clearFieldError(_ field: String) {
+        fieldErrors[field] = nil
+        if field == "email", error == AuthCopy.invalidEmail { error = "" }
+    }
     private func clearForm(keepingEmail: Bool = false) {
         firstName = ""; lastName = ""; password = ""; confirmPassword = ""
         email = keepingEmail ? email.trimmingCharacters(in: .whitespacesAndNewlines) : ""
@@ -124,8 +137,8 @@ final class AuthFlowModel: ObservableObject {
         if screen == .reset && token.isEmpty { error = AuthCopy.missingResetToken; return false }
         if screen != .reset {
             if cleanEmail.isEmpty { error = "Please enter your email."; return false }
-            if screen != .login && (!email.contains("@") || !email.contains(".")) {
-                error = "Please enter a valid email address."; return false
+            if !AuthEmailValidation.isValid(cleanEmail) {
+                error = AuthCopy.invalidEmail; return false
             }
         }
         if screen == .login && password.isEmpty { error = "Please enter your password."; return false }

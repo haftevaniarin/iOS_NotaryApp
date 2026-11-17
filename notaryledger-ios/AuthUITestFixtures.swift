@@ -7,6 +7,7 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
     private nonisolated static let refreshLock = NSLock()
     private nonisolated(unsafe) static var orderReadCount = 0
     private nonisolated(unsafe) static var credentialFixtureJSON: String?
+    private nonisolated static let orderStore = OrderPaymentMockStore()
 
     private nonisolated static func shouldCancelDashboardRefresh() -> Bool {
         refreshLock.withLock {
@@ -37,7 +38,7 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
             let payload = object.compactMapValues { $0 as? String }
             let path = request.url?.path ?? ""
             var status = 200
-            let responseBody: String
+            var responseBody: String
             let user = #"{"id":"auth-fixture-user","firstName":"Avery","lastName":"Notary","fullName":"Avery Notary","email":"avery@example.test","role":"NOTARY"}"#
             switch path {
             case "/api/config/maintenance": responseBody = #"{"enabled":false}"#
@@ -75,15 +76,17 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                         responseBody = #"{"error":{"message":"Please review signing details.","details":[{"field":"invoiceNumber","message":"Invoice number is already in use."},{"field":"mileage.parkingFee","message":"Parking fee must be zero or greater."}]}}"#
                     } else {
                         var saved = object
-                        saved["id"] = "new-signing-fixture"
-                        responseBody = String(decoding: try JSONSerialization.data(withJSONObject: saved), as: UTF8.self)
+                        let response = try Self.orderStore.save(saved, id: "new-signing-\(UUID().uuidString)")
+                        responseBody = String(decoding: try JSONSerialization.data(withJSONObject: response), as: UTF8.self)
                     }
                 } else {
                     if ProcessInfo.processInfo.arguments.contains("--cancel-dashboard-refresh"), Self.shouldCancelDashboardRefresh() {
                         throw URLError(.cancelled)
                     }
-                    if ProcessInfo.processInfo.arguments.contains("--unpaid-invoice-fixtures") {
-                        let today = OrderCalendarDay(date: Date())
+                    if ProcessInfo.processInfo.arguments.contains("--order-payment-fixtures") {
+                        responseBody = #"[{"id":"payment-edit-fixture","customerName":"Payment Title","signerName":"Payment signer","date":"2000-01-01","dueDate":"2000-02-01","fee":150,"paid":false,"invoiceNumber":"DUE-1"}]"#
+                    } else if ProcessInfo.processInfo.arguments.contains("--unpaid-invoice-fixtures") {
+                        let today = OrderCalendarDay(date: Date(), timeZone: OrderPaymentRules.utcCalendar.timeZone)
                         let yesterday = today.adding(days: -1).key
                         var orders: [[String: Any]] = [
                             ["id": "past", "signerName": "Unpaid past signer", "date": yesterday, "paid": false, "paymentStatus": "Scheduled"],
@@ -148,7 +151,18 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                 responseBody = #"{"usage":{"signingsLogged":14,"invoicesSent":3,"signingLimit":20,"remainingFreeOrders":6,"hasExternalSubscription":false}}"#
             case "/api/billing/invoices/sent": responseBody = "{}"
             default:
-                if let report = ReportsUITestFixtures.response(for: path) {
+                if path.hasPrefix("/api/orders/"), path.split(separator: "/").count == 3,
+                   let id = path.split(separator: "/").last {
+                    if request.httpMethod == "PUT" {
+                        let saved = try Self.orderStore.save(object, id: String(id))
+                        responseBody = String(decoding: try JSONSerialization.data(withJSONObject: saved), as: UTF8.self)
+                    } else if request.httpMethod == "DELETE" {
+                        Self.orderStore.remove(id: String(id))
+                        responseBody = "{}"
+                    } else {
+                        status = 404; responseBody = #"{"message":"No fixture for this request."}"#
+                    }
+                } else if let report = ReportsUITestFixtures.response(for: path) {
                     if ProcessInfo.processInfo.arguments.contains("--reports-unavailable") {
                         status = 404; responseBody = #"{"message":"Report not deployed."}"#
                     } else { responseBody = report }
@@ -156,13 +170,24 @@ final class AuthUITestFixtures: URLProtocol, @unchecked Sendable {
                     status = 404; responseBody = #"{"message":"No fixture for this request."}"#
                 }
             }
+            if path == "/api/orders", request.httpMethod == "GET", status == 200 {
+                let seed = try JSONSerialization.jsonObject(with: Data(responseBody.utf8)) as? [[String: Any]] ?? []
+                responseBody = String(decoding: try JSONSerialization.data(withJSONObject: Self.orderStore.list(seed: seed)), as: UTF8.self)
+            }
             let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: Data(responseBody.utf8))
             client?.urlProtocolDidFinishLoading(self)
+        } catch OrderPaymentMockError.invalidDueDate {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 400, httpVersion: nil,
+                                           headerFields: ["Content-Type": "application/json"])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data(#"{"error":{"message":"Invalid dueDate.","fieldErrors":{"dueDate":"Use YYYY-MM-DD or clear the due date."}}}"#.utf8))
+            client?.urlProtocolDidFinishLoading(self)
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
     @MainActor static func service() -> APIService {
+        orderStore.reset()
         let configuration = APIService.defaultSessionConfiguration()
         configuration.protocolClasses = [AuthUITestFixtures.self]
         return APIService(baseURL: "https://auth-fixtures.example.test", session: URLSession(configuration: configuration))

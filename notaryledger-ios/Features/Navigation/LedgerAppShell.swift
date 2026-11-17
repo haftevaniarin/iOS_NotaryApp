@@ -63,6 +63,16 @@ struct LedgerAppShell: View {
             }.tag(LedgerTab.more)
         }.tint(Color.brassText)
             .task(id: profileIdentity) { await profileIcon.load(profileIdentity) }
+            .task(id: OrderRefreshContext(ownerID: appState.currentUser?.id, active: scenePhase == .active)) {
+                guard dashboardModel == nil, scenePhase == .active, appState.currentUser != nil else { return }
+                await appState.refreshOrders()
+                while !Task.isCancelled {
+                    let delay = OrderPaymentRules.nextRefresh(after: Date()).timeIntervalSinceNow
+                    do { try await Task.sleep(for: .seconds(max(0.1, delay))) }
+                    catch { return }
+                    await appState.refreshOrders()
+                }
+            }
             .toolbarBackground(Color.parchment, for: .tabBar).toolbarBackground(.visible, for: .tabBar)
             .onAppear { route(to: appState.selectedSection) }
             .onChange(of: appState.selectedSection) { _, section in route(to: section) }
@@ -92,6 +102,11 @@ struct LedgerAppShell: View {
         }
         selectedTab = tab
     }
+}
+
+private struct OrderRefreshContext: Equatable {
+    let ownerID: String?
+    let active: Bool
 }
 
 private struct LedgerDestinationsView: View {

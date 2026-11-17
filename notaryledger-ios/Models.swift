@@ -175,7 +175,7 @@ struct RegistrationResponse: Decodable {
 
 }
 
-enum SigningStatus: String, Codable, CaseIterable, Identifiable {
+nonisolated enum SigningStatus: String, Codable, CaseIterable, Identifiable {
     case scheduled = "Scheduled"
     case pending = "Pending"
     case overdue = "Overdue"
@@ -215,6 +215,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
     var notarialActFee: Double
     var paid: Bool
     var paidDate: String?
+    var dueDate: String?
     var invoiceNumber: String
     var notes: String?
     var mileage: Double?
@@ -237,6 +238,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         case notarialActFee
         case paid
         case paidDate
+        case dueDate
         case invoiceNumber
         case notes
         case mileage
@@ -264,7 +266,8 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         mileage: Double? = nil,
         travelFee: Double? = nil,
         status: SigningStatus? = nil,
-        userId: String? = nil
+        userId: String? = nil,
+        dueDate: String? = nil
     ) {
         self.id = id
         self.customerName = customerName
@@ -278,6 +281,7 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         self.notarialActFee = notarialActFee
         self.paid = paid
         self.paidDate = paidDate
+        self.dueDate = dueDate
         self.invoiceNumber = invoiceNumber
         self.notes = notes
         self.mileage = mileage
@@ -309,14 +313,15 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         notarialActFee = try container.decodeFlexibleDouble(forKey: .notarialActFee) ?? 0
         paid = try container.decodeIfPresent(Bool.self, forKey: .paid) ?? false
         paidDate = try container.decodeIfPresent(String.self, forKey: .paidDate)
+        dueDate = try container.decodeIfPresent(String.self, forKey: .dueDate)
         invoiceNumber = try container.decodeIfPresent(String.self, forKey: .invoiceNumber) ?? ""
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         mileageDetails = try? container.decodeIfPresent(OrderMileage.self, forKey: .mileage)
         mileage = mileageDetails?.businessMiles ?? container.decodeFlexibleDoubleIfPresent(forKey: .mileage)
             ?? container.decodeFlexibleDoubleIfPresent(forKey: .miles)
         travelFee = mileageDetails?.parkingFee ?? container.decodeFlexibleDoubleIfPresent(forKey: .travelFee)
-        let rawStatus = try container.decodeIfPresent(String.self, forKey: .status)
-            ?? container.decodeIfPresent(String.self, forKey: .paymentStatus)
+        let rawStatus = try container.decodeIfPresent(String.self, forKey: .paymentStatus)
+            ?? container.decodeIfPresent(String.self, forKey: .status)
         status = rawStatus == nil ? nil : SigningStatus(normalizing: rawStatus)
         userId = try container.decodeIfPresent(String.self, forKey: .userId)
     }
@@ -333,13 +338,8 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
         if paid {
             return .paid
         }
-        if let status, status != .paid {
-            return status
-        }
-        guard let signingDate = DateParser.date(from: date) else {
-            return .scheduled
-        }
-        return signingDate < Calendar.current.startOfDay(for: Date()) ? .overdue : .scheduled
+        if let status { return status }
+        return OrderPaymentRules.status(date: date, dueDate: dueDate, paid: paid, cancelled: false)
     }
 
     var isCancelled: Bool {
@@ -347,18 +347,16 @@ struct SigningOrder: Decodable, Identifiable, Equatable {
     }
 
     var isUnpaidCandidate: Bool {
-        !paid && !isCancelled
+        normalizedStatus != .paid && !isCancelled
     }
 
-    func needsUnpaidInvoiceFollowUp(asOf now: Date = Date(), calendar: Calendar = .current) -> Bool {
+    var isCollected: Bool { normalizedStatus == .paid }
+
+    func needsUnpaidInvoiceFollowUp(asOf now: Date = Date()) -> Bool {
         guard isUnpaidCandidate,
-              paidDate?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false else { return false }
-        let value = date.trimmingCharacters(in: .whitespacesAndNewlines)
-        let signingDate = value.count == 10
-            ? OrderCalendarDay(value)?.date(timeZone: calendar.timeZone)
-            : DateParser.date(from: value)
-        guard let signingDate else { return false }
-        return calendar.startOfDay(for: signingDate) < calendar.startOfDay(for: now)
+              paidDate?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+              let signingDay = OrderPaymentRules.signingDay(date) else { return false }
+        return signingDay < OrderPaymentRules.utcDay(now)
     }
 
     var countsInFinancialTotals: Bool {
@@ -388,6 +386,7 @@ struct SigningOrderPayload: Encodable, Equatable {
     var travelFee: Double?
     var status: SigningStatus
     var preserveMileage = false
+    var dueDate: OrderDueDateUpdate = .unchanged
 
     enum CodingKeys: String, CodingKey {
         case customerName
@@ -400,6 +399,7 @@ struct SigningOrderPayload: Encodable, Equatable {
         case notarialActFee
         case paid
         case paidDate
+        case dueDate
         case invoiceNumber
         case notes
         case mileage = "miles"
@@ -439,7 +439,7 @@ struct SigningOrderPayload: Encodable, Equatable {
         self.notes = notes
         self.mileage = mileage
         self.travelFee = travelFee
-        self.status = status == .cancelled ? .cancelled : paid ? .paid : status == .paid ? .pending : status
+        self.status = status == .cancelled ? .cancelled : paid ? .paid : .scheduled
     }
 
     static func scheduledDate(date: String, time: String?) -> String {
@@ -460,6 +460,11 @@ struct SigningOrderPayload: Encodable, Equatable {
         try container.encode(signerName, forKey: .signerName)
         try container.encode(signingType, forKey: .signingType)
         try container.encode(Self.scheduledDate(date: date, time: time), forKey: .date)
+        switch dueDate {
+        case .unchanged: break
+        case .set(let value): try container.encode(value, forKey: .dueDate)
+        case .clear: try container.encodeNil(forKey: .dueDate)
+        }
         try container.encode(fee, forKey: .fee)
         try container.encode(notarialActFee, forKey: .notarialActFee)
         try container.encode(paid, forKey: .paid)
@@ -662,7 +667,7 @@ enum CustomerSummaries {
                 displayName: groupedOrders.first?.customerName ?? key,
                 signingCount: groupedOrders.count,
                 unpaidCount: activeOrders.filter(\.isUnpaidCandidate).count,
-                revenue: activeOrders.filter(\.paid).reduce(0) { $0 + $1.fee },
+                revenue: activeOrders.filter(\.isCollected).reduce(0) { $0 + $1.fee },
                 invoiceCandidates: activeOrders.filter(\.isUnpaidCandidate),
                 orders: groupedOrders.sorted { $0.date > $1.date }
             )
@@ -773,7 +778,7 @@ enum FinancialSummary {
             guard let date = DateParser.date(from: order.date) else { return false }
             return calendar.component(.year, from: date) == year
         }
-        let paidThisMonth = monthOrders.filter(\.paid)
+        let paidThisMonth = monthOrders.filter(\.isCollected)
         let feesEarned = paidThisMonth.reduce(0) { $0 + $1.fee }
 
         return DashboardMetrics(
@@ -794,7 +799,7 @@ enum FinancialSummary {
             guard let date = DateParser.date(from: expense.date) else { return false }
             return Calendar.current.component(.year, from: date) == year
         }
-        let incomeReceived = activeOrders.filter(\.paid).reduce(0) { $0 + $1.fee }
+        let incomeReceived = activeOrders.filter(\.isCollected).reduce(0) { $0 + $1.fee }
         let unpaidIncome = activeOrders.filter(\.isUnpaidCandidate).reduce(0) { $0 + $1.fee }
         let businessExpenses = yearExpenses.reduce(0) { $0 + ($1.amount * ($1.businessUsePercent / 100)) }
         let travelExpenses = activeOrders.reduce(0) { $0 + ($1.travelFee ?? 0) }

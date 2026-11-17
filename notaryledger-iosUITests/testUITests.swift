@@ -1,6 +1,87 @@
 import XCTest
 
 final class NotaryLedgerSmokeTests: XCTestCase {
+    @MainActor func testPaymentModesAndOptionalPaidDateWithoutDueDateControls() throws {
+        let app = launch(orderPayments: true)
+        signInForPaymentTest(app)
+        app.tabBars.buttons["Signings"].tap()
+        XCTAssertTrue(app.staticTexts["Overdue"].waitForExistence(timeout: 5))
+        let edit = app.buttons["Edit signing for Payment signer"]
+        reveal(edit, in: app); edit.tap()
+        XCTAssertFalse(app.switches["Set payment due date"].exists)
+        XCTAssertFalse(app.buttons["Payment due date"].exists)
+        let status = app.buttons["Status"].firstMatch
+        revealOrderControl(status, in: app); status.tap(); app.buttons["Paid"].tap()
+        let hasPaidDate = app.switches["Has paid date"]
+        revealOrderControl(hasPaidDate, in: app); hasPaidDate.tap()
+        XCTAssertEqual(hasPaidDate.value as? String, "0")
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.staticTexts["Paid"].waitForExistence(timeout: 5))
+        reveal(edit, in: app); edit.tap()
+        XCTAssertEqual(hasPaidDate.value as? String, "0")
+        revealOrderControl(status, in: app); status.tap(); app.buttons["Cancelled"].tap()
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.staticTexts["Cancelled"].waitForExistence(timeout: 5))
+        reveal(edit, in: app); edit.tap()
+        revealOrderControl(status, in: app); status.tap(); app.buttons["Automatic"].tap()
+        app.buttons["Save"].tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Paid"].exists)
+        XCTAssertFalse(app.staticTexts["Cancelled"].exists)
+        XCTAssertTrue(app.staticTexts["Overdue"].exists)
+    }
+
+    @MainActor func testProfileDefaultPaymentTermsPersistAndSigningFormHasNoDueDateControls() throws {
+        let app = launch(orderPayments: true)
+        signInForPaymentTest(app)
+        app.tabBars.buttons["Menu"].tap()
+        app.buttons["Profile"].tap()
+        let days = app.textFields["Default payment due (days)"]
+        revealOrderControl(days, in: app); days.tap()
+        if let current = days.value as? String, Int(current) != nil {
+            days.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count))
+        }
+        days.typeText("30")
+        let saveTerms = app.buttons["Save Payment Terms"]
+        revealOrderControl(saveTerms, in: app); saveTerms.tap()
+        XCTAssertTrue(app.staticTexts["Default payment terms saved."].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Signings"].tap()
+        app.buttons["New Signing"].tap()
+        XCTAssertFalse(app.switches["Set payment due date"].exists)
+        XCTAssertFalse(app.buttons["Payment due date"].exists)
+        enterOrderField("New payment title", into: app.textFields["Customer name"], in: app)
+        enterOrderField("New payment signer", into: app.textFields["Signer name"], in: app)
+        enterOrderField("125", into: app.textFields["Fee"], in: app)
+        enterOrderField("DUE-NEW", into: app.textFields["Invoice number"], in: app)
+        app.buttons["Save"].tap()
+        let edit = app.buttons["Edit signing for New payment signer"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        reveal(edit, in: app); edit.tap()
+        XCTAssertEqual(app.textFields["Invoice number"].value as? String, "DUE-NEW")
+        XCTAssertFalse(app.switches["Set payment due date"].exists)
+        XCTAssertFalse(app.buttons["Payment due date"].exists)
+        app.buttons["Cancel"].tap()
+        app.terminate(); app.launch()
+        signInForPaymentTest(app)
+        app.tabBars.buttons["Menu"].tap()
+        app.buttons["Profile"].tap()
+        revealOrderControl(days, in: app)
+        XCTAssertEqual(days.value as? String, "30")
+        days.tap(); days.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2))
+        revealOrderControl(saveTerms, in: app); saveTerms.tap()
+        XCTAssertTrue(app.staticTexts["Default payment terms saved."].waitForExistence(timeout: 5))
+    }
+
+    @MainActor private func signInForPaymentTest(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        enter("avery@example.test", into: app.textFields["Email"], in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        let notNow = app.buttons["Not Now"]
+        if notNow.waitForExistence(timeout: 5) { notNow.tap() }
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
+    }
+
     @MainActor func testDashboardUnpaidInvoicesOpensOnlyPastSigningsWithoutPaymentEvidence() throws {
         let app = launch(unpaidInvoices: true)
         XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
@@ -292,7 +373,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         XCTAssertTrue(plans.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["billing-compare-plans"].exists)
     }
-    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false, dashboardFixtures: Bool = false, reportsUnavailable: Bool = false, credentialNotifications: Bool = false, unpaidInvoices: Bool = false) -> XCUIApplication {
+    @MainActor private func launch(_ link: String? = nil, freePlan: Bool = false, customerInvoices: Bool = false, cancelRefresh: Bool = false, stripeBillingFixtures: Bool = false, appointmentFeedback: Bool = false, dashboardFixtures: Bool = false, reportsUnavailable: Bool = false, credentialNotifications: Bool = false, unpaidInvoices: Bool = false, orderPayments: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--auth-fixtures"]
         if freePlan { app.launchArguments.append("--billing-free") }
@@ -304,6 +385,7 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         if reportsUnavailable { app.launchArguments.append("--reports-unavailable") }
         if credentialNotifications { app.launchArguments.append("--credential-notification-fixtures") }
         if unpaidInvoices { app.launchArguments.append("--unpaid-invoice-fixtures") }
+        if orderPayments { app.launchArguments.append("--order-payment-fixtures") }
         if let link { app.launchArguments.append("--auth-url=\(link)") }
         app.launch()
         return app
@@ -523,6 +605,26 @@ final class NotaryLedgerSmokeTests: XCTestCase {
         app.buttons["Back to sign in"].tap()
         XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["If an account exists for that email, a password reset link has been sent."].exists)
+    }
+
+    @MainActor func testLoginRejectsCommaEmailAndAcceptsCorrectedPlusAlias() throws {
+        let app = launch()
+        XCTAssertTrue(app.buttons["Log In"].waitForExistence(timeout: 10))
+        let invalid = "avery,@example.test"
+        let email = app.textFields["Email"]
+        enter(invalid, into: email, in: app)
+        enter("StrongPass12!", into: app.secureTextFields["Password"], in: app)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        XCTAssertTrue(app.staticTexts["Please enter a valid email address."].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Login diagnostic code"].exists)
+        XCTAssertEqual(email.value as? String, invalid)
+        email.tap()
+        email.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: invalid.count) + "avery+work@example.test")
+        XCTAssertFalse(app.staticTexts["Please enter a valid email address."].exists)
+        reveal(app.buttons["Log In"], in: app); app.buttons["Log In"].tap()
+        let notNow = app.buttons["Not Now"]
+        if notNow.waitForExistence(timeout: 5) { notNow.tap() }
+        XCTAssertTrue(app.staticTexts["dashboard-greeting"].waitForExistence(timeout: 10))
     }
 
     @MainActor func testCustomersCreateInvoiceExportsSelectedCustomerAndShowsAccessErrors() throws {

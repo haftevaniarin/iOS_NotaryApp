@@ -95,20 +95,20 @@ import Testing
             order("cancelled", status: .cancelled), order("missing-date", date: ""),
             order("invalid-date", date: "2026-02-30")
         ]
-        let eligible = orders.filter { $0.needsUnpaidInvoiceFollowUp(asOf: now, calendar: calendar) }
-        #expect(eligible.map(\.id) == ["past-scheduled", "past-pending", "past-overdue", "blank-paid-date", "local-yesterday"])
+        let eligible = orders.filter { $0.needsUnpaidInvoiceFollowUp(asOf: now) }
+        #expect(eligible.map(\.id) == ["past-scheduled", "past-pending", "past-overdue", "blank-paid-date"])
         let snapshot = LedgerDashboardSnapshot.make(orders: orders, expenses: [], now: now, calendar: calendar)
-        #expect(snapshot.attentionItems == [AttentionItem(id: "unpaid", title: "5 unpaid invoices",
+        #expect(snapshot.attentionItems == [AttentionItem(id: "unpaid", title: "4 unpaid invoices",
             subtitle: "Review unpaid signings before today", systemImage: "doc.richtext", route: .unpaidInvoices)])
         // This follow-up rule must not narrow invoice generation's existing eligibility.
         #expect(orders.first { $0.id == "future" }?.isUnpaidCandidate == true)
         #expect(orders.first { $0.id == "has-paid-date" }?.isUnpaidCandidate == true)
     }
 
-    @Test func unpaidAttentionUpdatesAfterPaymentAndAtTheNextLocalDay() throws {
+    @Test func unpaidAttentionUpdatesAfterPaymentAndAtTheNextUTCDay() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try #require(TimeZone(identifier: "America/Los_Angeles"))
-        let today = try #require(ISO8601DateFormatter().date(from: "2026-11-16T23:59:00-08:00"))
+        let today = try #require(ISO8601DateFormatter().date(from: "2026-11-16T23:59:00Z"))
         let tomorrow = try #require(calendar.date(byAdding: .day, value: 1, to: today))
         var order = SigningOrder(id: "today", customerName: "Title", signerName: "Signer",
                                  date: "2026-11-16", fee: 100, paid: false, status: .pending)

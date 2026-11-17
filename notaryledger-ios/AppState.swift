@@ -20,6 +20,8 @@ final class AppState: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage = ""
     private var refreshRequestID: UUID?
+    private var ordersRefreshID: UUID?
+    private var ordersRevision = UUID()
     @Published private(set) var billingStatus: BillingStatusPayload?
     @Published private(set) var billingLoadFailed = false
     @Published private(set) var billingReturnRevision = 0
@@ -161,6 +163,8 @@ final class AppState: ObservableObject {
         SessionStorage.clearSession()
         currentUser = nil
         orders = []
+        ordersRevision = UUID()
+        ordersRefreshID = nil
         expenses = []
         route = .auth
     }
@@ -169,6 +173,7 @@ final class AppState: ObservableObject {
         guard !Task.isCancelled else { return }
         let requestID = UUID()
         let owner = currentUser?.id
+        let ordersRevision = self.ordersRevision
         refreshRequestID = requestID
         isLoading = true
         errorMessage = ""
@@ -186,7 +191,10 @@ final class AppState: ObservableObject {
             let refreshedExpenses = try await api.fetchExpenses()
             try Task.checkCancellation()
             guard refreshRequestID == requestID, currentUser?.id == owner else { return }
-            orders = refreshedOrders
+            if self.ordersRevision == ordersRevision {
+                self.ordersRevision = UUID()
+                orders = refreshedOrders
+            }
             expenses = refreshedExpenses
         } catch {
             guard !Task.isCancelled, !RequestCancellation.isCancellation(error),
@@ -199,6 +207,29 @@ final class AppState: ObservableObject {
         }
         guard !Task.isCancelled, refreshRequestID == requestID, currentUser?.id == owner else { return }
         await refreshBillingStatus()
+    }
+
+    func refreshOrders() async {
+        guard !Task.isCancelled, let owner = currentUser?.id else { return }
+        let requestID = UUID()
+        let revision = ordersRevision
+        ordersRefreshID = requestID
+        defer { if ordersRefreshID == requestID { ordersRefreshID = nil } }
+        do {
+            let refreshed = try await api.fetchOrders()
+            try Task.checkCancellation()
+            guard ordersRefreshID == requestID, currentUser?.id == owner, ordersRevision == revision else { return }
+            ordersRevision = UUID()
+            orders = refreshed
+        } catch {
+            guard !RequestCancellation.isCancellation(error), !Task.isCancelled,
+                  ordersRefreshID == requestID, currentUser?.id == owner, ordersRevision == revision else { return }
+            switch error {
+            case APIError.maintenance(let status): route = .maintenance(status)
+            case APIError.unauthorized: requireAuthentication()
+            default: errorMessage = error.localizedDescription
+            }
+        }
     }
 
     func refreshBillingStatus() async {
@@ -237,6 +268,7 @@ final class AppState: ObservableObject {
     }
 
     func upsertOrder(_ order: SigningOrder) {
+        ordersRevision = UUID()
         if let index = orders.firstIndex(where: { $0.id == order.id }) {
             orders[index] = order
         } else {
@@ -246,6 +278,7 @@ final class AppState: ObservableObject {
     }
 
     func removeOrder(id: String) {
+        ordersRevision = UUID()
         orders.removeAll { $0.id == id }
     }
 

@@ -59,6 +59,7 @@ struct AuthFlowView: View {
                             NLTextField(title: "Email", text: $model.email, keyboardType: .emailAddress)
                                 .textContentType(.username)
                                 .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                .onChange(of: model.email) { _, _ in model.clearFieldError("email") }
                         }
                         if model.screen != .forgot {
                             AuthPasswordField(title: model.screen == .reset ? "New password" : "Password", text: $model.password,

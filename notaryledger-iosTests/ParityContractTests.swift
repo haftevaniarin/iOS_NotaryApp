@@ -173,7 +173,7 @@ struct ParityContractTests {
         #expect(json["parkingFee"] == nil)
         #expect(json["time"] == nil)
         #expect(json["status"] == nil)
-        #expect(json["paymentStatus"] as? String == "Pending")
+        #expect(json["paymentStatus"] as? String == "Scheduled")
         #expect((json["date"] as? String)?.contains("T") == true)
     }
 

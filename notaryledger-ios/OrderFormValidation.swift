@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum OrderFormValidation {
-    static let fieldOrder = ["customerName", "payerName", "signerName", "signingType", "date", "time", "schedule", "status", "fee", "notarialActFee", "paid", "paidDate", "invoiceNumber", "mileage", "travelFee", "notes"]
+    static let fieldOrder = ["customerName", "payerName", "signerName", "signingType", "date", "time", "schedule", "status", "fee", "notarialActFee", "paid", "paidDate", "dueDate", "invoiceNumber", "mileage", "travelFee", "notes"]
 
     static func errors(customerName: String, signerName: String, fee: String, notarialActFee: String,
                        invoiceNumber: String, notes: String, time: String, mileage: String, travelFee: String) -> [String: String] {
