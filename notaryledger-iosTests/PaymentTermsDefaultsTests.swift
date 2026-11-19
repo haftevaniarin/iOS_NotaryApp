@@ -72,6 +72,80 @@ import Testing
 }
 
 extension ValidationAndAPITests {
+    @Test func profileDeadlineFlowsThroughAPIAndBecomesOverdueAfterUTCMidnight() async throws {
+        let previousUser = SessionStorage.getCurrentUser()
+        let previousToken = SessionStorage.getAccessToken()
+        let owner = "due-date-flow-\(UUID())"
+        SessionStorage.saveCurrentUser(AuthUser(id: owner, fullName: "Due date test", email: "due@example.test"))
+        SessionStorage.saveAccessToken("fixture")
+        SigningPaymentDefaults().save(days: 30, for: owner)
+        defer {
+            SigningPaymentDefaults().save(days: nil, for: owner)
+            if let previousUser { SessionStorage.saveCurrentUser(previousUser) } else { SessionStorage.clearCurrentUser() }
+            if let previousToken { SessionStorage.saveAccessToken(previousToken) } else { SessionStorage.clearTokens() }
+            MockURLProtocol.requestHandler = nil
+            MockURLProtocol.requests = []
+        }
+
+        let server = OrderPaymentMockStore()
+        func handler(at now: Date) -> (URLRequest) throws -> (HTTPURLResponse, Data) {
+            { request in
+                let response: Any
+                switch (request.httpMethod, request.url?.path) {
+                case (_, "/api/config/maintenance"): response = ["enabled": false]
+                case ("POST", "/api/orders"):
+                    let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+                    let id = try #require(body["invoiceNumber"] as? String)
+                    response = try server.save(body, id: id, now: now)
+                case ("PUT", "/api/orders/deadline-order"):
+                    let body = try #require(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
+                    #expect(body["dueDate"] == nil)
+                    response = try server.save(body, id: "deadline-order", now: now)
+                case ("GET", "/api/orders"): response = server.list(seed: [], now: now)
+                default:
+                    Issue.record("Unexpected due-date API request")
+                    response = [:] as [String: String]
+                }
+                return MockURLProtocol.jsonResponse(
+                    for: request, body: String(decoding: try JSONSerialization.data(withJSONObject: response), as: UTF8.self))
+            }
+        }
+
+        let formatter = ISO8601DateFormatter()
+        let signingDay = try #require(formatter.date(from: "2026-11-18T12:00:00Z"))
+        MockURLProtocol.requestHandler = handler(at: signingDay)
+        let api = APIService(baseURL: "https://due-date-flow.example.test", session: MockURLProtocol.session())
+        var payload = SigningOrderPayload(
+            customerName: "Title", payerName: nil, signerName: "Signer", signingType: nil,
+            date: "2026-11-18", time: nil, fee: 150, notarialActFee: 0, paid: false, paidDate: nil,
+            invoiceNumber: "deadline-order", notes: nil, mileage: nil, travelFee: nil, status: .scheduled)
+        let created = try await api.createOrder(payload)
+        #expect(created.dueDate == "2026-12-18" && created.normalizedStatus == .scheduled)
+
+        MockURLProtocol.requestHandler = handler(at: try #require(formatter.date(from: "2026-12-18T23:59:59Z")))
+        let dueToday = try #require(try await api.fetchOrders().first)
+        #expect(dueToday.dueDate == "2026-12-18" && dueToday.normalizedStatus == .pending)
+        MockURLProtocol.requestHandler = handler(at: try #require(formatter.date(from: "2026-12-19T00:00:00Z")))
+        let overdue = try #require(try await api.fetchOrders().first)
+        #expect(overdue.normalizedStatus == .overdue)
+
+        SigningPaymentDefaults().save(days: 15, for: owner)
+        let edited = try await api.updateOrder(orderId: "deadline-order", order: payload)
+        #expect(edited.dueDate == "2026-12-18" && edited.normalizedStatus == .overdue)
+        payload.paid = true
+        payload.status = .paid
+        #expect(try await api.updateOrder(orderId: "deadline-order", order: payload).normalizedStatus == .paid)
+        payload.paid = false
+        payload.status = .cancelled
+        #expect(try await api.updateOrder(orderId: "deadline-order", order: payload).normalizedStatus == .cancelled)
+
+        SigningPaymentDefaults().save(days: nil, for: owner)
+        payload.invoiceNumber = "no-deadline"
+        payload.status = .scheduled
+        let withoutDefault = try await api.createOrder(payload)
+        #expect(withoutDefault.dueDate == nil && withoutDefault.normalizedStatus == .pending)
+    }
+
     @Test func creationUsesProfileTermsAndEditsOmitDueDate() async throws {
         let previousUser = SessionStorage.getCurrentUser()
         let previousToken = SessionStorage.getAccessToken()
