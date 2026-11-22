@@ -44,10 +44,20 @@ with tempfile.TemporaryDirectory(prefix="notaryledger-api-") as directory:
         assert output == "staging https://api-stage.notaryledger.org", output
         print(f"{configuration}: {output}")
 
-    result = compile_config(["PRODUCTION"], True)
+    result = run(["xcodebuild", "-project", str(repo / "notaryledger-ios.xcodeproj"),
+                  "-scheme", "notaryledger-ios-Stripe", "-configuration", "Release",
+                  "-destination", "generic/platform=iOS", "-showBuildSettings", "-json"])
     assert result.returncode == 0, result.stderr
-    assert run([str(scratch / "check")], check=True).stdout.strip() == "production https://notaryledger.org"
-    print("Production: existing URL preserved")
+    settings = next(item["buildSettings"] for item in json.loads(result.stdout)
+                    if item["target"] == "notaryledger-ios")
+    assert settings["PRODUCT_BUNDLE_IDENTIFIER"] == "org.notaryledger.ios"
+    flags = settings.get("SWIFT_ACTIVE_COMPILATION_CONDITIONS", "").split()
+    assert "PRODUCTION" in flags and not {"STAGING", "STAGING_APP"}.intersection(flags), flags
+    assert "-D" not in settings.get("OTHER_SWIFT_FLAGS", ""), "Inspect unexpected environment overrides"
+    result = compile_config(flags, True)
+    assert result.returncode == 0, result.stderr
+    assert run([str(scratch / "check")], check=True).stdout.strip() == "production https://api.notaryledger.org"
+    print("Production Release: production https://api.notaryledger.org")
     for flags in [["STAGING_APP"], ["STAGING_APP", "STAGING", "PRODUCTION"], ["STAGING_APP", "PRODUCTION"]]:
         result = compile_config(flags, True)
         assert result.returncode != 0 and "The staging app requires STAGING" in result.stderr, flags

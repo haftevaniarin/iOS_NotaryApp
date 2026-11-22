@@ -22,7 +22,7 @@ See [Billing & Subscription](BILLING_SUBSCRIPTION.md) for the Stripe-only billin
 
 - Local: `http://localhost:4000`
 - Staging: `https://api-stage.notaryledger.org` with `STAGING`
-- Production: `https://notaryledger.org` with `PRODUCTION`
+- Production: `https://api.notaryledger.org` with `PRODUCTION`
 
 The TestFlight staging app is built from the parent `../test.xcodeproj`, scheme
 **NotaryLedger**, bundle ID `org.notaryledger.app.staging`. Its app target defines
@@ -32,7 +32,9 @@ environment variable to select the server. The compiler rejects `STAGING_APP`
 without `STAGING`, or with `PRODUCTION`.
 
 The separate `notaryledger-ios.xcodeproj` retains its existing environment settings
-and bundle ID. `PRODUCTION` continues to select `https://notaryledger.org`.
+and bundle ID. Its Release configuration defines `PRODUCTION` and selects
+`https://api.notaryledger.org`. The website at `https://notaryledger.org` does
+not serve the API; login requests there return HTTP 405 after a redirect.
 
 Run `python3 scripts/verify-api-environments.py` on macOS with Xcode installed to
 check the resolved staging settings, compile both environments, and verify the

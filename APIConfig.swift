@@ -29,7 +29,7 @@ enum APIConfig {
         case .staging:
             return "https://api-stage.notaryledger.org"
         case .production:
-            return "https://notaryledger.org"
+            return "https://api.notaryledger.org"
         }
     }
 
