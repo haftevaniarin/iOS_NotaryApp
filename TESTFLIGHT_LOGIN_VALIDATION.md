@@ -2,6 +2,27 @@
 
 Verified November 15, 2026.
 
+## Production correction — November 22, 2026
+
+The production TestFlight build selected `PRODUCTION`, but the configured origin
+was the website, `https://notaryledger.org`. A credential-free empty JSON POST to
+`/api/auth/login` redirected to `www.notaryledger.org` and returned HTTP 405.
+The same probe at `https://api.notaryledger.org/api/auth/login` returned HTTP 400
+with a JSON `VALIDATION_ERROR`, confirming the API route is reachable.
+
+`APIConfig.swift` now uses `https://api.notaryledger.org` for production. The
+environment verification script checks the separate project's resolved Release
+flags and compiles that configuration to verify the API origin. A new archive
+and TestFlight upload with a fresh build number are required. These probes do
+not verify successful account authentication; that needs a device login after
+installing the corrected build. The staging investigation below is historical.
+
+Validation: the environment verification script passed for staging Debug and
+Release, the resolved production Release configuration, and invalid staging
+flag combinations. An unsigned arm64 iOS Release build also passed; its log is
+`/private/tmp/notaryledger-production-login/release-build.log`. No corrected
+archive has been uploaded, and no account credentials were used in the probes.
+
 ## Root cause and selected URLs
 
 The parent `../test.xcodeproj` builds the TestFlight staging app, scheme
